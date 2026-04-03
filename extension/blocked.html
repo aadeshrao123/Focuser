@@ -31,18 +31,27 @@
 </div>
 
 <script>
-  // Extract domain from URL params
+  // Extract domain from URL params or hash fragment
   var params = new URLSearchParams(window.location.search);
-  var domain = params.get('domain') || 'this site';
+  var domain = params.get('domain') || '';
+
+  // Also try hash fragment as fallback (more reliable on some browsers)
+  if (!domain && window.location.hash) {
+    try {
+      var hashParams = new URLSearchParams(window.location.hash.substring(1));
+      domain = hashParams.get('domain') || '';
+    } catch(e) {}
+  }
+
+  if (!domain) domain = 'this site';
+
   document.getElementById('blocked-domain').textContent = domain;
   document.title = 'Blocked: ' + domain + ' \u2014 Focuser';
 
+  // Go Back — navigate to new tab (can't go back to blocked page, it would re-block)
   document.getElementById('btn-back').addEventListener('click', function() {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      window.close();
-    }
+    // Try to go to the previous non-blocked page, or open new tab
+    window.location.href = 'about:home';
   });
 </script>
 </body>

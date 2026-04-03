@@ -15,7 +15,13 @@
     "http://127.0.0.1:17549/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "focuser@focuser-app",
+      "strict_min_version": "109.0"
+    }
   },
   "action": {
     "default_popup": "popup.html",

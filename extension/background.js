@@ -136,7 +136,8 @@ function checkAndBlockTab(tab) {
     if (isDomainBlocked(url.hostname, tab.url)) {
       var blockUrl = chrome.runtime.getURL('blocked.html') +
         '?domain=' + encodeURIComponent(url.hostname) +
-        '&url=' + encodeURIComponent(tab.url);
+        '&url=' + encodeURIComponent(tab.url) +
+        '#domain=' + encodeURIComponent(url.hostname);
       // Only redirect if not already on block page
       if (!tab.url.startsWith(chrome.runtime.getURL('blocked.html'))) {
         chrome.tabs.update(tab.id, { url: blockUrl });
@@ -162,7 +163,8 @@ chrome.webNavigation.onBeforeNavigate.addListener(function(details) {
     if (isDomainBlocked(url.hostname, details.url)) {
       var blockUrl = chrome.runtime.getURL('blocked.html') +
         '?domain=' + encodeURIComponent(url.hostname) +
-        '&url=' + encodeURIComponent(details.url);
+        '&url=' + encodeURIComponent(details.url) +
+        '#domain=' + encodeURIComponent(url.hostname);
       chrome.tabs.update(details.tabId, { url: blockUrl });
     }
   } catch (e) {
