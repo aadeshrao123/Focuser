@@ -8,144 +8,91 @@
 </head>
 <body>
   <div id="app">
-    <!-- ─── Sidebar ──────────────────────────────────────── -->
     <nav id="sidebar">
       <div class="sidebar-brand">
-        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 6v6l4 2"/>
-        </svg>
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         <span class="brand-text">Focuser</span>
       </div>
-
       <div class="sidebar-nav">
-        <button class="nav-item active" data-page="dashboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7" rx="1"/>
-            <rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/>
-            <rect x="14" y="14" width="7" height="7" rx="1"/>
-          </svg>
-          <span>Dashboard</span>
-        </button>
-        <button class="nav-item" data-page="blocklists">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-          <span>Block Lists</span>
-        </button>
-        <button class="nav-item" data-page="websites">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="2" y1="12" x2="22" y2="12"/>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-          </svg>
-          <span>Websites</span>
-        </button>
-        <button class="nav-item" data-page="apps">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2"/>
-            <line x1="8" y1="21" x2="16" y2="21"/>
-            <line x1="12" y1="17" x2="12" y2="21"/>
-          </svg>
-          <span>Applications</span>
-        </button>
-        <button class="nav-item" data-page="schedule">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          <span>Schedule</span>
-        </button>
-        <button class="nav-item" data-page="statistics">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="20" x2="18" y2="10"/>
-            <line x1="12" y1="20" x2="12" y2="4"/>
-            <line x1="6" y1="20" x2="6" y2="14"/>
-          </svg>
-          <span>Statistics</span>
-        </button>
-        <button class="nav-item" data-page="settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-          <span>Settings</span>
-        </button>
+        <button class="nav-item active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></button>
+        <button class="nav-item" data-page="blocklists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Block Lists</span></button>
+        <button class="nav-item" data-page="websites"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span>Websites</span></button>
+        <button class="nav-item" data-page="apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>Applications</span></button>
+        <button class="nav-item" data-page="schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Schedule</span></button>
+        <button class="nav-item" data-page="statistics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Statistics</span></button>
+        <button class="nav-item" data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span></button>
       </div>
-
       <div class="sidebar-footer">
-        <div id="service-status" class="status-indicator offline">
+        <div id="service-status" class="status-indicator online">
           <span class="status-dot"></span>
-          <span class="status-text">Service Offline</span>
+          <span class="status-text">Active</span>
         </div>
       </div>
     </nav>
 
-    <!-- ─── Main Content ─────────────────────────────────── -->
     <main id="content">
-
       <!-- Dashboard -->
       <section id="page-dashboard" class="page active">
         <header class="page-header">
           <h1>Dashboard</h1>
-          <p class="page-subtitle">Overview of your blocking activity</p>
+          <p class="page-subtitle">Overview of your focus activity</p>
         </header>
+
         <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon blue">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value" id="stat-active-blocks">0</span>
-              <span class="stat-label">Active Blocks</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon red">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value" id="stat-blocked-today">0</span>
-              <span class="stat-label">Blocked Today</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon green">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value" id="stat-uptime">--</span>
-              <span class="stat-label">Service Uptime</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon purple">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value" id="stat-total-sites">0</span>
-              <span class="stat-label">Sites Blocked</span>
-            </div>
-          </div>
+          <div class="stat-card"><div class="stat-label">Active blocks</div><div class="stat-value accent" id="stat-active-blocks">0</div></div>
+          <div class="stat-card"><div class="stat-label">Blocked today</div><div class="stat-value" id="stat-blocked-today">0</div></div>
+          <div class="stat-card"><div class="stat-label">Sites blocked</div><div class="stat-value" id="stat-total-sites">0</div></div>
+          <div class="stat-card"><div class="stat-label">Apps blocked</div><div class="stat-value" id="stat-total-apps">0</div></div>
         </div>
+
         <div class="dashboard-panels">
           <div class="panel">
-            <div class="panel-header"><h3>Active Block Lists</h3></div>
+            <div class="panel-header">
+              <h3>Active Block Lists</h3>
+            </div>
             <div class="panel-body" id="dashboard-active-lists">
               <div class="empty-state">No active blocks</div>
             </div>
           </div>
+
           <div class="panel">
-            <div class="panel-header"><h3>Blocked Attempts (Today)</h3></div>
-            <div class="panel-body"><canvas id="chart-today" height="200"></canvas></div>
+            <div class="panel-header">
+              <h3>Quick Actions</h3>
+            </div>
+            <div class="panel-body">
+              <div class="quick-actions-grid">
+                <button class="quick-action-btn accent-border" data-page="blocklists">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Manage Block Lists</span>
+                </button>
+                <button class="quick-action-btn success-border" data-page="websites">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <span>Add Website Rule</span>
+                </button>
+                <button class="quick-action-btn warning-border" data-page="apps">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <span>Block Application</span>
+                </button>
+                <button class="quick-action-btn error-border" data-page="schedule">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span>Edit Schedule</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="panel" style="margin-top:20px;">
-          <div class="panel-header"><h3>Weekly Overview</h3></div>
-          <div class="panel-body"><canvas id="chart-weekly" height="160"></canvas></div>
+
+        <div class="panel recent-activity-panel">
+          <div class="panel-header">
+            <h3>Recent Activity</h3>
+          </div>
+          <div class="panel-body">
+            <div class="activity-item">
+              <span class="activity-dot"></span>
+              <span class="activity-text">Blocked attempts and configuration changes will appear here</span>
+              <span class="activity-time">--</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -154,39 +101,31 @@
         <header class="page-header">
           <h1>Block Lists</h1>
           <p class="page-subtitle">Manage your blocking profiles</p>
-          <button class="btn btn-primary" id="btn-new-blocklist">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New Block List
-          </button>
+          <button class="btn btn-primary" id="btn-new-blocklist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New list</button>
         </header>
-        <div id="blocklists-container" class="card-grid">
-          <div class="empty-state"><p>No block lists yet.</p><p class="muted">Create one to start blocking distracting websites and apps.</p></div>
-        </div>
+        <div id="blocklists-container" class="card-grid"><div class="empty-state">No block lists yet</div></div>
       </section>
 
       <!-- Websites -->
       <section id="page-websites" class="page">
         <header class="page-header">
           <h1>Websites</h1>
-          <p class="page-subtitle">Manage blocked websites across all block lists</p>
+          <p class="page-subtitle">Manage blocked websites and domains</p>
         </header>
-        <div class="panel">
+        <div class="panel" style="margin-bottom:14px;">
           <div class="panel-header"><h3>Add Website</h3></div>
           <div class="panel-body">
             <div class="input-row">
-              <select id="website-list-select" class="input"><option value="">Select a block list...</option></select>
-              <select id="website-type-select" class="input" style="width:160px;">
-                <option value="domain">Domain</option><option value="keyword">Keyword</option>
-                <option value="wildcard">Wildcard</option><option value="url_path">URL Path</option>
-              </select>
-              <input type="text" id="website-input" class="input" placeholder="e.g., reddit.com" style="flex:1;">
+              <select id="website-list-select" class="input"><option value="">Select list...</option></select>
+              <select id="website-type-select" class="input" style="width:140px;"><option value="domain">Domain</option><option value="keyword">Keyword</option><option value="wildcard">Wildcard</option><option value="url_path">URL Path</option></select>
+              <input type="text" id="website-input" class="input" placeholder="e.g. reddit.com" style="flex:1;">
               <button class="btn btn-primary" id="btn-add-website">Add</button>
             </div>
           </div>
         </div>
-        <div class="panel" style="margin-top:16px;">
-          <div class="panel-header"><h3>All Blocked Websites</h3></div>
-          <div class="panel-body" id="websites-list"><div class="empty-state">No websites blocked yet</div></div>
+        <div class="panel" style="flex:1;">
+          <div class="panel-header"><h3>Blocked Websites</h3></div>
+          <div class="panel-body" id="websites-list"><div class="empty-state">No websites blocked</div></div>
         </div>
       </section>
 
@@ -194,25 +133,22 @@
       <section id="page-apps" class="page">
         <header class="page-header">
           <h1>Applications</h1>
-          <p class="page-subtitle">Manage blocked applications across all block lists</p>
+          <p class="page-subtitle">Manage blocked applications and executables</p>
         </header>
-        <div class="panel">
+        <div class="panel" style="margin-bottom:14px;">
           <div class="panel-header"><h3>Add Application</h3></div>
           <div class="panel-body">
             <div class="input-row">
-              <select id="app-list-select" class="input"><option value="">Select a block list...</option></select>
-              <select id="app-type-select" class="input" style="width:180px;">
-                <option value="exe_name">Executable Name</option><option value="exe_path">Executable Path</option>
-                <option value="window_title">Window Title</option>
-              </select>
-              <input type="text" id="app-input" class="input" placeholder="e.g., steam.exe" style="flex:1;">
+              <select id="app-list-select" class="input"><option value="">Select list...</option></select>
+              <select id="app-type-select" class="input" style="width:160px;"><option value="exe_name">Executable</option><option value="exe_path">Path</option><option value="window_title">Window Title</option></select>
+              <input type="text" id="app-input" class="input" placeholder="e.g. steam.exe" style="flex:1;">
               <button class="btn btn-primary" id="btn-add-app">Add</button>
             </div>
           </div>
         </div>
-        <div class="panel" style="margin-top:16px;">
-          <div class="panel-header"><h3>All Blocked Applications</h3></div>
-          <div class="panel-body" id="apps-list"><div class="empty-state">No applications blocked yet</div></div>
+        <div class="panel" style="flex:1;">
+          <div class="panel-header"><h3>Blocked Applications</h3></div>
+          <div class="panel-body" id="apps-list"><div class="empty-state">No applications blocked</div></div>
         </div>
       </section>
 
@@ -220,18 +156,18 @@
       <section id="page-schedule" class="page">
         <header class="page-header">
           <h1>Schedule</h1>
-          <p class="page-subtitle">Set recurring blocking schedules</p>
+          <p class="page-subtitle">Set recurring blocking times for each day of the week</p>
         </header>
-        <div class="panel">
+        <div class="panel" style="flex:1;">
           <div class="panel-header">
             <h3>Weekly Schedule</h3>
-            <select id="schedule-list-select" class="input" style="width:200px;"><option value="">Select a block list...</option></select>
+            <select id="schedule-list-select" class="input" style="width:200px;"><option value="">Select list...</option></select>
           </div>
           <div class="panel-body">
             <div class="schedule-grid" id="schedule-grid"></div>
             <div class="schedule-legend">
-              <span class="legend-item"><span class="legend-dot active"></span> Blocking active</span>
-              <span class="legend-item"><span class="legend-dot"></span> No blocking</span>
+              <span class="legend-item"><span class="legend-dot active"></span> Active (blocking)</span>
+              <span class="legend-item"><span class="legend-dot"></span> Inactive</span>
             </div>
           </div>
         </div>
@@ -241,26 +177,11 @@
       <section id="page-statistics" class="page">
         <header class="page-header">
           <h1>Statistics</h1>
-          <p class="page-subtitle">Track your blocking activity over time</p>
+          <p class="page-subtitle">Your blocking activity over the past 7 days</p>
         </header>
-        <div class="stats-grid" style="grid-template-columns:1fr 1fr;">
-          <div class="panel">
-            <div class="panel-header"><h3>Blocks Over Time</h3></div>
-            <div class="panel-body"><canvas id="chart-stats-timeline" height="220"></canvas></div>
-          </div>
-          <div class="panel">
-            <div class="panel-header"><h3>Top Blocked Domains</h3></div>
-            <div class="panel-body"><canvas id="chart-stats-top" height="220"></canvas></div>
-          </div>
-        </div>
-        <div class="panel" style="margin-top:16px;">
-          <div class="panel-header"><h3>Detailed Log</h3></div>
-          <div class="panel-body">
-            <table class="data-table" id="stats-table">
-              <thead><tr><th>Domain / App</th><th>Blocked Attempts</th><th>Time Spent</th><th>Date</th></tr></thead>
-              <tbody><tr><td colspan="4" class="muted" style="text-align:center;">No data yet</td></tr></tbody>
-            </table>
-          </div>
+        <div class="panel" style="flex:1;">
+          <div class="panel-header"><h3>Blocked Attempts</h3></div>
+          <div class="panel-body" id="stats-content"><div class="empty-state">No data yet. Blocked attempts will appear here.</div></div>
         </div>
       </section>
 
@@ -268,42 +189,70 @@
       <section id="page-settings" class="page">
         <header class="page-header">
           <h1>Settings</h1>
-          <p class="page-subtitle">Configure Focuser behavior</p>
+          <p class="page-subtitle">Configure Focuser preferences</p>
         </header>
-        <div class="panel">
+
+        <div class="panel" style="margin-bottom:14px;">
           <div class="panel-header"><h3>General</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Launch on startup</span><span class="setting-desc">Automatically start Focuser when your computer boots</span></div>
+              <div class="setting-info"><span class="setting-name">Launch on startup</span><span class="setting-desc">Start Focuser automatically when your computer boots</span></div>
               <label class="toggle"><input type="checkbox" id="setting-autostart"><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Show notifications</span><span class="setting-desc">Display a notification when a site or app is blocked</span></div>
               <label class="toggle"><input type="checkbox" id="setting-notifications" checked><span class="toggle-slider"></span></label>
             </div>
-            <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Track usage statistics</span><span class="setting-desc">Record which sites and apps are blocked over time</span></div>
-              <label class="toggle"><input type="checkbox" id="setting-stats" checked><span class="toggle-slider"></span></label>
-            </div>
           </div>
         </div>
-        <div class="panel" style="margin-top:16px;">
-          <div class="panel-header"><h3>Service</h3></div>
+
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-header"><h3>Import / Export</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Service status</span><span class="setting-desc" id="setting-service-status">Checking...</span></div>
-              <button class="btn btn-secondary" id="btn-refresh-service">Refresh</button>
+              <div class="setting-info"><span class="setting-name">Export configuration</span><span class="setting-desc">Save your block lists, rules, and schedules to a file</span></div>
+              <button class="btn btn-secondary btn-sm">Export</button>
             </div>
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Blocking capabilities</span><span class="setting-desc" id="setting-capabilities">Checking...</span></div>
+              <div class="setting-info"><span class="setting-name">Import configuration</span><span class="setting-desc">Load block lists and rules from a previously exported file</span></div>
+              <button class="btn btn-secondary btn-sm">Import</button>
             </div>
           </div>
         </div>
-        <div class="panel" style="margin-top:16px;">
+
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-header"><h3>Data</h3></div>
+          <div class="panel-body settings-list">
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Statistics retention</span><span class="setting-desc">How long to keep blocking statistics before auto-cleanup</span></div>
+              <span class="setting-badge">30 days</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Clear statistics</span><span class="setting-desc">Remove all stored blocking statistics and activity data</span></div>
+              <button class="btn btn-secondary btn-sm">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-danger" style="margin-bottom:14px;">
+          <div class="panel-header"><h3>Danger Zone</h3></div>
+          <div class="panel-body settings-list">
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Reset all settings</span><span class="setting-desc">Restore all settings to their default values</span></div>
+              <button class="btn btn-danger btn-sm">Reset</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Delete all data</span><span class="setting-desc">Permanently remove all block lists, rules, schedules, and statistics</span></div>
+              <button class="btn btn-danger btn-sm">Delete All</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
           <div class="panel-header"><h3>About</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Focuser v0.1.0</span><span class="setting-desc">Open-source website and application blocker. Licensed under GPL-3.0.</span></div>
+              <div class="setting-info"><span class="setting-name">Focuser v0.1.0</span><span class="setting-desc">Open-source website and application blocker</span></div>
             </div>
           </div>
         </div>
@@ -311,24 +260,16 @@
     </main>
   </div>
 
-  <!-- ─── Modal ────────────────────────────────────────── -->
+  <!-- Modal -->
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal">
-      <div class="modal-header">
-        <h3 id="modal-title">Create Block List</h3>
-        <button class="modal-close" id="btn-modal-close">&times;</button>
-      </div>
+      <div class="modal-header"><h3 id="modal-title">Create Block List</h3><button class="modal-close" id="btn-modal-close">&times;</button></div>
       <div class="modal-body" id="modal-body"></div>
-      <div class="modal-footer" id="modal-footer">
-        <button class="btn btn-secondary" id="btn-modal-cancel">Cancel</button>
-        <button class="btn btn-primary" id="modal-confirm">Create</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" id="btn-modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-confirm">Create</button></div>
     </div>
   </div>
 
-  <!-- ─── Toast ────────────────────────────────────────── -->
   <div id="toast-container"></div>
-
   <script src="charts.js"></script>
   <script src="app.js"></script>
 </body>
