@@ -1,0 +1,103 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0e0f13;
+  color: #e4e5eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.container {
+  text-align: center;
+  max-width: 480px;
+  padding: 40px 32px;
+}
+
+.shield {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 28px;
+  background: rgba(78, 143, 255, 0.1);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shield svg {
+  width: 44px;
+  height: 44px;
+  color: #4e8fff;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  letter-spacing: -0.5px;
+}
+
+.domain {
+  font-size: 16px;
+  color: #ef4444;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  padding: 8px 18px;
+  border-radius: 8px;
+  display: inline-block;
+  margin-bottom: 24px;
+}
+
+p {
+  color: #8b8fa3;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+p.sub {
+  font-size: 13px;
+  color: #5c5f73;
+  margin-bottom: 28px;
+}
+
+.actions {
+  margin-bottom: 32px;
+}
+
+.btn-back {
+  padding: 10px 28px;
+  background: #151720;
+  color: #8b8fa3;
+  border: 1px solid #2a2d3e;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.btn-back:hover {
+  background: #1c1e2b;
+  color: #e4e5eb;
+  border-color: #353851;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #5c5f73;
+  background: #151720;
+  border: 1px solid #2a2d3e;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.badge svg {
+  color: #4e8fff;
+}

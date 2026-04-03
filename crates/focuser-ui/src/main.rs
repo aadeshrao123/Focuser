@@ -2,6 +2,7 @@
 
 mod commands;
 mod blocker;
+mod api;
 
 use std::sync::{Arc, Mutex};
 use directories::ProjectDirs;
@@ -71,9 +72,15 @@ fn main() {
         ])
         .setup(move |_app| {
             // Spawn background blocking loop
-            let state = Arc::clone(&state_for_blocker);
+            let blocker_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || {
-                blocker::run_blocking_loop(state);
+                blocker::run_blocking_loop(blocker_state);
+            });
+
+            // Spawn extension API server (port 17549)
+            let api_state = Arc::clone(&state_for_blocker);
+            std::thread::spawn(move || {
+                api::run_api_server(api_state);
             });
 
             Ok(())

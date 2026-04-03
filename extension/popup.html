@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="header">
+      <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <div class="header-text">
+        <span class="brand">Focuser</span>
+        <span class="status" id="status">Connecting...</span>
+      </div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat">
+        <span class="stat-value" id="stat-blocked">0</span>
+        <span class="stat-label">sites blocked</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="stat-today">0</span>
+        <span class="stat-label">blocked today</span>
+      </div>
+    </div>
+
+    <div class="current-site" id="current-site-section">
+      <div class="section-label">Current site</div>
+      <div class="site-info">
+        <span class="site-domain" id="current-domain">—</span>
+        <span class="site-status" id="current-status"></span>
+      </div>
+    </div>
+
+    <div class="add-section">
+      <div class="section-label">Add this site to block:</div>
+      <div class="add-row">
+        <select id="list-select">
+          <option value="">Select list...</option>
+        </select>
+      </div>
+      <button class="btn-add" id="btn-add" disabled>+ Block this site</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn-open" id="btn-open-app">Open Focuser App</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

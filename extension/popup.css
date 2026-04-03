@@ -1,0 +1,214 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  background: #0e0f13;
+  color: #e4e5eb;
+}
+
+.popup {
+  padding: 16px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.logo {
+  width: 28px;
+  height: 28px;
+  color: #4e8fff;
+  flex-shrink: 0;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.status {
+  font-size: 11px;
+  color: #5c5f73;
+}
+
+.status.online { color: #22c55e; }
+.status.offline { color: #ef4444; }
+
+/* Stats */
+.stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  flex: 1;
+  background: #151720;
+  border: 1px solid #2a2d3e;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #5c5f73;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Current site */
+.current-site {
+  margin-bottom: 14px;
+}
+
+.section-label {
+  font-size: 11px;
+  color: #5c5f73;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+}
+
+.site-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #151720;
+  border: 1px solid #2a2d3e;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.site-domain {
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: #e4e5eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.site-status {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.site-status.blocked {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.site-status.allowed {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+
+/* Add section */
+.add-section {
+  margin-bottom: 14px;
+}
+
+.add-row {
+  margin-bottom: 8px;
+}
+
+select {
+  width: 100%;
+  padding: 7px 10px;
+  background: #151720;
+  border: 1px solid #2a2d3e;
+  border-radius: 6px;
+  color: #e4e5eb;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%235c5f73' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+select:focus {
+  border-color: #4e8fff;
+}
+
+.btn-add {
+  width: 100%;
+  padding: 8px;
+  background: #4e8fff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.btn-add:hover:not(:disabled) {
+  background: #3d7dee;
+}
+
+.btn-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-add.blocked {
+  background: #ef4444;
+}
+
+.btn-add.blocked:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: #2a2d3e;
+  margin: 14px 0;
+}
+
+/* Open app button */
+.btn-open {
+  width: 100%;
+  padding: 8px;
+  background: #151720;
+  color: #8b8fa3;
+  border: 1px solid #2a2d3e;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.btn-open:hover {
+  background: #1c1e2b;
+  color: #e4e5eb;
+  border-color: #353851;
+}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blocked — Focuser</title>
+<link rel="stylesheet" href="blocked.css">
+</head>
+<body>
+<div class="container">
+  <div class="shield">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  </div>
+  <h1>Site Blocked</h1>
+  <div class="domain" id="blocked-domain">this site</div>
+  <p>This website has been blocked by <strong>Focuser</strong> to help you stay focused.</p>
+  <p class="sub">If you need access, open the Focuser app to manage your block lists.</p>
+
+  <div class="actions">
+    <button class="btn-back" id="btn-back">Go Back</button>
+  </div>
+
+  <div class="badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+    </svg>
+    Protected by Focuser
+  </div>
+</div>
+
+<script>
+  // Extract domain from URL params
+  var params = new URLSearchParams(window.location.search);
+  var domain = params.get('domain') || 'this site';
+  document.getElementById('blocked-domain').textContent = domain;
+  document.title = 'Blocked: ' + domain + ' \u2014 Focuser';
+
+  document.getElementById('btn-back').addEventListener('click', function() {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.close();
+    }
+  });
+</script>
+</body>
+</html>

@@ -9,6 +9,11 @@ use crate::AppState;
 
 /// After any rule change, immediately sync the hosts file.
 fn sync_hosts_now(eng: &focuser_core::BlockEngine) {
+    sync_hosts_now_static(eng);
+}
+
+/// Public version for use by the API module.
+pub fn sync_hosts_now_static(eng: &focuser_core::BlockEngine) {
     let domains = eng.collect_blocked_domains();
     let _ = crate::blocker::apply_hosts_blocks(&domains);
 }
