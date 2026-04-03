@@ -1,0 +1,58 @@
+# ─── Rust / Cargo ────────────────────────────────────────
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# ─── Database ────────────────────────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ─── Logs ────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── OS files ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ─── IDE / Editor ────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+.fleet/
+
+# ─── Environment / Secrets ───────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# ─── Tauri (future UI) ──────────────────────────────────
+crates/focuser-ui/ui/node_modules/
+crates/focuser-ui/ui/dist/
+crates/focuser-ui/ui/.next/
+
+# ─── Build artifacts ─────────────────────────────────────
+*.exe
+*.dll
+*.so
+*.dylib
+!crates/  # don't ignore the crates directory
+
+# ─── Distribution / Packaging ────────────────────────────
+dist/
+*.msi
+*.dmg
+*.deb
+*.rpm
+*.AppImage

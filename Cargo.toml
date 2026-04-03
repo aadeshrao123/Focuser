@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/focuser-common",
+    "crates/focuser-core",
+    "crates/focuser-service",
+    "crates/focuser-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/focuser-app/focuser"
+description = "Open-source cross-platform website and application blocker"
+
+[workspace.dependencies]
+# Shared across crates
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror = "2"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.32", features = ["bundled", "serde_json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+directories = "6"
+clap = { version = "4", features = ["derive"] }
+regex = "1"
+glob-match = "0.2"
+
+# Internal crates
+focuser-common = { path = "crates/focuser-common" }
+focuser-core = { path = "crates/focuser-core" }
