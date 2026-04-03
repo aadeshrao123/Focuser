@@ -1,0 +1,30 @@
+{
+  "productName": "Focuser",
+  "version": "0.1.0",
+  "identifier": "com.focuser.app",
+  "build": {
+    "frontendDist": "./ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Focuser",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": []
+  }
+}
