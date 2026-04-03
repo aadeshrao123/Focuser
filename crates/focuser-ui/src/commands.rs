@@ -7,6 +7,12 @@ use tauri::State;
 
 use crate::AppState;
 
+/// After any rule change, immediately sync the hosts file.
+fn sync_hosts_now(eng: &focuser_core::BlockEngine) {
+    let domains = eng.collect_blocked_domains();
+    let _ = crate::blocker::apply_hosts_blocks(&domains);
+}
+
 #[tauri::command]
 pub fn get_status(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
     let eng = state.engine.lock().map_err(|e| e.to_string())?;
@@ -56,6 +62,7 @@ pub fn update_block_list(state: State<'_, Arc<AppState>>, list_json: String) -> 
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
     eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(())
 }
 
@@ -65,6 +72,7 @@ pub fn delete_block_list(state: State<'_, Arc<AppState>>, id: String) -> Result<
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
     eng.db().delete_block_list(uuid).map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(())
 }
 
@@ -77,6 +85,7 @@ pub fn toggle_block_list(state: State<'_, Arc<AppState>>, id: String, enabled: b
     list.updated_at = chrono::Utc::now();
     eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(())
 }
 
@@ -103,6 +112,7 @@ pub fn add_website_rule(
     list.updated_at = chrono::Utc::now();
     eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(serde_json::json!({ "id": rule_id }))
 }
 
@@ -119,6 +129,7 @@ pub fn remove_website_rule(
     list.updated_at = chrono::Utc::now();
     eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(())
 }
 
@@ -180,13 +191,14 @@ pub fn get_stats(state: State<'_, Arc<AppState>>, from: String, to: String) -> R
     serde_json::to_value(stats).map_err(|e| e.to_string())
 }
 
-/// Apply all current blocks to the hosts file (requires admin).
+/// Apply all current blocks to the hosts file.
 #[tauri::command]
 pub fn apply_blocks(state: State<'_, Arc<AppState>>) -> Result<String, String> {
     let eng = state.engine.lock().map_err(|e| e.to_string())?;
     let domains = eng.collect_blocked_domains();
     if domains.is_empty() {
-        return Ok("No domains to block".into());
+        crate::blocker::remove_hosts_blocks().map_err(|e| e.to_string())?;
+        return Ok("No domains to block — hosts file cleaned".into());
     }
     crate::blocker::apply_hosts_blocks(&domains).map_err(|e| e.to_string())?;
     Ok(format!("Blocked {} domains", domains.len()))
