@@ -69,6 +69,10 @@ fn main() {
             commands::get_stats,
             commands::apply_blocks,
             commands::remove_blocks,
+            commands::bulk_import_websites,
+            commands::add_exception,
+            commands::remove_exception,
+            commands::export_block_list,
         ])
         .setup(move |_app| {
             // Spawn background blocking loop

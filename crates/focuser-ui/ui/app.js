@@ -198,6 +198,152 @@ var ui = {
       c.innerHTML = html;
     } catch (e) { c.innerHTML = '<div class="empty-state">No data yet</div>'; }
   },
+
+  // ── Exceptions ──────────────────────────────────────────────
+  refreshExceptions: function() {
+    this.updateSelects();
+    var sel = document.getElementById('exception-list-select');
+    if (sel) {
+      var opts = state.blockLists.map(function(l) { return '<option value="' + l.id + '">' + esc(l.name) + '</option>'; }).join('');
+      sel.innerHTML = '<option value="">Select list...</option>' + opts;
+    }
+    var c = document.getElementById('exceptions-list');
+    var all = [];
+    state.blockLists.forEach(function(l) {
+      l.exceptions.forEach(function(e) {
+        var val = '';
+        if (e.exception_type.Domain !== undefined) val = e.exception_type.Domain;
+        else if (e.exception_type.Wildcard !== undefined) val = e.exception_type.Wildcard;
+        else if (e.exception_type === 'LocalFiles') val = 'file://*';
+        all.push({ id: e.id, value: val, listName: l.name, listId: l.id });
+      });
+    });
+    if (all.length === 0) { c.innerHTML = '<div class="empty-state">No exceptions — all matching sites will be blocked</div>'; return; }
+    c.innerHTML = all.map(function(r) {
+      return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge" style="background:var(--success-muted);color:var(--success);">allowed</span><span class="rule-value">' + esc(r.value) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
+        '<button class="btn-icon" data-action="remove-exception" data-list-id="' + r.listId + '" data-exc-id="' + r.id + '">' + ico('x',14) + '</button></div>';
+    }).join('');
+  },
+
+  async addException() {
+    var lid = document.getElementById('exception-list-select').value;
+    var v = document.getElementById('exception-input').value.trim();
+    if (!lid) { toast('Select a list', 'error'); return; }
+    if (!v) { toast('Enter a domain', 'error'); return; }
+    try {
+      await invoke('add_exception', { listId: lid, domain: v, exceptionType: 'domain' });
+      document.getElementById('exception-input').value = '';
+      toast('Exception added: ' + v, 'success');
+      await this.refreshBlockLists();
+      this.refreshExceptions();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  async removeException(lid, eid) {
+    try {
+      await invoke('remove_exception', { listId: lid, exceptionId: eid });
+      toast('Exception removed', 'success');
+      await this.refreshBlockLists();
+      this.refreshExceptions();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  // ── Import ──────────────────────────────────────────────────
+  async importFromText() {
+    var lid = document.getElementById('website-list-select').value;
+    if (!lid) { toast('Select a list first', 'error'); return; }
+
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.csv,.json';
+    input.onchange = async function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var text = await file.text();
+      var domains = [];
+
+      if (file.name.endsWith('.json')) {
+        try {
+          var data = JSON.parse(text);
+          if (Array.isArray(data)) domains = data;
+          else if (data.domains) domains = data.domains;
+        } catch (err) { toast('Invalid JSON', 'error'); return; }
+      } else {
+        domains = text.split(/[\r\n,;]+/).map(function(s) { return s.trim(); }).filter(function(s) { return s && !s.startsWith('#'); });
+      }
+
+      if (domains.length === 0) { toast('No domains found in file', 'error'); return; }
+      try {
+        var result = await invoke('bulk_import_websites', { listId: lid, domains: domains, ruleType: 'domain' });
+        toast('Imported ' + result.added + ' domains', 'success');
+        await ui.refreshBlockLists();
+        ui.refreshWebsites();
+      } catch (err) { toast('Import failed: ' + err, 'error'); }
+    };
+    input.click();
+  },
+
+  async importPremadeList(category) {
+    var lid = document.getElementById('website-list-select').value;
+    if (!lid) { toast('Select a list first', 'error'); return; }
+
+    try {
+      var resp = await fetch('premade-lists.json');
+      var data = await resp.json();
+      var cat = data.categories[category];
+      if (!cat) { toast('Category not found', 'error'); return; }
+      if (!cat.domains || cat.domains.length === 0) { toast(cat.name + ' list is empty — add websites to premade-lists.json', 'info'); return; }
+      var result = await invoke('bulk_import_websites', { listId: lid, domains: cat.domains, ruleType: 'domain' });
+      toast('Imported ' + result.added + ' ' + cat.name + ' domains', 'success');
+      await this.refreshBlockLists();
+      this.refreshWebsites();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  async importEntireInternet() {
+    var lid = document.getElementById('website-list-select').value;
+    if (!lid) { toast('Select a list first', 'error'); return; }
+    if (!confirm('Block the entire internet? Only exceptions will be accessible.')) return;
+    try {
+      await invoke('add_website_rule', { listId: lid, ruleType: 'entire_internet', value: '*' });
+      toast('Entire internet blocked', 'success');
+      await this.refreshBlockLists();
+      this.refreshWebsites();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  async importKeywordPrompt() {
+    var lid = document.getElementById('website-list-select').value;
+    if (!lid) { toast('Select a list first', 'error'); return; }
+    var kw = prompt('Block all URLs containing this word:');
+    if (!kw || !kw.trim()) return;
+    try {
+      await invoke('add_website_rule', { listId: lid, ruleType: 'keyword', value: kw.trim() });
+      toast('Keyword blocked: ' + kw.trim(), 'success');
+      await this.refreshBlockLists();
+      this.refreshWebsites();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  toggleImportDropdown: function() {
+    var dd = document.getElementById('import-dropdown');
+    dd.classList.toggle('hidden');
+  },
+
+  async loadPremadeLists() {
+    try {
+      var resp = await fetch('premade-lists.json');
+      var data = await resp.json();
+      var container = document.getElementById('premade-list-items');
+      if (!container) return;
+      var html = '';
+      Object.keys(data.categories).forEach(function(key) {
+        var cat = data.categories[key];
+        html += '<button class="dropdown-item" data-action="import-premade" data-category="' + key + '">' + esc(cat.name) + '</button>';
+      });
+      container.innerHTML = html;
+    } catch (e) {}
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -245,9 +391,28 @@ function doAction(a, el) {
     case 'delete-list': ui.deleteList(el.getAttribute('data-list-id'), el.getAttribute('data-list-name')); break;
     case 'remove-website': ui.removeWebsite(el.getAttribute('data-list-id'), el.getAttribute('data-rule-id')); break;
     case 'remove-app': ui.removeApp(el.getAttribute('data-list-id'), el.getAttribute('data-rule-id')); break;
+    case 'remove-exception': ui.removeException(el.getAttribute('data-list-id'), el.getAttribute('data-exc-id')); break;
     case 'toggle-schedule': el.classList.toggle('active'); break;
     case 'confirm-create-list': ui.createList(); break;
+    case 'switch-tab':
+      var tabId = el.getAttribute('data-tab');
+      el.parentElement.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      el.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(function(tc) { tc.classList.remove('active'); });
+      var target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+      if (tabId === 'websites-tab-exceptions') ui.refreshExceptions();
+      break;
+    case 'import-text': ui.importFromText(); closeAllDropdowns(); break;
+    case 'import-json': ui.importFromText(); closeAllDropdowns(); break;
+    case 'import-premade': ui.importPremadeList(el.getAttribute('data-category')); closeAllDropdowns(); break;
+    case 'import-keyword-prompt': ui.importKeywordPrompt(); closeAllDropdowns(); break;
+    case 'import-entire-internet': ui.importEntireInternet(); closeAllDropdowns(); break;
   }
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown-menu').forEach(function(d) { d.classList.add('hidden'); });
 }
 
 // ─── Init ───────────────────────────────────────────────────────────
@@ -255,7 +420,11 @@ function doAction(a, el) {
 document.addEventListener('DOMContentLoaded', async function() {
   var b = document.getElementById('btn-new-blocklist'); if (b) b.addEventListener('click', function() { ui.showCreateListModal(); });
   var bw = document.getElementById('btn-add-website'); if (bw) bw.addEventListener('click', function() { ui.addWebsite(); });
+  var be = document.getElementById('btn-add-exception'); if (be) be.addEventListener('click', function() { ui.addException(); });
   var ba = document.getElementById('btn-add-app'); if (ba) ba.addEventListener('click', function() { ui.addApp(); });
+  var bi = document.getElementById('btn-import-dropdown'); if (bi) bi.addEventListener('click', function(e) { e.stopPropagation(); ui.toggleImportDropdown(); });
+  // Close dropdowns on outside click
+  document.addEventListener('click', function() { closeAllDropdowns(); });
   var mc = document.getElementById('btn-modal-close'); if (mc) mc.addEventListener('click', function() { ui.closeModal(); });
   var mx = document.getElementById('btn-modal-cancel'); if (mx) mx.addEventListener('click', function() { ui.closeModal(); });
 
@@ -265,6 +434,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   });
 
   try { state.blockLists = await invoke('list_block_lists'); } catch (e) { state.blockLists = []; }
+  ui.loadPremadeLists();
   ui.navigateTo('dashboard');
   setInterval(function() { if (state.currentPage === 'dashboard') ui.refreshDashboard(); }, 5000);
 });

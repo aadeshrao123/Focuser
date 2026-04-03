@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 use focuser_common::types::*;
+use focuser_common::types::WebsiteMatchType;
 use serde_json::Value;
 use tauri::State;
 
@@ -110,6 +111,7 @@ pub fn add_website_rule(
         "keyword" => WebsiteRule::keyword(&value),
         "wildcard" => WebsiteRule::wildcard(&value),
         "url_path" => WebsiteRule::url_path(&value),
+        "entire_internet" => WebsiteRule::entire_internet(),
         _ => return Err(format!("Unknown rule type: {rule_type}")),
     };
     let rule_id = rule.id.to_string();
@@ -214,4 +216,104 @@ pub fn apply_blocks(state: State<'_, Arc<AppState>>) -> Result<String, String> {
 pub fn remove_blocks() -> Result<String, String> {
     crate::blocker::remove_hosts_blocks().map_err(|e| e.to_string())?;
     Ok("All blocks removed".into())
+}
+
+/// Bulk import domains into a block list.
+#[tauri::command]
+pub fn bulk_import_websites(
+    state: State<'_, Arc<AppState>>,
+    list_id: String,
+    domains: Vec<String>,
+    rule_type: String,
+) -> Result<Value, String> {
+    let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
+
+    let mut added = 0u32;
+    for d in &domains {
+        let trimmed = d.trim().to_lowercase();
+        if trimmed.is_empty() || trimmed.starts_with('#') { continue; }
+        // Skip duplicates
+        let already_exists = list.websites.iter().any(|r| {
+            match &r.match_type {
+                WebsiteMatchType::Domain(existing) => existing.to_lowercase() == trimmed,
+                WebsiteMatchType::Keyword(existing) => existing.to_lowercase() == trimmed,
+                _ => false,
+            }
+        });
+        if already_exists { continue; }
+
+        let rule = match rule_type.as_str() {
+            "keyword" => WebsiteRule::keyword(&trimmed),
+            "wildcard" => WebsiteRule::wildcard(&trimmed),
+            "url_path" => WebsiteRule::url_path(&trimmed),
+            _ => WebsiteRule::domain(&trimmed),
+        };
+        list.websites.push(rule);
+        added += 1;
+    }
+
+    list.updated_at = chrono::Utc::now();
+    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(serde_json::json!({ "added": added }))
+}
+
+/// Add an exception to a block list.
+#[tauri::command]
+pub fn add_exception(
+    state: State<'_, Arc<AppState>>,
+    list_id: String,
+    domain: String,
+    exception_type: String,
+) -> Result<Value, String> {
+    let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
+
+    use focuser_common::types::ExceptionRule;
+    let exc = match exception_type.as_str() {
+        "wildcard" => ExceptionRule {
+            id: focuser_common::types::new_id(),
+            exception_type: focuser_common::types::ExceptionType::Wildcard(domain),
+            enabled: true,
+        },
+        _ => ExceptionRule::domain(&domain),
+    };
+    let exc_id = exc.id.to_string();
+    list.exceptions.push(exc);
+    list.updated_at = chrono::Utc::now();
+    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(serde_json::json!({ "id": exc_id }))
+}
+
+/// Remove an exception from a block list.
+#[tauri::command]
+pub fn remove_exception(
+    state: State<'_, Arc<AppState>>,
+    list_id: String,
+    exception_id: String,
+) -> Result<(), String> {
+    let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
+    list.exceptions.retain(|e| e.id.to_string() != exception_id);
+    list.updated_at = chrono::Utc::now();
+    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(())
+}
+
+/// Export a block list as JSON.
+#[tauri::command]
+pub fn export_block_list(state: State<'_, Arc<AppState>>, list_id: String) -> Result<String, String> {
+    let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
+    serde_json::to_string_pretty(&list).map_err(|e| e.to_string())
 }

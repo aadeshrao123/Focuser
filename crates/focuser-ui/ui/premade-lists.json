@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "categories": {
+    "dating": {
+      "name": "Dating",
+      "description": "Dating websites and apps",
+      "domains": []
+    },
+    "distractions": {
+      "name": "Distractions",
+      "description": "General time-wasting and distraction websites",
+      "domains": []
+    },
+    "email": {
+      "name": "Email",
+      "description": "Email providers and webmail services",
+      "domains": []
+    },
+    "gambling": {
+      "name": "Gambling",
+      "description": "Gambling and betting websites",
+      "domains": []
+    },
+    "games": {
+      "name": "Games",
+      "description": "Gaming websites, stores, and platforms",
+      "domains": []
+    },
+    "news": {
+      "name": "News",
+      "description": "News websites and media outlets",
+      "domains": []
+    },
+    "porn": {
+      "name": "Porn",
+      "description": "Adult and pornographic websites",
+      "domains": []
+    },
+    "proxies": {
+      "name": "Proxies",
+      "description": "Proxy and VPN websites used to bypass blocks",
+      "domains": []
+    },
+    "search_engines": {
+      "name": "Search Engines",
+      "description": "Search engines and portals",
+      "domains": []
+    },
+    "shopping": {
+      "name": "Shopping",
+      "description": "Online shopping and e-commerce",
+      "domains": []
+    },
+    "social_media": {
+      "name": "Social Media",
+      "description": "Social media platforms and networks",
+      "domains": []
+    },
+    "streaming": {
+      "name": "Streaming",
+      "description": "Video and music streaming services",
+      "domains": []
+    },
+    "videos": {
+      "name": "Videos",
+      "description": "Video sharing and hosting platforms",
+      "domains": []
+    },
+    "forums": {
+      "name": "Forums",
+      "description": "Discussion forums and communities",
+      "domains": []
+    },
+    "crypto": {
+      "name": "Crypto",
+      "description": "Cryptocurrency trading and news",
+      "domains": []
+    }
+  }
+}
