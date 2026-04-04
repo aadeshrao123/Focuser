@@ -41,8 +41,10 @@
       "nsis": {
         "installMode": "both",
         "startMenuFolder": "Focuser",
+        "installerIcon": "icons/icon.ico",
         "headerImage": null,
-        "sidebarImage": null
+        "sidebarImage": null,
+        "installerHooks": "nsis/installer-hooks.nsi"
       },
       "wix": null
     },
