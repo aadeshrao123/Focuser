@@ -267,6 +267,8 @@ pub fn bulk_import_websites(
         let already_exists = list.websites.iter().any(|r| match &r.match_type {
             WebsiteMatchType::Domain(existing) => existing.to_lowercase() == trimmed,
             WebsiteMatchType::Keyword(existing) => existing.to_lowercase() == trimmed,
+            WebsiteMatchType::Wildcard(existing) => existing.to_lowercase() == trimmed,
+            WebsiteMatchType::UrlPath(existing) => existing.to_lowercase() == trimmed,
             _ => false,
         });
         if already_exists {
@@ -383,6 +385,33 @@ pub fn clear_all_apps(state: State<'_, Arc<AppState>>) -> Result<Value, String> 
     }
     eng.refresh().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "cleared": cleared }))
+}
+
+/// Open a native file picker to select an application to block.
+/// Works on Windows, macOS, and Linux — Tauri handles the platform-specific dialog.
+#[tauri::command]
+pub fn pick_app_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Select Application to Block")
+        .add_filter("Executables", &["exe", "app", "sh", "AppImage"])
+        .add_filter("All Files", &["*"])
+        .pick_file(move |path| {
+            let result = path.map(|p| {
+                let path_str = p.to_string();
+                std::path::Path::new(&path_str)
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or(path_str)
+            });
+            let _ = tx.send(result);
+        });
+
+    rx.recv().map_err(|e| format!("Dialog error: {e}"))
 }
 
 /// Export a block list as JSON.

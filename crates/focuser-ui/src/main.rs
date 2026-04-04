@@ -57,6 +57,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
@@ -83,6 +84,7 @@ fn main() {
             commands::export_block_list,
             commands::clear_all_websites,
             commands::clear_all_apps,
+            commands::pick_app_file,
         ])
         .setup(move |app| {
             // Spawn background blocking loop

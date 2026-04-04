@@ -191,11 +191,15 @@
         <div class="panel" style="margin-bottom:14px;">
           <div class="panel-header"><h3>Add Application</h3></div>
           <div class="panel-body">
-            <div class="input-row">
-              <select id="app-list-select" class="input"><option value="">Select list...</option></select>
-              <select id="app-type-select" class="input" style="width:160px;"><option value="exe_name">Executable</option><option value="exe_path">Path</option><option value="window_title">Window Title</option></select>
-              <input type="text" id="app-input" class="input" placeholder="e.g. steam.exe" style="flex:1;">
-              <button class="btn btn-primary" id="btn-add-app">Add</button>
+            <div class="add-website-row">
+              <div class="add-website-fields">
+                <select id="app-list-select" class="input"><option value="">Select list...</option></select>
+                <input type="text" id="app-input" class="input" placeholder="e.g. steam.exe">
+                <button class="btn btn-primary" id="btn-add-app">+ Add</button>
+              </div>
+              <div class="add-website-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-browse-apps">Browse Apps</button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "categories": {
     "dating": {
       "name": "Dating",
@@ -43,7 +43,8 @@
         "tinder.com",
         "weareher.com",
         "zoosk.com"
-      ]
+      ],
+      "wildcards": []
     },
     "distractions": {
       "name": "Distractions",
@@ -69,7 +70,8 @@
         "whatsapp.com",
         "x.com",
         "youtube.com"
-      ]
+      ],
+      "wildcards": []
     },
     "email": {
       "name": "Email",
@@ -139,7 +141,8 @@
         "webmail.shaw.ca",
         "xfinity.com",
         "zoho.com"
-      ]
+      ],
+      "wildcards": []
     },
     "gambling": {
       "name": "Gambling",
@@ -311,7 +314,52 @@
         "uptownpokiesonline.com",
         "vegasinsider.com",
         "williamhill.com",
-        "windrawwin.com"
+        "windrawwin.com",
+        "stake.com",
+        "stake.us",
+        "draftkings.com",
+        "fanduel.com",
+        "betmgm.com",
+        "caesars.com",
+        "pointsbet.com",
+        "betrivers.com",
+        "pokerstars.com",
+        "pokerstars.net",
+        "888sport.com",
+        "williamhill.co.uk",
+        "ladbrokes.com",
+        "skybet.com",
+        "betfred.com",
+        "1xbet.com",
+        "22bet.com",
+        "melbet.com",
+        "bc.game",
+        "roobet.com",
+        "rollbit.com",
+        "duelbits.com",
+        "cloudbet.com",
+        "bitstarz.com",
+        "fortunejack.com",
+        "leoVegas.com",
+        "casumo.com",
+        "bwin.com",
+        "tipico.com",
+        "sbobet.com",
+        "wsop.com",
+        "chumba.com",
+        "globalpoker.com"
+      ],
+      "wildcards": [
+        "*.bet",
+        "*.casino",
+        "*.poker",
+        "*.bingo",
+        "*casino*.*",
+        "*poker*.*",
+        "*betting*.*",
+        "*gamble*.*",
+        "*jackpot*.*",
+        "*sportsbook*.*"
       ]
     },
     "games": {
@@ -428,7 +476,32 @@
         "worldofsolitaire.com",
         "worldoftanks.com",
         "wowhead.com",
-        "xbox.com"
+        "xbox.com",
+        "steampowered.com",
+        "steamcommunity.com",
+        "gog.com",
+        "humblebundle.com",
+        "crazygames.com",
+        "poki.com",
+        "y8.com",
+        "coolmathgames.com",
+        "krunker.io",
+        "slither.io",
+        "agar.io",
+        "lichess.org",
+        "curseforge.com",
+        "modrinth.com",
+        "kotaku.com",
+        "polygon.com",
+        "playvalorant.com",
+        "fortnite.com",
+        "genshin.hoyoverse.com",
+        "pathofexile.com",
+        "warframe.com"
+      ],
+      "wildcards": [
+        "*gaming*.*",
+        "*esports*.*"
       ]
     },
     "news": {
@@ -656,7 +729,8 @@
         "wsj.com",
         "wtop.com",
         "zdnet.com"
-      ]
+      ],
+      "wildcards": []
     },
     "porn": {
       "name": "Porn",
@@ -878,7 +952,75 @@
         "yuvutu.com",
         "zbporn.com",
         "zzcartoon.com",
-        "zzgays.com"
+        "zzgays.com",
+        "onlyfans.com",
+        "fansly.com",
+        "chaturbate.com",
+        "livejasmin.com",
+        "myfreecams.com",
+        "bongacams.com",
+        "cam4.com",
+        "camsoda.com",
+        "flirt4free.com",
+        "streamate.com",
+        "manyvids.com",
+        "loyalfans.com",
+        "justfor.fans",
+        "porntrex.com",
+        "hqporner.com",
+        "fapello.com",
+        "rule34.xxx",
+        "rule34video.com",
+        "e621.net",
+        "e-hentai.org",
+        "exhentai.org",
+        "nhentai.net",
+        "nhentai.to",
+        "hanime.tv",
+        "hentaidude.com",
+        "simply-hentai.com",
+        "hitomi.la",
+        "naughtyamerica.com",
+        "bangbros.com",
+        "tushy.com",
+        "deeper.com",
+        "vixenplus.com",
+        "mydirtyhobby.com",
+        "nudevista.com",
+        "freeones.com",
+        "javlibrary.com",
+        "missav.com",
+        "pornpics.com",
+        "sex.com",
+        "imagefap.com",
+        "scrolller.com",
+        "metart.com",
+        "suicidegirls.com",
+        "literotica.com",
+        "f95zone.to",
+        "recurbate.com",
+        "camwhores.tv",
+        "coomer.su",
+        "simpcity.su"
+      ],
+      "wildcards": [
+        "*.xxx",
+        "*.porn",
+        "*.adult",
+        "*.sex",
+        "*.sexy",
+        "*.webcam",
+        "*porn*.*",
+        "*hentai*.*",
+        "*xxx*.*",
+        "*nsfw*.*",
+        "*onlyfans*.*",
+        "*chaturbate*.*",
+        "*xhamster*.*",
+        "*xnxx*.*",
+        "*xvideos*.*",
+        "*pornhub*.*",
+        "*redtube*.*"
       ]
     },
     "proxies": {
@@ -908,7 +1050,30 @@
         "whoer.net",
         "youtubeproxy.site",
         "zend2.com",
-        "zpn.im"
+        "zpn.im",
+        "surfshark.com",
+        "cyberghostvpn.com",
+        "privateinternetaccess.com",
+        "purevpn.com",
+        "windscribe.com",
+        "tunnelbear.com",
+        "protonvpn.com",
+        "mullvad.net",
+        "hotspotshield.com",
+        "croxyproxy.com",
+        "4everproxy.com",
+        "torproject.org",
+        "ultrasurf.us",
+        "psiphon.ca",
+        "lantern.io"
+      ],
+      "wildcards": [
+        "*proxy*.*",
+        "*vpn*.*",
+        "*unblock*.*",
+        "*unblocker*.*",
+        "*bypass*.*",
+        "*anonymizer*.*"
       ]
     },
     "search_engines": {
@@ -938,7 +1103,8 @@
         "teoma.com",
         "wolframalpha.com",
         "yandex.com"
-      ]
+      ],
+      "wildcards": []
     },
     "shopping": {
       "name": "Shopping",
@@ -990,7 +1156,8 @@
         "westelm.com",
         "wish.com",
         "zappos.com"
-      ]
+      ],
+      "wildcards": []
     },
     "social_media": {
       "name": "Social Media",
@@ -1042,7 +1209,8 @@
         "weibo.com",
         "yy.com",
         "x.com"
-      ]
+      ],
+      "wildcards": []
     },
     "videos": {
       "name": "Videos",
@@ -1080,7 +1248,8 @@
         "wimp.com",
         "xfinity.com",
         "youtube.com"
-      ]
+      ],
+      "wildcards": []
     },
     "productivity": {
       "name": "Productivity",
@@ -1166,7 +1335,8 @@
         "zoho.com",
         "zoom.com",
         "zoom.us"
-      ]
+      ],
+      "wildcards": []
     }
   }
 }

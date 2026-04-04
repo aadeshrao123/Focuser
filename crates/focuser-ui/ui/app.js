@@ -199,10 +199,12 @@ var ui = {
 
   async addApp() {
     var lid = document.getElementById('app-list-select').value;
-    var rt = document.getElementById('app-type-select').value;
     var v = document.getElementById('app-input').value.trim();
     if (!lid) { toast('Select a list', 'error'); return; }
     if (!v) { toast('Enter an application', 'error'); return; }
+    // Auto-detect type: if it ends with .exe it's exe_name, if it has path separators it's exe_path
+    var rt = 'exe_name';
+    if (v.indexOf('\\') !== -1 || v.indexOf('/') !== -1) rt = 'exe_path';
     try { await invoke('add_app_rule', { listId: lid, ruleType: rt, value: v }); document.getElementById('app-input').value = ''; toast('Blocked ' + v, 'success'); await this.refreshBlockLists(); this.refreshApps(); }
     catch (e) { toast('Failed: ' + e, 'error'); }
   },
@@ -210,6 +212,26 @@ var ui = {
   async removeApp(lid, rid) {
     try { await invoke('remove_app_rule', { listId: lid, ruleId: rid }); toast('Removed', 'success'); await this.refreshBlockLists(); this.refreshApps(); }
     catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  async browseApps() {
+    var lid = document.getElementById('app-list-select').value;
+    if (!lid) { toast('Select a list first', 'error'); return; }
+
+    try {
+      // Use Tauri's Rust-side file picker command
+      var result = await invoke('pick_app_file');
+      if (result) {
+        await invoke('add_app_rule', { listId: lid, ruleType: 'exe_name', value: result });
+        toast('Blocked ' + result, 'success');
+        await this.refreshBlockLists();
+        this.refreshApps();
+      }
+    } catch (e) {
+      if (e && e.toString().indexOf('cancel') === -1) {
+        toast('Failed: ' + e, 'error');
+      }
+    }
   },
 
   refreshSchedule: function() {
@@ -332,9 +354,26 @@ var ui = {
       var data = await resp.json();
       var cat = data.categories[category];
       if (!cat) { toast('Category not found', 'error'); return; }
-      if (!cat.domains || cat.domains.length === 0) { toast(cat.name + ' list is empty — add websites to premade-lists.json', 'info'); return; }
-      var result = await invoke('bulk_import_websites', { listId: lid, domains: cat.domains, ruleType: 'domain' });
-      toast('Imported ' + result.added + ' ' + cat.name + ' domains', 'success');
+
+      var totalAdded = 0;
+
+      // Import domains
+      if (cat.domains && cat.domains.length > 0) {
+        var result = await invoke('bulk_import_websites', { listId: lid, domains: cat.domains, ruleType: 'domain' });
+        totalAdded += result.added;
+      }
+
+      // Import wildcards
+      if (cat.wildcards && cat.wildcards.length > 0) {
+        var wResult = await invoke('bulk_import_websites', { listId: lid, domains: cat.wildcards, ruleType: 'wildcard' });
+        totalAdded += wResult.added;
+      }
+
+      if (totalAdded === 0) {
+        toast(cat.name + ' — all items already in list', 'info');
+      } else {
+        toast('Imported ' + totalAdded + ' ' + cat.name + ' rules', 'success');
+      }
       await this.refreshBlockLists();
       this.refreshWebsites();
     } catch (e) { toast('Failed: ' + e, 'error'); }
@@ -512,6 +551,7 @@ function doAction(a, el) {
     case 'import-entire-internet': ui.importEntireInternet(); closeAllDropdowns(); break;
     case 'clear-all-websites': ui.clearAllWebsites(); break;
     case 'clear-all-apps': ui.clearAllApps(); break;
+    case 'close-modal': ui.closeModal(); break;
   }
 }
 
@@ -527,6 +567,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   var be = document.getElementById('btn-add-exception'); if (be) be.addEventListener('click', function() { ui.addException(); });
   var ba = document.getElementById('btn-add-app'); if (ba) ba.addEventListener('click', function() { ui.addApp(); });
   var bi = document.getElementById('btn-import-dropdown'); if (bi) bi.addEventListener('click', function(e) { e.stopPropagation(); ui.toggleImportDropdown(); });
+  var bb = document.getElementById('btn-browse-apps'); if (bb) bb.addEventListener('click', function() { ui.browseApps(); });
 
   // Real-time search filters
   var sw = document.getElementById('search-websites');
