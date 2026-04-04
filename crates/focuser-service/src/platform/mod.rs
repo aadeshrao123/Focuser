@@ -1,8 +1,11 @@
 #[cfg(target_os = "linux")]
+#[allow(clippy::collapsible_if)]
 pub mod linux;
 #[cfg(target_os = "macos")]
+#[allow(clippy::collapsible_if)]
 pub mod macos;
 #[cfg(windows)]
+#[allow(clippy::collapsible_if)]
 pub mod windows;
 
 use focuser_common::platform::PlatformBlocker;
