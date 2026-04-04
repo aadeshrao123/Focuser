@@ -1,33 +1,31 @@
 /**
- * Focuser Extension — Background Service Worker
+ * Focuser Extension — Background Script
  *
- * Polls the Focuser app API for blocking rules, then:
- * - Redirects blocked tabs to the block page
- * - Updates the badge with blocked site count
- * - Instantly blocks/unblocks when rules change
+ * Blocking approach:
+ * 1. onBeforeNavigate: inject CSS to immediately hide page (no flash)
+ * 2. onCommitted: inject content script to replace page with block page
+ * URL bar stays as the original blocked domain — clean!
  */
 
-const API_BASE = 'http://127.0.0.1:17549';
-const POLL_INTERVAL_MS = 2000;
+var API_BASE = 'http://127.0.0.1:17549';
+var POLL_INTERVAL_MS = 2000;
 
-let currentRules = null;
-let blockedDomains = new Set();
-let blockedKeywords = [];
-let blockedWildcards = [];
-let blockedUrlPaths = [];
-let blockEntireInternet = false;
-let allowedDomains = new Set();
+var currentRules = null;
+var blockedDomains = new Set();
+var blockedKeywords = [];
+var blockedWildcards = [];
+var blockedUrlPaths = [];
+var blockEntireInternet = false;
+var allowedDomains = new Set();
 
-// ─── API Communication ──────────────────────────────────────────────
+
+// ─── API ────────────────────────────────────────────────────────────
 
 async function apiGet(path) {
   try {
-    var resp = await fetch(API_BASE + path, { method: 'GET' });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch (e) {
-    return null;
-  }
+    var resp = await fetch(API_BASE + path);
+    return resp.ok ? await resp.json() : null;
+  } catch (e) { return null; }
 }
 
 async function apiPost(path, body) {
@@ -37,23 +35,16 @@ async function apiPost(path, body) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch (e) {
-    return null;
-  }
+    return resp.ok ? await resp.json() : null;
+  } catch (e) { return null; }
 }
 
-// ─── Rule Fetching & Compilation ────────────────────────────────────
+// ─── Rule Fetching ──────────────────────────────────────────────────
 
 async function fetchRules() {
   var rules = await apiGet('/api/rules');
-  if (!rules) {
-    updateBadge(false);
-    return;
-  }
+  if (!rules) { updateBadge(false); return; }
 
-  // Check if rules changed
   var rulesJson = JSON.stringify(rules);
   if (rulesJson === JSON.stringify(currentRules)) return;
 
@@ -66,8 +57,6 @@ async function fetchRules() {
   allowedDomains = new Set((rules.allowed_domains || []).map(function(d) { return d.toLowerCase(); }));
 
   updateBadge(true);
-
-  // Check all open tabs against new rules
   enforceOnAllTabs();
 }
 
@@ -77,26 +66,19 @@ function isDomainBlocked(hostname, url) {
   hostname = (hostname || '').toLowerCase();
   url = (url || '').toLowerCase();
 
-  // Check exceptions first
   if (isAllowed(hostname)) return false;
-
-  // Entire internet mode
   if (blockEntireInternet) return true;
 
-  // Exact domain match (including subdomains)
   if (blockedDomains.has(hostname)) return true;
   var parts = hostname.split('.');
   for (var i = 1; i < parts.length; i++) {
-    var parent = parts.slice(i).join('.');
-    if (blockedDomains.has(parent)) return true;
+    if (blockedDomains.has(parts.slice(i).join('.'))) return true;
   }
 
-  // Keyword match (in full URL)
   for (var k = 0; k < blockedKeywords.length; k++) {
     if (url.indexOf(blockedKeywords[k]) !== -1) return true;
   }
 
-  // URL path match
   for (var p = 0; p < blockedUrlPaths.length; p++) {
     if (url.indexOf(blockedUrlPaths[p]) !== -1) return true;
   }
@@ -113,72 +95,63 @@ function isAllowed(hostname) {
   return false;
 }
 
-// ─── Tab Enforcement ────────────────────────────────────────────────
+function isInternalUrl(protocol) {
+  return protocol === 'chrome:' || protocol === 'chrome-extension:' ||
+    protocol === 'about:' || protocol === 'moz-extension:' ||
+    protocol === 'edge:' || protocol === 'data:';
+}
 
+// ─── Blocking ───────────────────────────────────────────────────────
+
+// content-early.js (registered in manifest at document_start) handles hiding.
+// Once page commits, inject our full block page content script:
+chrome.webNavigation.onCommitted.addListener(function(details) {
+  if (details.frameId !== 0) return;
+  try {
+    var url = new URL(details.url);
+    if (isInternalUrl(url.protocol)) return;
+    if (isDomainBlocked(url.hostname, details.url)) {
+chrome.scripting.executeScript({
+        target: { tabId: details.tabId },
+        files: ['content-block.js']
+      }).catch(function() {});
+    }
+  } catch (e) {}
+});
+
+// Step 3: Safety net — if page somehow loaded, catch it on complete
+chrome.webNavigation.onCompleted.addListener(function(details) {
+  if (details.frameId !== 0) return;
+  try {
+    var url = new URL(details.url);
+    if (isInternalUrl(url.protocol)) return;
+    if (isDomainBlocked(url.hostname, details.url)) {
+      chrome.scripting.executeScript({
+        target: { tabId: details.tabId },
+        files: ['content-block.js']
+      }).catch(function() {});
+    }
+  } catch (e) {}
+});
+
+// Enforce on all currently open tabs (when rules change)
 function enforceOnAllTabs() {
   chrome.tabs.query({}, function(tabs) {
     tabs.forEach(function(tab) {
-      if (tab.url) {
-        checkAndBlockTab(tab);
-      }
+      if (!tab.url) return;
+      try {
+        var url = new URL(tab.url);
+        if (isInternalUrl(url.protocol)) return;
+        if (isDomainBlocked(url.hostname, tab.url)) {
+          chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content-block.js']
+          }).catch(function() {});
+        }
+      } catch (e) {}
     });
   });
 }
-
-function checkAndBlockTab(tab) {
-  try {
-    var url = new URL(tab.url);
-    // Skip internal pages
-    if (url.protocol === 'chrome:' || url.protocol === 'chrome-extension:' ||
-        url.protocol === 'about:' || url.protocol === 'moz-extension:' ||
-        url.protocol === 'edge:') return;
-
-    if (isDomainBlocked(url.hostname, tab.url)) {
-      var blockUrl = chrome.runtime.getURL('blocked.html') +
-        '?domain=' + encodeURIComponent(url.hostname) +
-        '&url=' + encodeURIComponent(tab.url) +
-        '#domain=' + encodeURIComponent(url.hostname);
-      // Only redirect if not already on block page
-      if (!tab.url.startsWith(chrome.runtime.getURL('blocked.html'))) {
-        chrome.tabs.update(tab.id, { url: blockUrl });
-      }
-    }
-  } catch (e) {
-    // Invalid URL, skip
-  }
-}
-
-// ─── Navigation Listener ────────────────────────────────────────────
-
-chrome.webNavigation.onBeforeNavigate.addListener(function(details) {
-  // Only handle main frame
-  if (details.frameId !== 0) return;
-
-  try {
-    var url = new URL(details.url);
-    if (url.protocol === 'chrome:' || url.protocol === 'chrome-extension:' ||
-        url.protocol === 'about:' || url.protocol === 'moz-extension:' ||
-        url.protocol === 'edge:') return;
-
-    if (isDomainBlocked(url.hostname, details.url)) {
-      var blockUrl = chrome.runtime.getURL('blocked.html') +
-        '?domain=' + encodeURIComponent(url.hostname) +
-        '&url=' + encodeURIComponent(details.url) +
-        '#domain=' + encodeURIComponent(url.hostname);
-      chrome.tabs.update(details.tabId, { url: blockUrl });
-    }
-  } catch (e) {
-    // Invalid URL
-  }
-});
-
-// Also catch completed navigations (for pages that loaded before rules updated)
-chrome.webNavigation.onCompleted.addListener(function(details) {
-  if (details.frameId !== 0) return;
-  chrome.tabs.get(details.tabId, function(tab) {
-    if (tab && tab.url) checkAndBlockTab(tab);
-  });
-});
 
 // ─── Badge ──────────────────────────────────────────────────────────
 
@@ -190,12 +163,9 @@ function updateBadge(connected) {
     return;
   }
 
-  // Count unique base domains (exclude www. duplicates)
   var uniqueDomains = 0;
   blockedDomains.forEach(function(d) {
-    if (!d.startsWith('www.') || !blockedDomains.has(d.substring(4))) {
-      uniqueDomains++;
-    }
+    if (!d.startsWith('www.') || !blockedDomains.has(d.substring(4))) uniqueDomains++;
   });
   var count = uniqueDomains + blockedKeywords.length + blockedUrlPaths.length;
   if (blockEntireInternet) count = '∞';
@@ -205,12 +175,12 @@ function updateBadge(connected) {
   chrome.action.setTitle({ title: 'Focuser — ' + count + ' sites blocked' });
 }
 
-// ─── Polling Loop ───────────────────────────────────────────────────
+// ─── Polling ────────────────────────────────────────────────────────
 
 setInterval(fetchRules, POLL_INTERVAL_MS);
-fetchRules(); // Initial fetch
+fetchRules();
 
-// ─── Message Handler (from popup) ───────────────────────────────────
+// ─── Message Handler ────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   if (msg.type === 'get-rules') {
@@ -218,14 +188,11 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     return;
   }
   if (msg.type === 'refresh') {
-    fetchRules().then(function() {
-      sendResponse({ ok: true });
-    });
-    return true; // async
+    fetchRules().then(function() { sendResponse({ ok: true }); });
+    return true;
   }
   if (msg.type === 'check-domain') {
-    var blocked = isDomainBlocked(msg.hostname, msg.url);
-    sendResponse({ blocked: blocked });
+    sendResponse({ blocked: isDomainBlocked(msg.hostname, msg.url) });
     return;
   }
 });

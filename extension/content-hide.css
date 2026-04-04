@@ -1,0 +1,8 @@
+/* Injected at document_start — immediately hides page before any content renders */
+html {
+  background: #0c0c0e !important;
+}
+html, body, body * {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}

@@ -8,6 +8,7 @@
     "tabs",
     "webRequest",
     "webNavigation",
+    "scripting",
     "storage"
   ],
   "host_permissions": [
@@ -36,9 +37,17 @@
     "48": "icons/icon48.svg",
     "128": "icons/icon128.svg"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-early.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html", "blocked.css"],
+      "resources": ["blocked.html", "blocked.css", "content-block.js", "content-hide.css", "content-early.js"],
       "matches": ["<all_urls>"]
     }
   ]
