@@ -8,9 +8,9 @@ use directories::ProjectDirs;
 use focuser_core::{BlockEngine, Database};
 use std::sync::{Arc, Mutex};
 use tauri::{
+    Manager,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
-    Manager,
 };
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -137,8 +137,7 @@ fn main() {
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(500));
                     #[allow(clippy::collapsible_if)]
-                    if api::SHOW_WINDOW_REQUESTED
-                        .swap(false, std::sync::atomic::Ordering::Relaxed)
+                    if api::SHOW_WINDOW_REQUESTED.swap(false, std::sync::atomic::Ordering::Relaxed)
                     {
                         if let Some(window) = show_handle.get_webview_window("main") {
                             let _ = window.show();
