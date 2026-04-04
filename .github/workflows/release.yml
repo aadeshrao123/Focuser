@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: focuser-ui.exe
+            asset_name: Focuser-Windows-x86_64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: focuser-ui
+            asset_name: Focuser-macOS-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: focuser-ui
+            asset_name: Focuser-macOS-aarch64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: focuser-ui
+            asset_name: Focuser-Linux-x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.target }}-release-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.target }}-release-
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} -p focuser-ui
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.artifact }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # Windows
+          if [ -f "artifacts/Focuser-Windows-x86_64.exe/focuser-ui.exe" ]; then
+            cp "artifacts/Focuser-Windows-x86_64.exe/focuser-ui.exe" "release/Focuser-Windows-x86_64.exe"
+          fi
+          # macOS x86_64
+          if [ -f "artifacts/Focuser-macOS-x86_64/focuser-ui" ]; then
+            chmod +x "artifacts/Focuser-macOS-x86_64/focuser-ui"
+            cp "artifacts/Focuser-macOS-x86_64/focuser-ui" "release/Focuser-macOS-x86_64"
+          fi
+          # macOS ARM
+          if [ -f "artifacts/Focuser-macOS-aarch64/focuser-ui" ]; then
+            chmod +x "artifacts/Focuser-macOS-aarch64/focuser-ui"
+            cp "artifacts/Focuser-macOS-aarch64/focuser-ui" "release/Focuser-macOS-aarch64"
+          fi
+          # Linux
+          if [ -f "artifacts/Focuser-Linux-x86_64/focuser-ui" ]; then
+            chmod +x "artifacts/Focuser-Linux-x86_64/focuser-ui"
+            cp "artifacts/Focuser-Linux-x86_64/focuser-ui" "release/Focuser-Linux-x86_64"
+          fi
+          ls -la release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Focuser ${{ github.ref_name }}
+          body: |
+            ## Focuser ${{ github.ref_name }}
+
+            ### Downloads
+
+            | Platform | File |
+            |----------|------|
+            | Windows (x86_64) | `Focuser-Windows-x86_64.exe` |
+            | macOS (Intel) | `Focuser-macOS-x86_64` |
+            | macOS (Apple Silicon) | `Focuser-macOS-aarch64` |
+            | Linux (x86_64) | `Focuser-Linux-x86_64` |
+
+            ### What's included
+            - Desktop app with embedded blocking engine
+            - Website blocking (hosts file + browser extension)
+            - Application blocking (process termination)
+            - Pre-made block lists (1,089 domains across 13 categories)
+            - Bulk import from text/JSON files
+            - Exceptions (whitelist) support
+            - Browser extension in `extension/` folder (load as unpacked)
+
+            ### First time?
+            1. Download the binary for your platform
+            2. Run it (Windows will ask for admin rights — click Yes)
+            3. Create a block list, add some sites, and get focused
+
+            See the [README](https://github.com/aadeshrao123/Focuser#readme) for full setup instructions.
+          draft: false
+          prerelease: false
+          files: release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

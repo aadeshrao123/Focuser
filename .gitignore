@@ -1,7 +1,7 @@
 # ─── Rust / Cargo ────────────────────────────────────────
 /target/
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock is committed for reproducible CI builds
 
 # ─── Database ────────────────────────────────────────────
 *.db
