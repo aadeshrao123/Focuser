@@ -62,27 +62,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
-      - name: Build bundled binaries (Windows only)
-        if: runner.os == 'Windows'
+      - name: Build sidecar binaries (service, CLI, native host)
         shell: bash
         run: |
           cargo build --release --target ${{ matrix.target }} -p focuser-service -p focuser-cli -p focuser-native
-          mkdir -p target/release
-          cp target/${{ matrix.target }}/release/focuser-service.exe target/release/
-          cp target/${{ matrix.target }}/release/focuser-cli.exe target/release/
-          cp target/${{ matrix.target }}/release/focuser-native.exe target/release/
+          # Tauri externalBin expects binaries with target-triple suffix in the binaries/ dir
+          mkdir -p crates/focuser-ui/binaries
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "target/${{ matrix.target }}/release/focuser-service.exe" "crates/focuser-ui/binaries/focuser-service-${{ matrix.target }}.exe"
+            cp "target/${{ matrix.target }}/release/focuser-cli.exe" "crates/focuser-ui/binaries/focuser-cli-${{ matrix.target }}.exe"
+            cp "target/${{ matrix.target }}/release/focuser-native.exe" "crates/focuser-ui/binaries/focuser-native-${{ matrix.target }}.exe"
+          else
+            cp "target/${{ matrix.target }}/release/focuser-service" "crates/focuser-ui/binaries/focuser-service-${{ matrix.target }}"
+            cp "target/${{ matrix.target }}/release/focuser-cli" "crates/focuser-ui/binaries/focuser-cli-${{ matrix.target }}"
+            cp "target/${{ matrix.target }}/release/focuser-native" "crates/focuser-ui/binaries/focuser-native-${{ matrix.target }}"
+          fi
+          ls -la crates/focuser-ui/binaries/
 
-      - name: Build Tauri installer (Windows — with bundled binaries)
-        if: runner.os == 'Windows'
+      - name: Build Tauri installer
         run: cargo tauri build --target ${{ matrix.target }}
         working-directory: crates/focuser-ui
-
-      - name: Build Tauri installer (macOS/Linux — without bundled binaries)
-        if: runner.os != 'Windows'
-        run: cargo tauri build --target ${{ matrix.target }}
-        working-directory: crates/focuser-ui
-        env:
-          TAURI_CONFIG: '{"bundle":{"resources":{}}}'
 
       - name: Collect Windows artifacts
         if: matrix.platform == 'windows'

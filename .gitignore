@@ -56,3 +56,5 @@ dist/
 *.deb
 *.rpm
 *.AppImage
+# Sidecar binaries (built by CI, not committed)
+crates/focuser-ui/binaries/
