@@ -45,10 +45,10 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
       - name: Run tests
-        run: cargo test --workspace --verbose
+        run: cargo test --workspace --exclude focuser-ui --verbose
 
       - name: Run clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --exclude focuser-ui -- -D warnings
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -85,5 +85,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
-      - name: Build all crates
-        run: cargo build --workspace
+      - name: Build all crates (excluding Tauri UI which needs system webview)
+        run: cargo build --workspace --exclude focuser-ui
