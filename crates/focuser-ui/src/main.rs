@@ -136,6 +136,7 @@ fn main() {
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(500));
+                    #[allow(clippy::collapsible_if)]
                     if api::SHOW_WINDOW_REQUESTED
                         .swap(false, std::sync::atomic::Ordering::Relaxed)
                     {
