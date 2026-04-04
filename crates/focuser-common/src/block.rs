@@ -1,4 +1,6 @@
-use crate::types::{AppMatchType, AppRule, BlockList, ExceptionType, WebsiteMatchType, WebsiteRule};
+use crate::types::{
+    AppMatchType, AppRule, BlockList, ExceptionType, WebsiteMatchType, WebsiteRule,
+};
 
 impl BlockList {
     /// Check if a domain should be blocked by this block list.
@@ -16,20 +18,25 @@ impl BlockList {
         }
 
         // Check each website rule
-        self.websites.iter().any(|rule| {
-            rule.enabled && rule.matches_domain(&domain_lower)
-        })
+        self.websites
+            .iter()
+            .any(|rule| rule.enabled && rule.matches_domain(&domain_lower))
     }
 
     /// Check if an application should be blocked.
-    pub fn should_block_app(&self, process_name: &str, exe_path: Option<&str>, window_title: Option<&str>) -> bool {
+    pub fn should_block_app(
+        &self,
+        process_name: &str,
+        exe_path: Option<&str>,
+        window_title: Option<&str>,
+    ) -> bool {
         if !self.enabled {
             return false;
         }
 
-        self.applications.iter().any(|rule| {
-            rule.enabled && rule.matches_process(process_name, exe_path, window_title)
-        })
+        self.applications
+            .iter()
+            .any(|rule| rule.enabled && rule.matches_process(process_name, exe_path, window_title))
     }
 
     fn is_excepted_domain(&self, domain: &str) -> bool {
@@ -108,16 +115,12 @@ impl AppRule {
 
         match &self.match_type {
             AppMatchType::ExecutableName(name) => name_lower == name.to_lowercase(),
-            AppMatchType::ExecutablePath(path) => {
-                exe_path
-                    .map(|p| p.to_lowercase() == path.to_lowercase())
-                    .unwrap_or(false)
-            }
-            AppMatchType::WindowTitle(title) => {
-                window_title
-                    .map(|t| t.to_lowercase().contains(&title.to_lowercase()))
-                    .unwrap_or(false)
-            }
+            AppMatchType::ExecutablePath(path) => exe_path
+                .map(|p| p.to_lowercase() == path.to_lowercase())
+                .unwrap_or(false),
+            AppMatchType::WindowTitle(title) => window_title
+                .map(|t| t.to_lowercase().contains(&title.to_lowercase()))
+                .unwrap_or(false),
             AppMatchType::BundleId(_) => false, // macOS only, handled separately
         }
     }
@@ -147,7 +150,8 @@ mod tests {
     fn test_exception_overrides_block() {
         let mut list = BlockList::new("Test");
         list.websites.push(WebsiteRule::entire_internet());
-        list.exceptions.push(crate::types::ExceptionRule::domain("example.com"));
+        list.exceptions
+            .push(crate::types::ExceptionRule::domain("example.com"));
 
         assert!(list.should_block_domain("reddit.com"));
         assert!(!list.should_block_domain("example.com"));

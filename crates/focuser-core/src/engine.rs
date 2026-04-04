@@ -215,7 +215,9 @@ mod tests {
 
         let mut games = BlockList::new("Games");
         games.applications.push(AppRule::executable("steam.exe"));
-        games.websites.push(WebsiteRule::domain("store.steampowered.com"));
+        games
+            .websites
+            .push(WebsiteRule::domain("store.steampowered.com"));
         db.create_block_list(&games).unwrap();
 
         BlockEngine::new(db).unwrap()
@@ -267,7 +269,8 @@ mod tests {
         list.websites.push(WebsiteRule::domain("reddit.com"));
         list.websites.push(WebsiteRule::keyword("gambling"));
         list.websites.push(WebsiteRule::wildcard("*.tiktok.*"));
-        list.websites.push(WebsiteRule::url_path("youtube.com/shorts"));
+        list.websites
+            .push(WebsiteRule::url_path("youtube.com/shorts"));
         db.create_block_list(&list).unwrap();
 
         let engine = BlockEngine::new(db).unwrap();
@@ -277,7 +280,11 @@ mod tests {
         assert!(rules.blocked_domains.contains(&"reddit.com".to_string()));
         assert!(rules.blocked_keywords.contains(&"gambling".to_string()));
         assert!(rules.blocked_wildcards.contains(&"*.tiktok.*".to_string()));
-        assert!(rules.blocked_url_paths.contains(&"youtube.com/shorts".to_string()));
+        assert!(
+            rules
+                .blocked_url_paths
+                .contains(&"youtube.com/shorts".to_string())
+        );
     }
 
     #[test]
@@ -286,7 +293,8 @@ mod tests {
 
         let mut list = BlockList::new("Nuclear");
         list.websites.push(WebsiteRule::entire_internet());
-        list.exceptions.push(focuser_common::types::ExceptionRule::domain("github.com"));
+        list.exceptions
+            .push(focuser_common::types::ExceptionRule::domain("github.com"));
         db.create_block_list(&list).unwrap();
 
         let engine = BlockEngine::new(db).unwrap();

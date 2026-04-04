@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use focuser_common::error::{FocuserError, Result};
 use focuser_common::platform::{PlatformBlocker, RunningProcess};
 use focuser_common::types::{AppRule, WebsiteRule};
@@ -18,7 +16,7 @@ impl WindowsBlocker {
     fn snapshot_processes() -> Result<Vec<RunningProcess>> {
         use windows::Win32::Foundation::CloseHandle;
         use windows::Win32::System::Diagnostics::ToolHelp::{
-            CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
+            CreateToolhelp32Snapshot, PROCESSENTRY32, Process32First, Process32Next,
             TH32CS_SNAPPROCESS,
         };
 
@@ -45,7 +43,7 @@ impl WindowsBlocker {
                     processes.push(RunningProcess {
                         pid: entry.th32ProcessID,
                         name,
-                        exe_path: None,   // Would need OpenProcess + QueryFullProcessImageName
+                        exe_path: None, // Would need OpenProcess + QueryFullProcessImageName
                         window_title: None, // Would need EnumWindows
                     });
 
@@ -64,14 +62,15 @@ impl WindowsBlocker {
     /// Terminate a process by PID.
     fn kill_process(pid: u32) -> Result<()> {
         use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+        use windows::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE, TerminateProcess};
 
         unsafe {
             let handle = OpenProcess(PROCESS_TERMINATE, false, pid)
                 .map_err(|e| FocuserError::Platform(format!("Cannot open process {pid}: {e}")))?;
 
-            TerminateProcess(handle, 1)
-                .map_err(|e| FocuserError::Platform(format!("Cannot terminate process {pid}: {e}")))?;
+            TerminateProcess(handle, 1).map_err(|e| {
+                FocuserError::Platform(format!("Cannot terminate process {pid}: {e}"))
+            })?;
 
             let _ = CloseHandle(handle);
         }
@@ -116,10 +115,16 @@ impl PlatformBlocker for WindowsBlocker {
         let mut killed_any = false;
 
         for proc in &processes {
-            if rule.matches_process(&proc.name, proc.exe_path.as_deref(), proc.window_title.as_deref()) {
+            if rule.matches_process(
+                &proc.name,
+                proc.exe_path.as_deref(),
+                proc.window_title.as_deref(),
+            ) {
                 match Self::kill_process(proc.pid) {
                     Ok(()) => killed_any = true,
-                    Err(e) => warn!(pid = proc.pid, name = %proc.name, error = %e, "Failed to kill process"),
+                    Err(e) => {
+                        warn!(pid = proc.pid, name = %proc.name, error = %e, "Failed to kill process")
+                    }
                 }
             }
         }

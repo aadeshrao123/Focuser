@@ -34,8 +34,7 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 /// Apply blocks to the system hosts file.
 pub fn apply_hosts_blocks(domains: &[String]) -> Result<(), String> {
     let path = hosts_path();
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Cannot read {path}: {e}"))?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("Cannot read {path}: {e}"))?;
     let new_content = replace_section(&content, domains);
     std::fs::write(&path, &new_content)
         .map_err(|e| format!("Cannot write {path}: {e}. Run as administrator."))?;
@@ -47,8 +46,7 @@ pub fn apply_hosts_blocks(domains: &[String]) -> Result<(), String> {
 /// Remove all Focuser entries from hosts file.
 pub fn remove_hosts_blocks() -> Result<(), String> {
     let path = hosts_path();
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Cannot read {path}: {e}"))?;
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("Cannot read {path}: {e}"))?;
     let new_content = replace_section(&content, &[]);
     std::fs::write(&path, &new_content)
         .map_err(|e| format!("Cannot write {path}: {e}. Run as administrator."))?;
@@ -110,13 +108,14 @@ fn kill_blocked_processes_windows(eng: &focuser_core::BlockEngine) {
                 if let Some(list_name) = eng.check_app(&name, None, None) {
                     let pid = entry.th32ProcessID;
                     // Don't kill ourselves or system processes
-                    if pid > 4 && pid != std::process::id() {
-                        if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-                            let _ = TerminateProcess(handle, 1);
-                            let _ = CloseHandle(handle);
-                            info!(pid, name = %name, list = %list_name, "Killed blocked process");
-                            let _ = eng.record_blocked(&name);
-                        }
+                    if pid > 4
+                        && pid != std::process::id()
+                        && let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid)
+                    {
+                        let _ = TerminateProcess(handle, 1);
+                        let _ = CloseHandle(handle);
+                        info!(pid, name = %name, list = %list_name, "Killed blocked process");
+                        let _ = eng.record_blocked(&name);
                     }
                 }
 
@@ -132,11 +131,17 @@ fn kill_blocked_processes_windows(eng: &focuser_core::BlockEngine) {
 
 fn hosts_path() -> String {
     #[cfg(windows)]
-    { r"C:\Windows\System32\drivers\etc\hosts".into() }
+    {
+        r"C:\Windows\System32\drivers\etc\hosts".into()
+    }
     #[cfg(target_os = "macos")]
-    { "/etc/hosts".into() }
+    {
+        "/etc/hosts".into()
+    }
     #[cfg(target_os = "linux")]
-    { "/etc/hosts".into() }
+    {
+        "/etc/hosts".into()
+    }
 }
 
 fn replace_section(content: &str, domains: &[String]) -> String {
@@ -186,10 +191,14 @@ fn flush_dns() {
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("dscacheutil").args(["-flushcache"]).output();
+        let _ = std::process::Command::new("dscacheutil")
+            .args(["-flushcache"])
+            .output();
     }
     #[cfg(target_os = "linux")]
     {
-        let _ = std::process::Command::new("systemd-resolve").args(["--flush-caches"]).output();
+        let _ = std::process::Command::new("systemd-resolve")
+            .args(["--flush-caches"])
+            .output();
     }
 }

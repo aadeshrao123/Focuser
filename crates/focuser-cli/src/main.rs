@@ -103,71 +103,66 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Ping => {
-            match client::send(IpcRequest::Ping).await {
-                Ok(IpcResponse::Pong) => println!("Service is running."),
-                Ok(other) => println!("Unexpected response: {other:?}"),
-                Err(e) => println!("Service is NOT running: {e}"),
-            }
-        }
+        Commands::Ping => match client::send(IpcRequest::Ping).await {
+            Ok(IpcResponse::Pong) => println!("Service is running."),
+            Ok(other) => println!("Unexpected response: {other:?}"),
+            Err(e) => println!("Service is NOT running: {e}"),
+        },
 
-        Commands::Status => {
-            match client::send(IpcRequest::GetStatus).await {
-                Ok(IpcResponse::Status(status)) => {
-                    println!("Focuser Service Status");
-                    println!("══════════════════════");
-                    println!("Running:          {}", status.running);
-                    println!("Uptime:           {}s", status.uptime_seconds);
-                    println!("Blocked today:    {}", status.total_blocked_today);
-                    println!("Active blocks:    {}", status.active_blocks.len());
-                    for block in &status.active_blocks {
-                        println!(
-                            "  • {} — {} sites, {} apps",
-                            block.block_list_name,
-                            block.blocked_websites,
-                            block.blocked_apps
-                        );
+        Commands::Status => match client::send(IpcRequest::GetStatus).await {
+            Ok(IpcResponse::Status(status)) => {
+                println!("Focuser Service Status");
+                println!("══════════════════════");
+                println!("Running:          {}", status.running);
+                println!("Uptime:           {}s", status.uptime_seconds);
+                println!("Blocked today:    {}", status.total_blocked_today);
+                println!("Active blocks:    {}", status.active_blocks.len());
+                for block in &status.active_blocks {
+                    println!(
+                        "  • {} — {} sites, {} apps",
+                        block.block_list_name, block.blocked_websites, block.blocked_apps
+                    );
+                }
+            }
+            Ok(other) => println!("Unexpected: {other:?}"),
+            Err(e) => eprintln!("Error: {e}"),
+        },
+
+        Commands::List(sub) => match sub {
+            ListCommands::Show => match client::send(IpcRequest::ListBlockLists).await {
+                Ok(IpcResponse::BlockLists(lists)) => {
+                    if lists.is_empty() {
+                        println!("No block lists. Create one with: focuser list create <name>");
+                    } else {
+                        for list in &lists {
+                            let status = if list.enabled { "ON" } else { "OFF" };
+                            println!(
+                                "[{status}] {} (id: {})",
+                                list.name,
+                                &list.id.to_string()[..8]
+                            );
+                            for site in &list.websites {
+                                println!("      web: {:?}", site.match_type);
+                            }
+                            for app in &list.applications {
+                                println!("      app: {:?}", app.match_type);
+                            }
+                        }
                     }
                 }
                 Ok(other) => println!("Unexpected: {other:?}"),
                 Err(e) => eprintln!("Error: {e}"),
-            }
-        }
-
-        Commands::List(sub) => match sub {
-            ListCommands::Show => {
-                match client::send(IpcRequest::ListBlockLists).await {
-                    Ok(IpcResponse::BlockLists(lists)) => {
-                        if lists.is_empty() {
-                            println!("No block lists. Create one with: focuser list create <name>");
-                        } else {
-                            for list in &lists {
-                                let status = if list.enabled { "ON" } else { "OFF" };
-                                println!(
-                                    "[{status}] {} (id: {})",
-                                    list.name,
-                                    &list.id.to_string()[..8]
-                                );
-                                for site in &list.websites {
-                                    println!("      web: {:?}", site.match_type);
-                                }
-                                for app in &list.applications {
-                                    println!("      app: {:?}", app.match_type);
-                                }
-                            }
-                        }
-                    }
-                    Ok(other) => println!("Unexpected: {other:?}"),
-                    Err(e) => eprintln!("Error: {e}"),
-                }
-            }
+            },
 
             ListCommands::Create { name } => {
                 let list = BlockList::new(&name);
                 let id = list.id;
                 match client::send(IpcRequest::CreateBlockList(list)).await {
                     Ok(IpcResponse::Ok) => {
-                        println!("Created block list \"{name}\" (id: {})", &id.to_string()[..8]);
+                        println!(
+                            "Created block list \"{name}\" (id: {})",
+                            &id.to_string()[..8]
+                        );
                     }
                     Ok(IpcResponse::Error(e)) => eprintln!("Error: {e}"),
                     Ok(other) => println!("Unexpected: {other:?}"),
@@ -295,12 +290,10 @@ async fn main() -> Result<()> {
             }
         }
 
-        Commands::Shutdown => {
-            match client::send(IpcRequest::Shutdown).await {
-                Ok(_) => println!("Service shutting down."),
-                Err(e) => eprintln!("Error: {e}"),
-            }
-        }
+        Commands::Shutdown => match client::send(IpcRequest::Shutdown).await {
+            Ok(_) => println!("Service shutting down."),
+            Err(e) => eprintln!("Error: {e}"),
+        },
     }
 
     Ok(())

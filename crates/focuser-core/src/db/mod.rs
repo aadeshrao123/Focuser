@@ -15,8 +15,7 @@ pub struct Database {
 impl Database {
     /// Open (or create) the database at the given path.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let conn = Connection::open(path)
-            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = Connection::open(path).map_err(|e| FocuserError::Database(e.to_string()))?;
         let db = Self {
             conn: Mutex::new(conn),
         };
@@ -27,8 +26,8 @@ impl Database {
 
     /// Open an in-memory database (for testing).
     pub fn open_in_memory() -> Result<Self> {
-        let conn = Connection::open_in_memory()
-            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn =
+            Connection::open_in_memory().map_err(|e| FocuserError::Database(e.to_string()))?;
         let db = Self {
             conn: Mutex::new(conn),
         };
@@ -37,14 +36,20 @@ impl Database {
     }
 
     fn run_migrations(&self) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         migrations::run_all(&conn)
     }
 
     // ─── Block List CRUD ────────────────────────────────────
 
     pub fn create_block_list(&self, list: &BlockList) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let json = serde_json::to_string(list)?;
         conn.execute(
             "INSERT INTO block_lists (id, name, data, enabled, created_at, updated_at)
@@ -63,7 +68,10 @@ impl Database {
     }
 
     pub fn update_block_list(&self, list: &BlockList) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let json = serde_json::to_string(list)?;
         let rows = conn
             .execute(
@@ -85,7 +93,10 @@ impl Database {
     }
 
     pub fn delete_block_list(&self, id: EntityId) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let rows = conn
             .execute(
                 "DELETE FROM block_lists WHERE id = ?1",
@@ -99,7 +110,10 @@ impl Database {
     }
 
     pub fn get_block_list(&self, id: EntityId) -> Result<BlockList> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let json: String = conn
             .query_row(
                 "SELECT data FROM block_lists WHERE id = ?1",
@@ -117,7 +131,10 @@ impl Database {
     }
 
     pub fn list_block_lists(&self) -> Result<Vec<BlockList>> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let mut stmt = conn
             .prepare("SELECT data FROM block_lists ORDER BY created_at")
             .map_err(|e| FocuserError::Database(e.to_string()))?;
@@ -136,7 +153,10 @@ impl Database {
     // ─── Statistics ─────────────────────────────────────────
 
     pub fn record_blocked_attempt(&self, domain_or_app: &str) -> Result<()> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let today = chrono::Utc::now().date_naive().to_string();
         conn.execute(
             "INSERT INTO statistics (domain_or_app, blocked_attempts, date)
@@ -154,7 +174,10 @@ impl Database {
         from: chrono::NaiveDate,
         to: chrono::NaiveDate,
     ) -> Result<Vec<UsageStat>> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let mut stmt = conn
             .prepare(
                 "SELECT domain_or_app, duration_seconds, blocked_attempts, date
@@ -164,20 +187,17 @@ impl Database {
             )
             .map_err(|e| FocuserError::Database(e.to_string()))?;
         let stats = stmt
-            .query_map(
-                rusqlite::params![from.to_string(), to.to_string()],
-                |row| {
-                    Ok(UsageStat {
-                        domain_or_app: row.get(0)?,
-                        duration_seconds: row.get(1)?,
-                        blocked_attempts: row.get(2)?,
-                        date: row
-                            .get::<_, String>(3)?
-                            .parse()
-                            .unwrap_or(chrono::NaiveDate::default()),
-                    })
-                },
-            )
+            .query_map(rusqlite::params![from.to_string(), to.to_string()], |row| {
+                Ok(UsageStat {
+                    domain_or_app: row.get(0)?,
+                    duration_seconds: row.get(1)?,
+                    blocked_attempts: row.get(2)?,
+                    date: row
+                        .get::<_, String>(3)?
+                        .parse()
+                        .unwrap_or(chrono::NaiveDate::default()),
+                })
+            })
             .map_err(|e| FocuserError::Database(e.to_string()))?
             .filter_map(|r| r.ok())
             .collect();
@@ -185,7 +205,10 @@ impl Database {
     }
 
     pub fn get_total_blocked_today(&self) -> Result<u64> {
-        let conn = self.conn.lock().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         let today = chrono::Utc::now().date_naive().to_string();
         let count: u64 = conn
             .query_row(

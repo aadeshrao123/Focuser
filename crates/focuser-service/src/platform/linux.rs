@@ -1,5 +1,3 @@
-#![cfg(target_os = "linux")]
-
 use focuser_common::error::{FocuserError, Result};
 use focuser_common::platform::{PlatformBlocker, RunningProcess};
 use focuser_common::types::{AppRule, WebsiteRule};
@@ -18,9 +16,8 @@ impl LinuxBlocker {
     fn read_proc_processes() -> Result<Vec<RunningProcess>> {
         let mut processes = Vec::new();
 
-        let entries = std::fs::read_dir("/proc").map_err(|e| {
-            FocuserError::Platform(format!("Cannot read /proc: {e}"))
-        })?;
+        let entries = std::fs::read_dir("/proc")
+            .map_err(|e| FocuserError::Platform(format!("Cannot read /proc: {e}")))?;
 
         for entry in entries.flatten() {
             let name = entry.file_name();
@@ -50,7 +47,7 @@ impl LinuxBlocker {
     }
 
     fn kill_process(pid: u32) -> Result<()> {
-        use nix::sys::signal::{kill, Signal};
+        use nix::sys::signal::{Signal, kill};
         use nix::unistd::Pid;
 
         kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
@@ -95,10 +92,16 @@ impl PlatformBlocker for LinuxBlocker {
         let mut killed_any = false;
 
         for proc in &processes {
-            if rule.matches_process(&proc.name, proc.exe_path.as_deref(), proc.window_title.as_deref()) {
+            if rule.matches_process(
+                &proc.name,
+                proc.exe_path.as_deref(),
+                proc.window_title.as_deref(),
+            ) {
                 match Self::kill_process(proc.pid) {
                     Ok(()) => killed_any = true,
-                    Err(e) => warn!(pid = proc.pid, name = %proc.name, error = %e, "Failed to kill"),
+                    Err(e) => {
+                        warn!(pid = proc.pid, name = %proc.name, error = %e, "Failed to kill")
+                    }
                 }
             }
         }

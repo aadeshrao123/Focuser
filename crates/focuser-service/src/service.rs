@@ -6,7 +6,7 @@ use std::time::Instant;
 use anyhow::Result;
 use focuser_common::ipc::*;
 use focuser_core::BlockEngine;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{debug, error, info, warn};
 
 use crate::ipc;
@@ -39,9 +39,8 @@ impl FocuserService {
         let started_at = self.started_at;
 
         // IPC handler
-        let handler: ipc::RequestHandler = Box::new(move |request| {
-            handle_request(&engine, &started_at, request)
-        });
+        let handler: ipc::RequestHandler =
+            Box::new(move |request| handle_request(&engine, &started_at, request));
 
         // Spawn IPC server
         let ipc_handle = tokio::spawn(async move {
@@ -58,10 +57,10 @@ impl FocuserService {
                 tick.tick().await;
                 // In a full implementation, this would check running processes
                 // and kill blocked ones. For now, just refresh the engine cache.
-                if let Ok(mut eng) = engine_for_tick.lock() {
-                    if let Err(e) = eng.refresh() {
-                        warn!(error = %e, "Failed to refresh engine");
-                    }
+                if let Ok(mut eng) = engine_for_tick.lock()
+                    && let Err(e) = eng.refresh()
+                {
+                    warn!(error = %e, "Failed to refresh engine");
                 }
             }
         });

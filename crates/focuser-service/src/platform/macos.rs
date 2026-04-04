@@ -1,5 +1,3 @@
-#![cfg(target_os = "macos")]
-
 use focuser_common::error::{FocuserError, Result};
 use focuser_common::platform::{PlatformBlocker, RunningProcess};
 use focuser_common::types::{AppRule, WebsiteRule};
@@ -29,11 +27,7 @@ impl MacOsBlocker {
             if let Some(space_pos) = trimmed.find(' ') {
                 if let Ok(pid) = trimmed[..space_pos].trim().parse::<u32>() {
                     let name = trimmed[space_pos..].trim().to_string();
-                    let short_name = name
-                        .rsplit('/')
-                        .next()
-                        .unwrap_or(&name)
-                        .to_string();
+                    let short_name = name.rsplit('/').next().unwrap_or(&name).to_string();
 
                     processes.push(RunningProcess {
                         pid,
@@ -49,7 +43,7 @@ impl MacOsBlocker {
     }
 
     fn kill_process(pid: u32) -> Result<()> {
-        use nix::sys::signal::{kill, Signal};
+        use nix::sys::signal::{Signal, kill};
         use nix::unistd::Pid;
 
         kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
@@ -94,7 +88,11 @@ impl PlatformBlocker for MacOsBlocker {
         let mut killed_any = false;
 
         for proc in &processes {
-            if rule.matches_process(&proc.name, proc.exe_path.as_deref(), proc.window_title.as_deref()) {
+            if rule.matches_process(
+                &proc.name,
+                proc.exe_path.as_deref(),
+                proc.window_title.as_deref(),
+            ) {
                 match Self::kill_process(proc.pid) {
                     Ok(()) => killed_any = true,
                     Err(e) => warn!(pid = proc.pid, error = %e, "Failed to kill"),

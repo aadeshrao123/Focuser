@@ -1,9 +1,9 @@
 //! Tauri commands — called from the frontend, talk directly to the embedded engine.
 
-use std::sync::Arc;
-use focuser_common::types::*;
 use focuser_common::types::WebsiteMatchType;
+use focuser_common::types::*;
 use serde_json::Value;
+use std::sync::Arc;
 use tauri::State;
 
 use crate::AppState;
@@ -57,7 +57,9 @@ pub fn create_block_list(state: State<'_, Arc<AppState>>, name: String) -> Resul
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
     let list = BlockList::new(&name);
     let id = list.id.to_string();
-    eng.db().create_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .create_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "id": id }))
 }
@@ -66,7 +68,9 @@ pub fn create_block_list(state: State<'_, Arc<AppState>>, name: String) -> Resul
 pub fn update_block_list(state: State<'_, Arc<AppState>>, list_json: String) -> Result<(), String> {
     let list: BlockList = serde_json::from_str(&list_json).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(())
@@ -76,20 +80,28 @@ pub fn update_block_list(state: State<'_, Arc<AppState>>, list_json: String) -> 
 pub fn delete_block_list(state: State<'_, Arc<AppState>>, id: String) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
-    eng.db().delete_block_list(uuid).map_err(|e| e.to_string())?;
+    eng.db()
+        .delete_block_list(uuid)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(())
 }
 
 #[tauri::command]
-pub fn toggle_block_list(state: State<'_, Arc<AppState>>, id: String, enabled: bool) -> Result<(), String> {
+pub fn toggle_block_list(
+    state: State<'_, Arc<AppState>>,
+    id: String,
+    enabled: bool,
+) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.enabled = enabled;
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(())
@@ -117,7 +129,9 @@ pub fn add_website_rule(
     let rule_id = rule.id.to_string();
     list.websites.push(rule);
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(serde_json::json!({ "id": rule_id }))
@@ -134,7 +148,9 @@ pub fn remove_website_rule(
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.websites.retain(|r| r.id.to_string() != rule_id);
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(())
@@ -160,7 +176,9 @@ pub fn add_app_rule(
     let rule_id = rule.id.to_string();
     list.applications.push(rule);
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "id": rule_id }))
 }
@@ -176,7 +194,9 @@ pub fn remove_app_rule(
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.applications.retain(|r| r.id.to_string() != rule_id);
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -188,13 +208,20 @@ pub fn check_domain(state: State<'_, Arc<AppState>>, domain: String) -> Result<b
 }
 
 #[tauri::command]
-pub fn get_stats(state: State<'_, Arc<AppState>>, from: String, to: String) -> Result<Value, String> {
+pub fn get_stats(
+    state: State<'_, Arc<AppState>>,
+    from: String,
+    to: String,
+) -> Result<Value, String> {
     let from_date = chrono::NaiveDate::parse_from_str(&from, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date: {e}"))?;
     let to_date = chrono::NaiveDate::parse_from_str(&to, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date: {e}"))?;
     let eng = state.engine.lock().map_err(|e| e.to_string())?;
-    let stats = eng.db().get_stats(from_date, to_date).map_err(|e| e.to_string())?;
+    let stats = eng
+        .db()
+        .get_stats(from_date, to_date)
+        .map_err(|e| e.to_string())?;
     serde_json::to_value(stats).map_err(|e| e.to_string())
 }
 
@@ -233,16 +260,18 @@ pub fn bulk_import_websites(
     let mut added = 0u32;
     for d in &domains {
         let trimmed = d.trim().to_lowercase();
-        if trimmed.is_empty() || trimmed.starts_with('#') { continue; }
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
         // Skip duplicates
-        let already_exists = list.websites.iter().any(|r| {
-            match &r.match_type {
-                WebsiteMatchType::Domain(existing) => existing.to_lowercase() == trimmed,
-                WebsiteMatchType::Keyword(existing) => existing.to_lowercase() == trimmed,
-                _ => false,
-            }
+        let already_exists = list.websites.iter().any(|r| match &r.match_type {
+            WebsiteMatchType::Domain(existing) => existing.to_lowercase() == trimmed,
+            WebsiteMatchType::Keyword(existing) => existing.to_lowercase() == trimmed,
+            _ => false,
         });
-        if already_exists { continue; }
+        if already_exists {
+            continue;
+        }
 
         let rule = match rule_type.as_str() {
             "keyword" => WebsiteRule::keyword(&trimmed),
@@ -255,7 +284,9 @@ pub fn bulk_import_websites(
     }
 
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(serde_json::json!({ "added": added }))
@@ -285,7 +316,9 @@ pub fn add_exception(
     let exc_id = exc.id.to_string();
     list.exceptions.push(exc);
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(serde_json::json!({ "id": exc_id }))
@@ -303,7 +336,9 @@ pub fn remove_exception(
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.exceptions.retain(|e| e.id.to_string() != exception_id);
     list.updated_at = chrono::Utc::now();
-    eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
     sync_hosts_now(&eng);
     Ok(())
@@ -320,7 +355,9 @@ pub fn clear_all_websites(state: State<'_, Arc<AppState>>) -> Result<Value, Stri
             cleared += list.websites.len() as u32;
             list.websites.clear();
             list.updated_at = chrono::Utc::now();
-            eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+            eng.db()
+                .update_block_list(&list)
+                .map_err(|e| e.to_string())?;
         }
     }
     eng.refresh().map_err(|e| e.to_string())?;
@@ -339,7 +376,9 @@ pub fn clear_all_apps(state: State<'_, Arc<AppState>>) -> Result<Value, String> 
             cleared += list.applications.len() as u32;
             list.applications.clear();
             list.updated_at = chrono::Utc::now();
-            eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+            eng.db()
+                .update_block_list(&list)
+                .map_err(|e| e.to_string())?;
         }
     }
     eng.refresh().map_err(|e| e.to_string())?;
@@ -348,7 +387,10 @@ pub fn clear_all_apps(state: State<'_, Arc<AppState>>) -> Result<Value, String> 
 
 /// Export a block list as JSON.
 #[tauri::command]
-pub fn export_block_list(state: State<'_, Arc<AppState>>, list_id: String) -> Result<String, String> {
+pub fn export_block_list(
+    state: State<'_, Arc<AppState>>,
+    list_id: String,
+) -> Result<String, String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let eng = state.engine.lock().map_err(|e| e.to_string())?;
     let list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;

@@ -1,12 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod commands;
-mod blocker;
 mod api;
+mod blocker;
+mod commands;
 
-use std::sync::{Arc, Mutex};
 use directories::ProjectDirs;
 use focuser_core::{BlockEngine, Database};
+use std::sync::{Arc, Mutex};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -99,7 +99,9 @@ fn main() {
 #[cfg(windows)]
 fn is_elevated() -> bool {
     use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows::Win32::Security::{
+        GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+    };
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
     unsafe {
@@ -129,7 +131,11 @@ fn relaunch_elevated() {
     use std::os::windows::ffi::OsStrExt;
 
     let exe = std::env::current_exe().expect("Cannot get current exe path");
-    let exe_wide: Vec<u16> = exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+    let exe_wide: Vec<u16> = exe
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
 
     let verb: Vec<u16> = "runas\0".encode_utf16().collect();
 

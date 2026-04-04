@@ -19,10 +19,9 @@ pub fn run_all(conn: &Connection) -> Result<()> {
         )
         .unwrap_or(0);
 
-    let migrations: &[(&str, &str)] = &[
-        (
-            "v1: block_lists and statistics",
-            "CREATE TABLE IF NOT EXISTS block_lists (
+    let migrations: &[(&str, &str)] = &[(
+        "v1: block_lists and statistics",
+        "CREATE TABLE IF NOT EXISTS block_lists (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 data TEXT NOT NULL,
@@ -52,8 +51,7 @@ pub fn run_all(conn: &Connection) -> Result<()> {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );",
-        ),
-    ];
+    )];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
         let version = (i + 1) as i64;

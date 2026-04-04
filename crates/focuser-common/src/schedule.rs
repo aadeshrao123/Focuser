@@ -10,16 +10,12 @@ impl Schedule {
         }
         let now = Local::now();
         let current_day = now.weekday();
-        let current_time = NaiveTime::from_hms_opt(
-            now.hour(),
-            now.minute(),
-            now.second(),
-        )
-        .unwrap_or_default();
+        let current_time =
+            NaiveTime::from_hms_opt(now.hour(), now.minute(), now.second()).unwrap_or_default();
 
-        self.time_slots.iter().any(|slot| {
-            slot.day == current_day && slot.contains_time(current_time)
-        })
+        self.time_slots
+            .iter()
+            .any(|slot| slot.day == current_day && slot.contains_time(current_time))
     }
 }
 

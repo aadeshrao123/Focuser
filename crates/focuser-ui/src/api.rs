@@ -119,8 +119,16 @@ fn api_status(state: &AppState) -> (&'static str, String) {
     let eng = state.engine.lock().unwrap();
     let lists = eng.block_lists();
     let active_count = lists.iter().filter(|l| l.enabled).count();
-    let total_sites: usize = lists.iter().filter(|l| l.enabled).map(|l| l.websites.len()).sum();
-    let total_apps: usize = lists.iter().filter(|l| l.enabled).map(|l| l.applications.len()).sum();
+    let total_sites: usize = lists
+        .iter()
+        .filter(|l| l.enabled)
+        .map(|l| l.websites.len())
+        .sum();
+    let total_apps: usize = lists
+        .iter()
+        .filter(|l| l.enabled)
+        .map(|l| l.applications.len())
+        .sum();
     let blocked_today = eng.db().get_total_blocked_today().unwrap_or(0);
 
     let json = serde_json::json!({
@@ -135,15 +143,19 @@ fn api_status(state: &AppState) -> (&'static str, String) {
 
 fn api_lists(state: &AppState) -> (&'static str, String) {
     let eng = state.engine.lock().unwrap();
-    let lists: Vec<serde_json::Value> = eng.block_lists().iter().map(|l| {
-        serde_json::json!({
-            "id": l.id.to_string(),
-            "name": l.name,
-            "enabled": l.enabled,
-            "website_count": l.websites.len(),
-            "app_count": l.applications.len(),
+    let lists: Vec<serde_json::Value> = eng
+        .block_lists()
+        .iter()
+        .map(|l| {
+            serde_json::json!({
+                "id": l.id.to_string(),
+                "name": l.name,
+                "enabled": l.enabled,
+                "website_count": l.websites.len(),
+                "app_count": l.applications.len(),
+            })
         })
-    }).collect();
+        .collect();
     ("200 OK", serde_json::to_string(&lists).unwrap_or_default())
 }
 
@@ -179,7 +191,10 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
     let rule_type = parsed["rule_type"].as_str().unwrap_or("domain");
 
     if list_id.is_empty() || domain.is_empty() {
-        return ("400 Bad Request", r#"{"error":"list_id and domain required"}"#.into());
+        return (
+            "400 Bad Request",
+            r#"{"error":"list_id and domain required"}"#.into(),
+        );
     }
 
     let uuid = match uuid::Uuid::parse_str(list_id) {
@@ -205,7 +220,10 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
     list.updated_at = chrono::Utc::now();
 
     if let Err(e) = eng.db().update_block_list(&list) {
-        return ("500 Internal Server Error", format!(r#"{{"error":"{}"}}"#, e));
+        return (
+            "500 Internal Server Error",
+            format!(r#"{{"error":"{}"}}"#, e),
+        );
     }
     let _ = eng.refresh();
     crate::commands::sync_hosts_now_static(&eng);
@@ -225,7 +243,10 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
 
     // Support removal by rule_id OR by domain name
     if list_id.is_empty() || (rule_id.is_empty() && domain.is_empty()) {
-        return ("400 Bad Request", r#"{"error":"list_id and (rule_id or domain) required"}"#.into());
+        return (
+            "400 Bad Request",
+            r#"{"error":"list_id and (rule_id or domain) required"}"#.into(),
+        );
     }
 
     let uuid = match uuid::Uuid::parse_str(list_id) {
@@ -243,17 +264,18 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
         list.websites.retain(|r| r.id.to_string() != rule_id);
     } else if !domain.is_empty() {
         let domain_lower = domain.to_lowercase();
-        list.websites.retain(|r| {
-            match &r.match_type {
-                focuser_common::types::WebsiteMatchType::Domain(d) => d.to_lowercase() != domain_lower,
-                _ => true,
-            }
+        list.websites.retain(|r| match &r.match_type {
+            focuser_common::types::WebsiteMatchType::Domain(d) => d.to_lowercase() != domain_lower,
+            _ => true,
         });
     }
     list.updated_at = chrono::Utc::now();
 
     if let Err(e) = eng.db().update_block_list(&list) {
-        return ("500 Internal Server Error", format!(r#"{{"error":"{}"}}"#, e));
+        return (
+            "500 Internal Server Error",
+            format!(r#"{{"error":"{}"}}"#, e),
+        );
     }
     let _ = eng.refresh();
     crate::commands::sync_hosts_now_static(&eng);
@@ -285,7 +307,10 @@ fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {
     list.updated_at = chrono::Utc::now();
 
     if let Err(e) = eng.db().update_block_list(&list) {
-        return ("500 Internal Server Error", format!(r#"{{"error":"{}"}}"#, e));
+        return (
+            "500 Internal Server Error",
+            format!(r#"{{"error":"{}"}}"#, e),
+        );
     }
     let _ = eng.refresh();
     crate::commands::sync_hosts_now_static(&eng);

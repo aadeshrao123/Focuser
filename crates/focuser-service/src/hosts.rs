@@ -33,14 +33,15 @@ pub fn apply_blocks(domains: &[String]) -> Result<()> {
     let path = hosts_file_path();
     info!(count = domains.len(), path, "Applying hosts file blocks");
 
-    let content = fs::read_to_string(path).map_err(|e| {
-        FocuserError::Platform(format!("Cannot read hosts file at {path}: {e}"))
-    })?;
+    let content = fs::read_to_string(path)
+        .map_err(|e| FocuserError::Platform(format!("Cannot read hosts file at {path}: {e}")))?;
 
     let new_content = replace_focuser_section(&content, domains);
 
     fs::write(path, &new_content).map_err(|e| {
-        FocuserError::Platform(format!("Cannot write hosts file at {path}: {e}. Run as admin/root."))
+        FocuserError::Platform(format!(
+            "Cannot write hosts file at {path}: {e}. Run as admin/root."
+        ))
     })?;
 
     // Flush DNS cache
@@ -55,9 +56,8 @@ pub fn remove_all_blocks() -> Result<()> {
     let path = hosts_file_path();
     info!(path, "Removing all hosts file blocks");
 
-    let content = fs::read_to_string(path).map_err(|e| {
-        FocuserError::Platform(format!("Cannot read hosts file: {e}"))
-    })?;
+    let content = fs::read_to_string(path)
+        .map_err(|e| FocuserError::Platform(format!("Cannot read hosts file: {e}")))?;
 
     let new_content = replace_focuser_section(&content, &[]);
 
@@ -72,9 +72,8 @@ pub fn remove_all_blocks() -> Result<()> {
 /// Check if a domain is currently blocked in the hosts file.
 pub fn is_domain_blocked(domain: &str) -> Result<bool> {
     let path = hosts_file_path();
-    let content = fs::read_to_string(path).map_err(|e| {
-        FocuserError::Platform(format!("Cannot read hosts file: {e}"))
-    })?;
+    let content = fs::read_to_string(path)
+        .map_err(|e| FocuserError::Platform(format!("Cannot read hosts file: {e}")))?;
 
     let domain_lower = domain.to_lowercase();
     Ok(content.lines().any(|line| {
@@ -178,9 +177,8 @@ mod tests {
 
     #[test]
     fn test_replace_existing_section() {
-        let content = format!(
-            "127.0.0.1 localhost\n{FOCUSER_BEGIN}\n127.0.0.1 old.com\n{FOCUSER_END}\n"
-        );
+        let content =
+            format!("127.0.0.1 localhost\n{FOCUSER_BEGIN}\n127.0.0.1 old.com\n{FOCUSER_END}\n");
         let domains = vec!["new.com".into()];
         let result = replace_focuser_section(&content, &domains);
 
@@ -190,9 +188,8 @@ mod tests {
 
     #[test]
     fn test_remove_all() {
-        let content = format!(
-            "127.0.0.1 localhost\n{FOCUSER_BEGIN}\n127.0.0.1 blocked.com\n{FOCUSER_END}\n"
-        );
+        let content =
+            format!("127.0.0.1 localhost\n{FOCUSER_BEGIN}\n127.0.0.1 blocked.com\n{FOCUSER_END}\n");
         let result = replace_focuser_section(&content, &[]);
 
         assert!(!result.contains("blocked.com"));
