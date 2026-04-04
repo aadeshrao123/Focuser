@@ -139,10 +139,19 @@ mod tests {
         }
     }
 
+    /// Get a Chrome process name that matches the current platform.
+    fn chrome_name() -> &'static str {
+        focuser_common::browser::KNOWN_BROWSERS
+            .iter()
+            .find(|b| b.browser_type == BrowserType::Chrome)
+            .unwrap()
+            .exe_names[0]
+    }
+
     #[test]
     fn test_no_active_blocks_returns_empty() {
         let mut enf = BrowserEnforcement::new(60, true);
-        let processes = vec![make_process("chrome.exe", 100)];
+        let processes = vec![make_process(chrome_name(), 100)];
         let connected = HashSet::new();
 
         let result = enf.evaluate(&processes, &connected, false);
@@ -152,7 +161,7 @@ mod tests {
     #[test]
     fn test_disabled_returns_empty() {
         let mut enf = BrowserEnforcement::new(60, false);
-        let processes = vec![make_process("chrome.exe", 100)];
+        let processes = vec![make_process(chrome_name(), 100)];
         let connected = HashSet::new();
 
         let result = enf.evaluate(&processes, &connected, true);
@@ -162,7 +171,7 @@ mod tests {
     #[test]
     fn test_connected_browser_not_killed() {
         let mut enf = BrowserEnforcement::new(0, true); // 0 grace = immediate
-        let processes = vec![make_process("chrome.exe", 100)];
+        let processes = vec![make_process(chrome_name(), 100)];
         let mut connected = HashSet::new();
         connected.insert(BrowserType::Chrome);
 
@@ -173,7 +182,7 @@ mod tests {
     #[test]
     fn test_grace_period_starts_then_kills() {
         let mut enf = BrowserEnforcement::new(0, true); // 0-second grace
-        let processes = vec![make_process("chrome.exe", 100)];
+        let processes = vec![make_process(chrome_name(), 100)];
         let connected = HashSet::new();
 
         // First call: starts grace period
@@ -198,7 +207,7 @@ mod tests {
     #[test]
     fn test_grace_remaining() {
         let mut enf = BrowserEnforcement::new(60, true);
-        let processes = vec![make_process("chrome.exe", 100)];
+        let processes = vec![make_process(chrome_name(), 100)];
         let connected = HashSet::new();
 
         // Start grace period
