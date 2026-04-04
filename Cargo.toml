@@ -5,6 +5,7 @@ members = [
     "crates/focuser-core",
     "crates/focuser-service",
     "crates/focuser-cli",
+    "crates/focuser-native",
     "crates/focuser-ui",
 ]
 

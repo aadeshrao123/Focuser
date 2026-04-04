@@ -116,16 +116,17 @@ pub enum ExtensionEvent {
     /// Extension is requesting the current rule set (e.g., on startup).
     RequestRules,
     /// Extension is disconnecting.
-    Disconnected,
+    Disconnected { browser: BrowserType },
 }
 
 /// Which browser the extension is running in.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BrowserType {
     Chrome,
     Firefox,
     Edge,
     Brave,
+    Opera,
     Other(String),
 }
 

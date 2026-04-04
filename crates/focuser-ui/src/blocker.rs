@@ -1,19 +1,55 @@
-//! Background blocking loop — syncs hosts file and kills blocked processes.
+//! Background blocking loop — syncs hosts file, kills blocked processes,
+//! and enforces browser extension installation.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
-use tracing::info;
+use std::time::{Duration, Instant};
+
+use focuser_common::browser::identify_browser;
+use focuser_common::extension::BrowserType;
+use tracing::{info, warn};
 
 use crate::AppState;
 
 const HOSTS_BEGIN: &str = "# ──── BEGIN FOCUSER BLOCK ────";
 const HOSTS_END: &str = "# ──── END FOCUSER BLOCK ────";
 
+/// Default grace period before killing browsers without the extension.
+const DEFAULT_GRACE_PERIOD_SECS: u64 = 60;
+
 /// Runs the blocking loop in a background thread.
-/// Every 3 seconds: re-sync hosts file and check for blocked processes.
+/// Every 3 seconds: re-sync hosts file, check for blocked processes,
+/// and enforce browser extension installation.
 pub fn run_blocking_loop(state: Arc<AppState>) {
     info!("Background blocker started");
+
+    // Browser enforcement state
+    let mut grace_periods: HashMap<BrowserType, Instant> = HashMap::new();
+
+    // Read settings
+    let (grace_secs, enforce_enabled) = {
+        let eng = state.engine.lock().unwrap();
+        let grace = eng
+            .db()
+            .get_setting_or_default("extension_grace_period", "60")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse::<u64>()
+            .unwrap_or(DEFAULT_GRACE_PERIOD_SECS);
+        let enabled = eng
+            .db()
+            .get_setting_or_default("block_unsupported_browsers", "true")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true);
+        (grace, enabled)
+    };
+    let grace_duration = Duration::from_secs(grace_secs);
+
+    if enforce_enabled {
+        info!(grace_secs, "Browser extension enforcement enabled");
+    }
+
     loop {
         thread::sleep(Duration::from_secs(3));
 
@@ -27,6 +63,12 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 
             // Kill blocked processes
             kill_blocked_processes(&eng);
+
+            // Browser extension enforcement
+            if enforce_enabled {
+                let has_active_blocks = eng.block_lists().iter().any(|l| l.enabled);
+                enforce_browser_extension(has_active_blocks, grace_duration, &mut grace_periods);
+            }
         }
     }
 }
@@ -127,6 +169,149 @@ fn kill_blocked_processes_windows(eng: &focuser_core::BlockEngine) {
 
         let _ = CloseHandle(snapshot);
     }
+}
+
+/// Enforce browser extension installation.
+///
+/// If active blocks exist and a browser is running without the Focuser extension
+/// connected, start a grace period. After the grace period expires, kill the browser.
+///
+/// Note: Since the Tauri app communicates with the extension via HTTP API (port 17549),
+/// we track connected extensions via a simple "has the extension polled recently" check.
+/// The extension polls /api/rules every 2 seconds. If no poll in 10 seconds, it's gone.
+fn enforce_browser_extension(
+    has_active_blocks: bool,
+    grace_duration: Duration,
+    grace_periods: &mut HashMap<BrowserType, Instant>,
+) {
+    if !has_active_blocks {
+        grace_periods.clear();
+        return;
+    }
+
+    // For now, the extension connects via HTTP — we can't easily distinguish which
+    // browser's extension is connected. So we check if ANY extension is connected
+    // by seeing if the API server has been polled recently.
+    // The native messaging host (focuser-native) will send Connected events in the future.
+    //
+    // Current strategy: detect running browsers and enforce after grace period.
+    // Extension connection tracking will be enhanced when native messaging is active.
+
+    #[cfg(windows)]
+    enforce_browser_extension_windows(has_active_blocks, grace_duration, grace_periods);
+}
+
+#[cfg(windows)]
+fn enforce_browser_extension_windows(
+    _has_active_blocks: bool,
+    grace_duration: Duration,
+    grace_periods: &mut HashMap<BrowserType, Instant>,
+) {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::*;
+    use windows::Win32::System::Threading::*;
+
+    let now = Instant::now();
+
+    // Enumerate processes and find browsers
+    let mut running_browsers: HashMap<BrowserType, Vec<u32>> = HashMap::new();
+
+    unsafe {
+        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            Ok(h) => h,
+            Err(_) => return,
+        };
+
+        let mut entry = PROCESSENTRY32 {
+            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
+            ..Default::default()
+        };
+
+        if Process32First(snapshot, &mut entry).is_ok() {
+            loop {
+                let name: String = entry
+                    .szExeFile
+                    .iter()
+                    .take_while(|&&c| c != 0)
+                    .map(|&c| c as u8 as char)
+                    .collect();
+
+                if let Some(browser_info) = identify_browser(&name) {
+                    let pid = entry.th32ProcessID;
+                    if pid > 4 && pid != std::process::id() {
+                        running_browsers
+                            .entry(browser_info.browser_type.clone())
+                            .or_default()
+                            .push(pid);
+                    }
+                }
+
+                if Process32Next(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+
+        let _ = CloseHandle(snapshot);
+    }
+
+    // Check which browsers have a connected extension (polled API within last 10 seconds)
+    let connected_extensions = crate::api::get_connected_browsers(10);
+
+    // Check each running browser
+    for (browser_type, pids) in &running_browsers {
+        if connected_extensions.contains(browser_type) {
+            grace_periods.remove(browser_type);
+            continue;
+        }
+
+        match grace_periods.get(browser_type) {
+            None => {
+                // Start grace period
+                warn!(
+                    browser = ?browser_type,
+                    grace_secs = grace_duration.as_secs(),
+                    "Browser running without Focuser extension — grace period started"
+                );
+                grace_periods.insert(browser_type.clone(), now);
+            }
+            Some(started_at) => {
+                if now.duration_since(*started_at) >= grace_duration {
+                    // Grace expired — kill browser
+                    info!(
+                        browser = ?browser_type,
+                        pid_count = pids.len(),
+                        "Grace period expired — terminating browser without extension"
+                    );
+
+                    for &pid in pids {
+                        unsafe {
+                            if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                                let _ = TerminateProcess(handle, 1);
+                                let _ = CloseHandle(handle);
+                            }
+                        }
+                    }
+
+                    // Show the Focuser app with "install extension" prompt
+                    let browser_name = focuser_common::browser::KNOWN_BROWSERS
+                        .iter()
+                        .find(|b| b.browser_type == *browser_type)
+                        .map(|b| b.display_name)
+                        .unwrap_or("your browser");
+                    crate::api::set_killed_browser(browser_name);
+                    crate::api::SHOW_WINDOW_REQUESTED
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+
+                    // Reset so grace restarts if browser is relaunched
+                    grace_periods.remove(browser_type);
+                }
+            }
+        }
+    }
+
+    // Clean up grace periods for browsers no longer running
+    grace_periods.retain(|bt, _| running_browsers.contains_key(bt));
 }
 
 fn hosts_path() -> String {

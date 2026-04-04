@@ -9,11 +9,11 @@
     "webRequest",
     "webNavigation",
     "scripting",
-    "storage"
+    "storage",
+    "nativeMessaging"
   ],
   "host_permissions": [
-    "<all_urls>",
-    "http://127.0.0.1:17549/*"
+    "<all_urls>"
   ],
   "background": {
     "scripts": ["background.js"]

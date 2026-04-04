@@ -150,6 +150,47 @@ impl Database {
         Ok(lists)
     }
 
+    // ─── Settings ───────────────────────────────────────────
+
+    /// Get a setting value by key.
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        match conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            rusqlite::params![key],
+            |row| row.get(0),
+        ) {
+            Ok(value) => Ok(Some(value)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(FocuserError::Database(e.to_string())),
+        }
+    }
+
+    /// Set a setting value (upsert).
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = ?2",
+            rusqlite::params![key, value],
+        )
+        .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Get a setting value, returning a default if not set.
+    pub fn get_setting_or_default(&self, key: &str, default: &str) -> Result<String> {
+        Ok(self
+            .get_setting(key)?
+            .unwrap_or_else(|| default.to_string()))
+    }
+
     // ─── Statistics ─────────────────────────────────────────
 
     pub fn record_blocked_attempt(&self, domain_or_app: &str) -> Result<()> {
@@ -241,6 +282,25 @@ mod tests {
         db.delete_block_list(list.id).unwrap();
         let all = db.list_block_lists().unwrap();
         assert_eq!(all.len(), 0);
+    }
+
+    #[test]
+    fn test_settings() {
+        let db = Database::open_in_memory().unwrap();
+
+        // Not set → None
+        assert_eq!(db.get_setting("missing").unwrap(), None);
+
+        // Default fallback
+        assert_eq!(db.get_setting_or_default("missing", "42").unwrap(), "42");
+
+        // Set and get
+        db.set_setting("grace_period", "60").unwrap();
+        assert_eq!(db.get_setting("grace_period").unwrap(), Some("60".into()));
+
+        // Upsert
+        db.set_setting("grace_period", "120").unwrap();
+        assert_eq!(db.get_setting("grace_period").unwrap(), Some("120".into()));
     }
 
     #[test]

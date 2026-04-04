@@ -1,3 +1,4 @@
+mod enforcement;
 mod hosts;
 mod ipc;
 mod platform;

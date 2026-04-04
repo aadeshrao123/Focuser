@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::browser::BrowserStatusInfo;
 use crate::extension::{BlockingCapabilities, ExtensionEvent, ExtensionRuleSet};
 use crate::types::{BlockList, EntityId, UsageStat};
 
@@ -48,13 +49,21 @@ pub enum IpcRequest {
     /// Get blocked attempt count.
     GetBlockedAttempts,
 
-    // ─── Extension ───────────────────────────────────────────
+    // ─── Settings ────────────────────────────────────────────
+    /// Get a setting value by key.
+    GetSetting(String),
+    /// Set a setting value.
+    SetSetting { key: String, value: String },
+
+    // ─── Extension ──────────────────────────────────���────────
     /// Get the compiled rule set for the browser extension.
     GetExtensionRules,
     /// Report an event from the browser extension.
     ExtensionEvent(ExtensionEvent),
     /// Get current blocking capabilities (what's available).
     GetCapabilities,
+    /// Get status of all detected browsers and their extension state.
+    GetBrowserStatus,
 
     // ─── Service control ────────────────────────────────────
     /// Ping — check if service is alive.
@@ -84,10 +93,14 @@ pub enum IpcResponse {
     Stats(Vec<UsageStat>),
     /// Blocked attempt count.
     BlockedAttempts(u64),
+    /// Setting value (None if not set).
+    Setting(Option<String>),
     /// Compiled rules for the browser extension.
     ExtensionRules(ExtensionRuleSet),
     /// Current blocking capabilities.
     Capabilities(BlockingCapabilities),
+    /// Browser detection and extension status.
+    BrowserStatus(Vec<BrowserStatusInfo>),
     /// Pong response.
     Pong,
 }

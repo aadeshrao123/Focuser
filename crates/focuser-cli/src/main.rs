@@ -42,6 +42,9 @@ enum Commands {
         to: Option<String>,
     },
 
+    /// Show detected browsers and extension status.
+    Browsers,
+
     /// Stop the service.
     Shutdown,
 }
@@ -289,6 +292,32 @@ async fn main() -> Result<()> {
                 Err(e) => eprintln!("Error: {e}"),
             }
         }
+
+        Commands::Browsers => match client::send(IpcRequest::GetBrowserStatus).await {
+            Ok(IpcResponse::BrowserStatus(statuses)) => {
+                println!("Browser Status");
+                println!("══════════════════════════════════════════════════════");
+                for s in &statuses {
+                    let running = if s.is_running { "RUNNING" } else { "       " };
+                    let ext = if s.extension_connected {
+                        "CONNECTED".to_string()
+                    } else if s.is_running {
+                        match s.grace_period_remaining_secs {
+                            Some(secs) => format!("MISSING (grace: {secs}s)"),
+                            None => "MISSING".to_string(),
+                        }
+                    } else {
+                        "-".to_string()
+                    };
+                    println!(
+                        "  {:<18} {:<10} Extension: {}",
+                        s.display_name, running, ext
+                    );
+                }
+            }
+            Ok(other) => println!("Unexpected: {other:?}"),
+            Err(e) => eprintln!("Error: {e}"),
+        },
 
         Commands::Shutdown => match client::send(IpcRequest::Shutdown).await {
             Ok(_) => println!("Service shutting down."),

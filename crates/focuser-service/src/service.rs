@@ -1,9 +1,11 @@
 //! Main service loop — ties together the blocking engine, IPC, and platform blocker.
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use anyhow::Result;
+use focuser_common::extension::BrowserType;
 use focuser_common::ipc::*;
 use focuser_core::BlockEngine;
 use tokio::time::{Duration, interval};
@@ -12,19 +14,59 @@ use tracing::{debug, error, info, warn};
 use crate::ipc;
 use crate::platform;
 
+/// Tracks a connected browser extension.
+#[allow(dead_code)]
+pub(crate) struct ExtensionConnection {
+    browser: BrowserType,
+    extension_version: String,
+    connected_at: Instant,
+    last_seen: Instant,
+}
+
+/// Shared extension connection state.
+pub(crate) type ExtensionConnections = Arc<Mutex<HashMap<BrowserType, ExtensionConnection>>>;
+
 pub struct FocuserService {
     engine: Arc<Mutex<BlockEngine>>,
-    blocker: Box<dyn focuser_common::platform::PlatformBlocker>,
+    blocker: Arc<dyn focuser_common::platform::PlatformBlocker>,
     started_at: Instant,
+    extension_connections: ExtensionConnections,
+    enforcement: Arc<Mutex<crate::enforcement::BrowserEnforcement>>,
 }
 
 impl FocuserService {
     pub fn new(engine: BlockEngine) -> Result<Self> {
-        let blocker = platform::create_blocker();
+        let blocker: Arc<dyn focuser_common::platform::PlatformBlocker> =
+            Arc::from(platform::create_blocker());
+
+        // Read enforcement settings
+        let grace_seconds = engine
+            .db()
+            .get_setting_or_default("extension_grace_period", "60")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse::<u64>()
+            .unwrap_or(60);
+        let enforce_browsers = engine
+            .db()
+            .get_setting_or_default("block_unsupported_browsers", "true")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true);
+
+        info!(
+            grace_seconds,
+            enforce_browsers, "Browser enforcement settings loaded"
+        );
+
         Ok(Self {
             engine: Arc::new(Mutex::new(engine)),
             blocker,
             started_at: Instant::now(),
+            extension_connections: Arc::new(Mutex::new(HashMap::new())),
+            enforcement: Arc::new(Mutex::new(crate::enforcement::BrowserEnforcement::new(
+                grace_seconds,
+                enforce_browsers,
+            ))),
         })
     }
 
@@ -34,13 +76,24 @@ impl FocuserService {
         // Apply initial blocks
         self.apply_website_blocks();
 
-        // Clone engine for IPC handler
+        // Clone references for IPC handler
         let engine = Arc::clone(&self.engine);
         let started_at = self.started_at;
+        let ext_conns = Arc::clone(&self.extension_connections);
+        let blocker_for_ipc = Arc::clone(&self.blocker);
+        let enforcement_for_ipc = Arc::clone(&self.enforcement);
 
         // IPC handler
-        let handler: ipc::RequestHandler =
-            Box::new(move |request| handle_request(&engine, &started_at, request));
+        let handler: ipc::RequestHandler = Box::new(move |request| {
+            handle_request(
+                &engine,
+                &started_at,
+                &ext_conns,
+                &blocker_for_ipc,
+                &enforcement_for_ipc,
+                request,
+            )
+        });
 
         // Spawn IPC server
         let ipc_handle = tokio::spawn(async move {
@@ -49,18 +102,63 @@ impl FocuserService {
             }
         });
 
-        // Spawn app blocker tick loop
+        // Spawn tick loop: engine refresh + browser enforcement
         let engine_for_tick = Arc::clone(&self.engine);
+        let ext_conns_for_tick = Arc::clone(&self.extension_connections);
+        let blocker_for_tick = Arc::clone(&self.blocker);
+        let enforcement_for_tick = Arc::clone(&self.enforcement);
+
         let tick_handle = tokio::spawn(async move {
             let mut tick = interval(Duration::from_secs(2));
             loop {
                 tick.tick().await;
-                // In a full implementation, this would check running processes
-                // and kill blocked ones. For now, just refresh the engine cache.
-                #[allow(clippy::collapsible_if)]
-                if let Ok(mut eng) = engine_for_tick.lock() {
-                    if let Err(e) = eng.refresh() {
-                        warn!(error = %e, "Failed to refresh engine");
+
+                // Refresh engine cache
+                if let Ok(mut eng) = engine_for_tick.lock()
+                    && let Err(e) = eng.refresh()
+                {
+                    warn!(error = %e, "Failed to refresh engine");
+                }
+
+                // Browser enforcement: detect browsers without extension
+                let processes = match blocker_for_tick.list_running_processes() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        debug!(error = %e, "Failed to list processes for enforcement");
+                        continue;
+                    }
+                };
+
+                let connected: std::collections::HashSet<BrowserType> = {
+                    let conns = ext_conns_for_tick.lock().unwrap();
+                    conns.keys().cloned().collect()
+                };
+
+                let has_active_blocks = {
+                    let eng = engine_for_tick.lock().unwrap();
+                    eng.block_lists().iter().any(|l| l.enabled)
+                };
+
+                let pids_to_kill = {
+                    let mut enf = enforcement_for_tick.lock().unwrap();
+                    enf.evaluate(&processes, &connected, has_active_blocks)
+                };
+
+                // Deduplicate by exe name — kill_blocked_app kills all matching processes
+                let mut killed_names = std::collections::HashSet::new();
+                for pid in pids_to_kill {
+                    let name = processes
+                        .iter()
+                        .find(|p| p.pid == pid)
+                        .map(|p| p.name.as_str())
+                        .unwrap_or("unknown");
+
+                    if killed_names.insert(name.to_string()) {
+                        info!(name, "Terminating browser without Focuser extension");
+                        let rule = focuser_common::types::AppRule::executable(name);
+                        if let Err(e) = blocker_for_tick.kill_blocked_app(&rule) {
+                            warn!(name, error = %e, "Failed to terminate browser");
+                        }
                     }
                 }
             }
@@ -105,6 +203,9 @@ impl FocuserService {
 fn handle_request(
     engine: &Arc<Mutex<BlockEngine>>,
     started_at: &Instant,
+    ext_conns: &ExtensionConnections,
+    blocker: &Arc<dyn focuser_common::platform::PlatformBlocker>,
+    enforcement: &Arc<Mutex<crate::enforcement::BrowserEnforcement>>,
     request: IpcRequest,
 ) -> IpcResponse {
     match request {
@@ -220,6 +321,22 @@ fn handle_request(
             }
         }
 
+        IpcRequest::GetSetting(key) => {
+            let eng = engine.lock().unwrap();
+            match eng.db().get_setting(&key) {
+                Ok(value) => IpcResponse::Setting(value),
+                Err(e) => IpcResponse::Error(e.to_string()),
+            }
+        }
+
+        IpcRequest::SetSetting { key, value } => {
+            let eng = engine.lock().unwrap();
+            match eng.db().set_setting(&key, &value) {
+                Ok(()) => IpcResponse::Ok,
+                Err(e) => IpcResponse::Error(e.to_string()),
+            }
+        }
+
         IpcRequest::GetBlockedAttempts => {
             let eng = engine.lock().unwrap();
             match eng.db().get_total_blocked_today() {
@@ -279,6 +396,39 @@ fn handle_request(
         IpcRequest::ExtensionEvent(event) => {
             info!(event = ?event, "Extension event received");
             match event {
+                focuser_common::extension::ExtensionEvent::Connected {
+                    browser,
+                    extension_version,
+                } => {
+                    info!(
+                        browser = ?browser,
+                        version = %extension_version,
+                        "Browser extension connected"
+                    );
+                    let now = Instant::now();
+                    let mut conns = ext_conns.lock().unwrap();
+                    conns.insert(
+                        browser.clone(),
+                        ExtensionConnection {
+                            browser,
+                            extension_version,
+                            connected_at: now,
+                            last_seen: now,
+                        },
+                    );
+                    IpcResponse::Ok
+                }
+                focuser_common::extension::ExtensionEvent::Disconnected { browser } => {
+                    info!(browser = ?browser, "Browser extension disconnected");
+                    let mut conns = ext_conns.lock().unwrap();
+                    conns.remove(&browser);
+                    IpcResponse::Ok
+                }
+                focuser_common::extension::ExtensionEvent::RequestRules => {
+                    let eng = engine.lock().unwrap();
+                    let rules = eng.compile_extension_rules();
+                    IpcResponse::ExtensionRules(rules)
+                }
                 focuser_common::extension::ExtensionEvent::Blocked { url, .. } => {
                     // Extract domain from URL for stats
                     let domain = url
@@ -288,27 +438,63 @@ fn handle_request(
                         .unwrap_or(&url);
                     let eng = engine.lock().unwrap();
                     let _ = eng.record_blocked(domain);
+                    IpcResponse::Ok
                 }
                 focuser_common::extension::ExtensionEvent::UsageReport {
                     domain, seconds, ..
                 } => {
                     debug!(domain = %domain, seconds, "Usage report from extension");
                     // TODO: store usage duration in stats table
+                    IpcResponse::Ok
                 }
-                _ => {}
             }
-            IpcResponse::Ok
         }
 
         IpcRequest::GetCapabilities => {
             let hosts_ok = crate::hosts::is_domain_blocked("localhost").is_ok();
-            // TODO: track connected extensions in service state
+            let conns = ext_conns.lock().unwrap();
+            let connected_browsers: Vec<BrowserType> = conns.keys().cloned().collect();
             let caps = focuser_common::extension::BlockingCapabilities {
                 hosts_file: hosts_ok,
-                extension_connected: false,
-                connected_browsers: vec![],
+                extension_connected: !connected_browsers.is_empty(),
+                connected_browsers,
             };
             IpcResponse::Capabilities(caps)
+        }
+
+        IpcRequest::GetBrowserStatus => {
+            let processes = blocker.list_running_processes().unwrap_or_default();
+            let conns = ext_conns.lock().unwrap();
+            let enf = enforcement.lock().unwrap();
+
+            // Collect status for all known browsers
+            let mut statuses: Vec<focuser_common::browser::BrowserStatusInfo> = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+
+            for browser_info in focuser_common::browser::KNOWN_BROWSERS {
+                let bt = &browser_info.browser_type;
+                if !seen.insert(bt.clone()) {
+                    continue;
+                }
+
+                let is_running = processes.iter().any(|p| {
+                    focuser_common::browser::identify_browser(&p.name)
+                        .is_some_and(|b| b.browser_type == *bt)
+                });
+
+                let extension_connected = conns.contains_key(bt);
+                let grace_remaining = enf.grace_remaining(bt);
+
+                statuses.push(focuser_common::browser::BrowserStatusInfo {
+                    browser_type: bt.clone(),
+                    display_name: browser_info.display_name.to_string(),
+                    is_running,
+                    extension_connected,
+                    grace_period_remaining_secs: grace_remaining,
+                });
+            }
+
+            IpcResponse::BrowserStatus(statuses)
         }
 
         IpcRequest::Shutdown => {

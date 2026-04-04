@@ -5,10 +5,16 @@
  * 1. onBeforeNavigate: inject CSS to immediately hide page (no flash)
  * 2. onCommitted: inject content script to replace page with block page
  * URL bar stays as the original blocked domain — clean!
+ *
+ * Communication:
+ * - Primary: Native Messaging via com.focuser.native host binary
+ * - Fallback: HTTP polling to localhost:17549 (for development/when native host not installed)
  */
 
+var NATIVE_HOST_NAME = 'com.focuser.native';
 var API_BASE = 'http://127.0.0.1:17549';
 var POLL_INTERVAL_MS = 2000;
+var RECONNECT_DELAY_MS = 5000;
 
 var currentRules = null;
 var blockedDomains = new Set();
@@ -18,31 +24,120 @@ var blockedUrlPaths = [];
 var blockEntireInternet = false;
 var allowedDomains = new Set();
 
+var nativePort = null;
+var useNativeMessaging = true;
 
-// ─── API ────────────────────────────────────────────────────────────
 
-async function apiGet(path) {
+// ─── Native Messaging ──────────────────────────────────────────────
+
+function connectNative() {
   try {
-    var resp = await fetch(API_BASE + path);
-    return resp.ok ? await resp.json() : null;
-  } catch (e) { return null; }
-}
+    nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
 
-async function apiPost(path, body) {
-  try {
-    var resp = await fetch(API_BASE + path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    nativePort.onMessage.addListener(function(msg) {
+      if (msg.msg_type === 'RuleUpdate' && msg.payload) {
+        applyRules(msg.payload);
+      } else if (msg.msg_type === 'Pong') {
+        // Heartbeat response
+      }
     });
-    return resp.ok ? await resp.json() : null;
-  } catch (e) { return null; }
+
+    nativePort.onDisconnect.addListener(function() {
+      var err = chrome.runtime.lastError;
+      if (err) {
+        console.log('Focuser: Native host disconnected:', err.message);
+      }
+      nativePort = null;
+
+      // If native messaging fails, fall back to HTTP polling
+      if (useNativeMessaging) {
+        useNativeMessaging = false;
+        console.log('Focuser: Falling back to HTTP polling');
+        startHttpPolling();
+      }
+
+      // Try to reconnect after delay
+      setTimeout(function() {
+        useNativeMessaging = true;
+        connectNative();
+      }, RECONNECT_DELAY_MS);
+    });
+
+    // Request current rules
+    nativePort.postMessage({
+      msg_type: 'RuleUpdate',
+      payload: null
+    });
+
+    // Send connected event
+    nativePort.postMessage({
+      msg_type: 'Event',
+      payload: {
+        Connected: {
+          browser: detectBrowser(),
+          extension_version: chrome.runtime.getManifest().version
+        }
+      }
+    });
+
+    useNativeMessaging = true;
+    updateBadge(true);
+    console.log('Focuser: Connected to native messaging host');
+
+  } catch (e) {
+    console.log('Focuser: Native messaging not available:', e.message);
+    useNativeMessaging = false;
+    startHttpPolling();
+  }
 }
 
-// ─── Rule Fetching ──────────────────────────────────────────────────
+function detectBrowser() {
+  var ua = navigator.userAgent;
+  if (ua.indexOf('Edg/') !== -1) return 'Edge';
+  if (ua.indexOf('Brave') !== -1) return 'Brave';
+  if (ua.indexOf('OPR/') !== -1 || ua.indexOf('Opera') !== -1) return 'Opera';
+  if (ua.indexOf('Firefox/') !== -1) return 'Firefox';
+  if (ua.indexOf('Chrome/') !== -1) return 'Chrome';
+  return { Other: 'unknown' };
+}
 
-async function fetchRules() {
-  var rules = await apiGet('/api/rules');
+
+// ─── HTTP Polling Fallback ─────────────────────────────────────────
+
+var httpPollTimer = null;
+
+function startHttpPolling() {
+  if (httpPollTimer) return;
+  fetchRulesHttp();
+  httpPollTimer = setInterval(fetchRulesHttp, POLL_INTERVAL_MS);
+}
+
+function stopHttpPolling() {
+  if (httpPollTimer) {
+    clearInterval(httpPollTimer);
+    httpPollTimer = null;
+  }
+}
+
+async function fetchRulesHttp() {
+  try {
+    var browser = detectBrowser();
+    var browserName = typeof browser === 'string' ? browser : 'Other';
+    var resp = await fetch(API_BASE + '/api/rules', {
+      headers: { 'X-Focuser-Browser': browserName }
+    });
+    if (!resp.ok) { updateBadge(false); return; }
+    var rules = await resp.json();
+    applyRules(rules);
+  } catch (e) {
+    updateBadge(false);
+  }
+}
+
+
+// ─── Rule Application ──────────────────────────────────────────────
+
+function applyRules(rules) {
   if (!rules) { updateBadge(false); return; }
 
   var rulesJson = JSON.stringify(rules);
@@ -59,6 +154,7 @@ async function fetchRules() {
   updateBadge(true);
   enforceOnAllTabs();
 }
+
 
 // ─── Domain Matching ────────────────────────────────────────────────
 
@@ -115,6 +211,9 @@ chrome.scripting.executeScript({
         target: { tabId: details.tabId },
         files: ['content-block.js']
       }).catch(function() {});
+
+      // Report blocked event via native messaging
+      reportBlocked(details.url, url.hostname);
     }
   } catch (e) {}
 });
@@ -127,7 +226,7 @@ chrome.webNavigation.onCompleted.addListener(function(details) {
     if (isInternalUrl(url.protocol)) return;
     if (isDomainBlocked(url.hostname, details.url)) {
       chrome.scripting.executeScript({
-        target: { tabId: details.tabId },
+        target: { tabId: tab.id },
         files: ['content-block.js']
       }).catch(function() {});
     }
@@ -153,6 +252,25 @@ function enforceOnAllTabs() {
   });
 }
 
+
+// ─── Event Reporting ───────────────────────────────────────────────
+
+function reportBlocked(url, hostname) {
+  if (nativePort) {
+    nativePort.postMessage({
+      msg_type: 'Event',
+      payload: {
+        Blocked: {
+          url: url,
+          matched_rule: { Domain: hostname },
+          timestamp: new Date().toISOString()
+        }
+      }
+    });
+  }
+}
+
+
 // ─── Badge ──────────────────────────────────────────────────────────
 
 function updateBadge(connected) {
@@ -175,10 +293,12 @@ function updateBadge(connected) {
   chrome.action.setTitle({ title: 'Focuser — ' + count + ' sites blocked' });
 }
 
-// ─── Polling ────────────────────────────────────────────────────────
 
-setInterval(fetchRules, POLL_INTERVAL_MS);
-fetchRules();
+// ─── Startup ───────────────────────────────────────────────────────
+
+// Try native messaging first, fall back to HTTP polling
+connectNative();
+
 
 // ─── Message Handler ────────────────────────────────────────────────
 
@@ -188,8 +308,14 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     return;
   }
   if (msg.type === 'refresh') {
-    fetchRules().then(function() { sendResponse({ ok: true }); });
-    return true;
+    if (nativePort) {
+      nativePort.postMessage({ msg_type: 'RuleUpdate', payload: null });
+      sendResponse({ ok: true });
+    } else {
+      fetchRulesHttp().then(function() { sendResponse({ ok: true }); });
+      return true;
+    }
+    return;
   }
   if (msg.type === 'check-domain') {
     sendResponse({ blocked: isDomainBlocked(msg.hostname, msg.url) });

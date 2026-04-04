@@ -995,6 +995,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "focuser-native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "directories",
+ "focuser-common",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "focuser-service"
 version = "0.1.0"
 dependencies = [

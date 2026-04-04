@@ -33,7 +33,11 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "resources": [],
+    "resources": {
+      "../../target/release/focuser-service.exe": "focuser-service.exe",
+      "../../target/release/focuser-cli.exe": "focuser-cli.exe",
+      "../../target/release/focuser-native.exe": "focuser-native.exe"
+    },
     "copyright": "Copyright 2026 Focuser Contributors",
     "shortDescription": "Website and application blocker",
     "longDescription": "Focuser is a free, open-source website and application blocker that helps you stay focused by blocking distracting websites and apps.",

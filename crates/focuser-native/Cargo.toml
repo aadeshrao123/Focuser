@@ -1,0 +1,17 @@
+[package]
+name = "focuser-native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Native Messaging host for Focuser browser extension"
+
+[dependencies]
+focuser-common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+directories = { workspace = true }

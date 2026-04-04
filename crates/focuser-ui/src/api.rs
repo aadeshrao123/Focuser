@@ -2,17 +2,84 @@
 //!
 //! Listens on 127.0.0.1:17549. The browser extension calls these endpoints
 //! to get blocking rules, add/remove sites, and check domain status.
+//!
+//! Also tracks which browsers have a connected extension via the
+//! `X-Focuser-Browser` header sent by the extension on each request.
 
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tracing::{error, info};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
+use focuser_common::extension::BrowserType;
+use tracing::{debug, error, info};
 
 use crate::AppState;
 
 /// Flag to request the main window to show itself.
 pub static SHOW_WINDOW_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+/// Flag + browser name for showing "install extension" prompt.
+pub static EXTENSION_PROMPT_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+/// Stores the name of the browser that was killed (for the prompt message).
+static KILLED_BROWSER_NAME: Mutex<Option<String>> = Mutex::new(None);
+
+/// Tracks last-seen time for each browser's extension.
+/// Updated when the extension sends an API request with the `X-Focuser-Browser` header.
+static CONNECTED_BROWSERS: Mutex<Option<HashMap<BrowserType, Instant>>> = Mutex::new(None);
+
+/// Record that a browser's extension was seen (called from API request handler).
+fn record_extension_heartbeat(browser_name: &str) {
+    let browser_type = match browser_name {
+        "Chrome" => BrowserType::Chrome,
+        "Firefox" => BrowserType::Firefox,
+        "Edge" => BrowserType::Edge,
+        "Brave" => BrowserType::Brave,
+        "Opera" => BrowserType::Opera,
+        _ => return,
+    };
+
+    let mut guard = CONNECTED_BROWSERS.lock().unwrap();
+    let map = guard.get_or_insert_with(HashMap::new);
+    map.insert(browser_type, Instant::now());
+    debug!(browser = browser_name, "Extension heartbeat recorded");
+}
+
+/// Get the set of browsers whose extension was seen within the timeout.
+pub fn get_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<BrowserType> {
+    let cutoff = std::time::Duration::from_secs(timeout_secs);
+    let now = Instant::now();
+    let guard = CONNECTED_BROWSERS.lock().unwrap();
+
+    match guard.as_ref() {
+        Some(map) => map
+            .iter()
+            .filter(|(_, last_seen)| now.duration_since(**last_seen) < cutoff)
+            .map(|(bt, _)| bt.clone())
+            .collect(),
+        None => std::collections::HashSet::new(),
+    }
+}
+
+/// Set the killed browser name for the prompt.
+pub fn set_killed_browser(name: &str) {
+    if let Ok(mut guard) = KILLED_BROWSER_NAME.lock() {
+        *guard = Some(name.to_string());
+    }
+    EXTENSION_PROMPT_REQUESTED.store(true, Ordering::Relaxed);
+}
+
+/// Take the killed browser name (resets it).
+pub fn take_killed_browser() -> Option<String> {
+    if let Ok(mut guard) = KILLED_BROWSER_NAME.lock() {
+        guard.take()
+    } else {
+        None
+    }
+}
 
 const API_PORT: u16 = 17549;
 
@@ -47,8 +114,9 @@ fn handle_request(mut stream: std::net::TcpStream, state: &AppState) {
         return;
     }
 
-    // Read headers, extract Content-Length
+    // Read headers, extract Content-Length and X-Focuser-Browser
     let mut content_length: usize = 0;
+    let mut focuser_browser: Option<String> = None;
     let mut header = String::new();
     loop {
         header.clear();
@@ -64,6 +132,17 @@ fn handle_request(mut stream: std::net::TcpStream, state: &AppState) {
         if let Some(val) = header.strip_prefix("content-length:") {
             content_length = val.trim().parse().unwrap_or(0);
         }
+        if let Some(val) = header.strip_prefix("X-Focuser-Browser:") {
+            focuser_browser = Some(val.trim().to_string());
+        }
+        if let Some(val) = header.strip_prefix("x-focuser-browser:") {
+            focuser_browser = Some(val.trim().to_string());
+        }
+    }
+
+    // Track connected browser extension
+    if let Some(ref browser_name) = focuser_browser {
+        record_extension_heartbeat(browser_name);
     }
 
     // Read body if present
