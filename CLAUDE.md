@@ -65,6 +65,16 @@ cargo clippy --workspace             # Lint
    - When extension is added: create `focuser-native` crate (Native Messaging host binary)
      that bridges stdin/stdout JSON ↔ IPC, and the browser extension consumes `ExtensionRuleSet`
 
+## Pre-commit Checks (MANDATORY)
+Before EVERY commit and push, run ALL three checks and ensure they pass:
+```bash
+cargo fmt --all -- --check              # Formatting — must pass
+cargo clippy --workspace -- -D warnings # Linting — zero errors
+cargo test --workspace                  # Tests — all must pass
+```
+If any check fails, fix the issue BEFORE committing. Never push code that fails these checks.
+This prevents CI failures on GitHub Actions.
+
 ## Don'ts
 - Don't use `unwrap()` or `expect()` in library code — propagate errors
 - Don't use `unsafe` unless absolutely necessary and document why
