@@ -309,6 +309,43 @@ pub fn remove_exception(
     Ok(())
 }
 
+/// Clear all website rules from all block lists.
+#[tauri::command]
+pub fn clear_all_websites(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let lists = eng.db().list_block_lists().map_err(|e| e.to_string())?;
+    let mut cleared = 0u32;
+    for mut list in lists {
+        if !list.websites.is_empty() {
+            cleared += list.websites.len() as u32;
+            list.websites.clear();
+            list.updated_at = chrono::Utc::now();
+            eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+        }
+    }
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(serde_json::json!({ "cleared": cleared }))
+}
+
+/// Clear all app rules from all block lists.
+#[tauri::command]
+pub fn clear_all_apps(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let lists = eng.db().list_block_lists().map_err(|e| e.to_string())?;
+    let mut cleared = 0u32;
+    for mut list in lists {
+        if !list.applications.is_empty() {
+            cleared += list.applications.len() as u32;
+            list.applications.clear();
+            list.updated_at = chrono::Utc::now();
+            eng.db().update_block_list(&list).map_err(|e| e.to_string())?;
+        }
+    }
+    eng.refresh().map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({ "cleared": cleared }))
+}
+
 /// Export a block list as JSON.
 #[tauri::command]
 pub fn export_block_list(state: State<'_, Arc<AppState>>, list_id: String) -> Result<String, String> {

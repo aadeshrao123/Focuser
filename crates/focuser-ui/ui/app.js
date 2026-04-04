@@ -80,9 +80,12 @@ var ui = {
   updateSelects: function() {
     var opts = state.blockLists.map(function(l) { return '<option value="' + l.id + '">' + esc(l.name) + '</option>'; }).join('');
     var def = '<option value="">Select list...</option>';
-    ['website-list-select','app-list-select','schedule-list-select'].forEach(function(id) {
+    ['website-list-select','app-list-select','schedule-list-select','exception-list-select'].forEach(function(id) {
       var el = document.getElementById(id);
-      if (el) el.innerHTML = def + opts;
+      if (!el) return;
+      var prev = el.value; // save current selection
+      el.innerHTML = def + opts;
+      if (prev) el.value = prev; // restore selection
     });
   },
 
@@ -92,7 +95,8 @@ var ui = {
   },
 
   async deleteList(id, name) {
-    if (!confirm('Delete "' + name + '"?')) return;
+    var ok = await showConfirm('Delete Block List', 'Delete "' + name + '" and all its rules? This cannot be undone.');
+    if (!ok) return;
     try { await invoke('delete_block_list', { id: id }); toast('Deleted', 'success'); this.refreshBlockLists(); }
     catch (e) { toast('Failed: ' + e, 'error'); }
   },
@@ -118,10 +122,28 @@ var ui = {
 
   refreshWebsites: function() {
     this.updateSelects();
+    state.allWebsiteRules = [];
+    state.blockLists.forEach(function(l) { l.websites.forEach(function(r) { state.allWebsiteRules.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); }); });
+    var searchEl = document.getElementById('search-websites');
+    if (searchEl) searchEl.value = '';
+    this.renderFilteredWebsites('');
+  },
+
+  renderFilteredWebsites: function(query) {
     var c = document.getElementById('websites-list');
-    var all = [];
-    state.blockLists.forEach(function(l) { l.websites.forEach(function(r) { all.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); }); });
-    if (all.length === 0) { c.innerHTML = '<div class="empty-state">No websites blocked</div>'; return; }
+    var all = state.allWebsiteRules || [];
+    if (query) {
+      var q = query.toLowerCase();
+      all = all.filter(function(r) {
+        var v = mtVal(r.match_type).toLowerCase();
+        var n = r.listName.toLowerCase();
+        return v.indexOf(q) !== -1 || n.indexOf(q) !== -1;
+      });
+    }
+    if (all.length === 0) {
+      c.innerHTML = '<div class="empty-state">' + (query ? 'No matches for "' + esc(query) + '"' : 'No websites blocked') + '</div>';
+      return;
+    }
     c.innerHTML = all.map(function(r) {
       var t = mtName(r.match_type), v = mtVal(r.match_type);
       return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge ' + t + '">' + t + '</span><span class="rule-value">' + esc(v) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
@@ -146,10 +168,28 @@ var ui = {
 
   refreshApps: function() {
     this.updateSelects();
+    state.allAppRules = [];
+    state.blockLists.forEach(function(l) { l.applications.forEach(function(r) { state.allAppRules.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); }); });
+    var searchEl = document.getElementById('search-apps');
+    if (searchEl) searchEl.value = '';
+    this.renderFilteredApps('');
+  },
+
+  renderFilteredApps: function(query) {
     var c = document.getElementById('apps-list');
-    var all = [];
-    state.blockLists.forEach(function(l) { l.applications.forEach(function(r) { all.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); }); });
-    if (all.length === 0) { c.innerHTML = '<div class="empty-state">No applications blocked</div>'; return; }
+    var all = state.allAppRules || [];
+    if (query) {
+      var q = query.toLowerCase();
+      all = all.filter(function(r) {
+        var v = amtVal(r.match_type).toLowerCase();
+        var n = r.listName.toLowerCase();
+        return v.indexOf(q) !== -1 || n.indexOf(q) !== -1;
+      });
+    }
+    if (all.length === 0) {
+      c.innerHTML = '<div class="empty-state">' + (query ? 'No matches for "' + esc(query) + '"' : 'No applications blocked') + '</div>';
+      return;
+    }
     c.innerHTML = all.map(function(r) {
       var t = amtName(r.match_type), v = amtVal(r.match_type);
       return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge">' + t + '</span><span class="rule-value">' + esc(v) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
@@ -303,7 +343,8 @@ var ui = {
   async importEntireInternet() {
     var lid = document.getElementById('website-list-select').value;
     if (!lid) { toast('Select a list first', 'error'); return; }
-    if (!confirm('Block the entire internet? Only exceptions will be accessible.')) return;
+    var ok = await showConfirm('Block Entire Internet', 'Block all websites? Only exceptions will remain accessible.');
+    if (!ok) return;
     try {
       await invoke('add_website_rule', { listId: lid, ruleType: 'entire_internet', value: '*' });
       toast('Entire internet blocked', 'success');
@@ -312,16 +353,54 @@ var ui = {
     } catch (e) { toast('Failed: ' + e, 'error'); }
   },
 
-  async importKeywordPrompt() {
+  importKeywordPrompt: function() {
     var lid = document.getElementById('website-list-select').value;
     if (!lid) { toast('Select a list first', 'error'); return; }
-    var kw = prompt('Block all URLs containing this word:');
-    if (!kw || !kw.trim()) return;
+
+    document.getElementById('modal-title').textContent = 'Block URLs Containing';
+    document.getElementById('modal-body').innerHTML =
+      '<label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Keyword</label>' +
+      '<input type="text" id="modal-keyword-input" class="input" style="width:100%;" placeholder="e.g. game, gambling, etc.">' +
+      '<p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Any URL containing this word will be blocked.</p>';
+    document.getElementById('modal-confirm').textContent = 'Block';
+    document.getElementById('modal-confirm').setAttribute('data-action', 'confirm-keyword');
+    document.getElementById('modal-confirm').setAttribute('data-list-id', lid);
+    document.getElementById('modal-overlay').classList.remove('hidden');
+    setTimeout(function() { var i = document.getElementById('modal-keyword-input'); if (i) i.focus(); }, 80);
+  },
+
+  async confirmKeyword(lid) {
+    var i = document.getElementById('modal-keyword-input');
+    var kw = i ? i.value.trim() : '';
+    if (!kw) { toast('Enter a keyword', 'error'); return; }
     try {
-      await invoke('add_website_rule', { listId: lid, ruleType: 'keyword', value: kw.trim() });
-      toast('Keyword blocked: ' + kw.trim(), 'success');
+      await invoke('add_website_rule', { listId: lid, ruleType: 'keyword', value: kw });
+      toast('Keyword blocked: ' + kw, 'success');
+      this.closeModal();
       await this.refreshBlockLists();
       this.refreshWebsites();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  async clearAllWebsites() {
+    var ok = await showConfirm('Clear All Websites', 'Remove all blocked websites from every list? This cannot be undone.');
+    if (!ok) return;
+    try {
+      var result = await invoke('clear_all_websites');
+      toast('Cleared ' + result.cleared + ' websites', 'success');
+      await this.refreshBlockLists();
+      this.refreshWebsites();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  async clearAllApps() {
+    var ok = await showConfirm('Clear All Applications', 'Remove all blocked applications from every list? This cannot be undone.');
+    if (!ok) return;
+    try {
+      var result = await invoke('clear_all_apps');
+      toast('Cleared ' + result.cleared + ' apps', 'success');
+      await this.refreshBlockLists();
+      this.refreshApps();
     } catch (e) { toast('Failed: ' + e, 'error'); }
   },
 
@@ -360,6 +439,28 @@ function ico(name, sz) {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="' + (sz||16) + '" height="' + (sz||16) + '">' + (p[name]||'') + '</svg>';
 }
 
+function showConfirm(title, message) {
+  return new Promise(function(resolve) {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').textContent = message;
+    var overlay = document.getElementById('confirm-overlay');
+    overlay.classList.remove('hidden');
+
+    var okBtn = document.getElementById('confirm-ok');
+    var cancelBtn = document.getElementById('confirm-cancel');
+
+    function cleanup() {
+      overlay.classList.add('hidden');
+      okBtn.replaceWith(okBtn.cloneNode(true));
+      cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+    }
+
+    document.getElementById('confirm-ok').addEventListener('click', function() { cleanup(); resolve(true); });
+    document.getElementById('confirm-cancel').addEventListener('click', function() { cleanup(); resolve(false); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) { cleanup(); resolve(false); } }, { once: true });
+  });
+}
+
 function toast(msg, type) {
   var c = document.getElementById('toast-container');
   var el = document.createElement('div');
@@ -394,6 +495,7 @@ function doAction(a, el) {
     case 'remove-exception': ui.removeException(el.getAttribute('data-list-id'), el.getAttribute('data-exc-id')); break;
     case 'toggle-schedule': el.classList.toggle('active'); break;
     case 'confirm-create-list': ui.createList(); break;
+    case 'confirm-keyword': ui.confirmKeyword(el.getAttribute('data-list-id')); break;
     case 'switch-tab':
       var tabId = el.getAttribute('data-tab');
       el.parentElement.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
@@ -408,6 +510,8 @@ function doAction(a, el) {
     case 'import-premade': ui.importPremadeList(el.getAttribute('data-category')); closeAllDropdowns(); break;
     case 'import-keyword-prompt': ui.importKeywordPrompt(); closeAllDropdowns(); break;
     case 'import-entire-internet': ui.importEntireInternet(); closeAllDropdowns(); break;
+    case 'clear-all-websites': ui.clearAllWebsites(); break;
+    case 'clear-all-apps': ui.clearAllApps(); break;
   }
 }
 
@@ -423,6 +527,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   var be = document.getElementById('btn-add-exception'); if (be) be.addEventListener('click', function() { ui.addException(); });
   var ba = document.getElementById('btn-add-app'); if (ba) ba.addEventListener('click', function() { ui.addApp(); });
   var bi = document.getElementById('btn-import-dropdown'); if (bi) bi.addEventListener('click', function(e) { e.stopPropagation(); ui.toggleImportDropdown(); });
+
+  // Real-time search filters
+  var sw = document.getElementById('search-websites');
+  if (sw) sw.addEventListener('input', function() { ui.renderFilteredWebsites(this.value); });
+  var sa = document.getElementById('search-apps');
+  if (sa) sa.addEventListener('input', function() { ui.renderFilteredApps(this.value); });
   // Close dropdowns on outside click
   document.addEventListener('click', function() { closeAllDropdowns(); });
   var mc = document.getElementById('btn-modal-close'); if (mc) mc.addEventListener('click', function() { ui.closeModal(); });

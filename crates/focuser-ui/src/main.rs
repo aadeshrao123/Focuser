@@ -73,6 +73,8 @@ fn main() {
             commands::add_exception,
             commands::remove_exception,
             commands::export_block_list,
+            commands::clear_all_websites,
+            commands::clear_all_apps,
         ])
         .setup(move |_app| {
             // Spawn background blocking loop

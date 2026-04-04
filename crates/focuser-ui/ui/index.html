@@ -107,13 +107,12 @@
       </section>
 
       <!-- Websites -->
-      <section id="page-websites" class="page">
+      <section id="page-websites" class="page page-fixed">
         <header class="page-header">
           <h1>Websites</h1>
           <p class="page-subtitle">Manage blocked websites, keywords, and exceptions</p>
         </header>
 
-        <!-- Tabs -->
         <div class="tabs" style="margin-bottom:14px;">
           <button class="tab active" data-action="switch-tab" data-tab="websites-tab-block">Websites</button>
           <button class="tab" data-action="switch-tab" data-tab="websites-tab-exceptions">Exceptions</button>
@@ -121,34 +120,44 @@
 
         <!-- Websites Tab -->
         <div id="websites-tab-block" class="tab-content active">
-          <div class="panel" style="margin-bottom:14px;">
-            <div class="panel-header">
-              <h3>Add Website</h3>
-              <div class="dropdown-wrap">
-                <button class="btn btn-secondary btn-sm" id="btn-import-dropdown">Import</button>
-                <div class="dropdown-menu hidden" id="import-dropdown">
-                  <button class="dropdown-item" data-action="import-text">Import from text file</button>
-                  <button class="dropdown-item" data-action="import-json">Import from JSON file</button>
-                  <div class="dropdown-divider"></div>
-                  <div class="dropdown-label">Pre-made lists</div>
-                  <div id="premade-list-items"></div>
-                  <div class="dropdown-divider"></div>
-                  <button class="dropdown-item" data-action="import-keyword-prompt">All URLs containing...</button>
-                  <button class="dropdown-item" data-action="import-entire-internet">The entire internet</button>
+          <div class="panel overflow-visible" style="margin-bottom:14px;">
+            <div class="panel-header"><h3>Add Website</h3></div>
+            <div class="panel-body">
+              <div class="add-website-row">
+                <div class="add-website-fields">
+                  <select id="website-list-select" class="input"><option value="">Select list...</option></select>
+                  <select id="website-type-select" class="input"><option value="domain">Domain</option><option value="keyword">Keyword</option><option value="wildcard">Wildcard</option><option value="url_path">URL Path</option></select>
+                  <input type="text" id="website-input" class="input" placeholder="e.g. reddit.com">
+                  <button class="btn btn-primary" id="btn-add-website">+ Add</button>
+                </div>
+                <div class="add-website-actions">
+                  <div class="dropdown-wrap">
+                    <button class="btn btn-secondary btn-sm" id="btn-import-dropdown">Import</button>
+                    <div class="dropdown-menu hidden" id="import-dropdown">
+                      <button class="dropdown-item" data-action="import-text">Import from text file</button>
+                      <button class="dropdown-item" data-action="import-json">Import from JSON file</button>
+                      <div class="dropdown-divider"></div>
+                      <div class="dropdown-item-sub">
+                        <span class="dropdown-item-sub-label">Pre-made lists</span>
+                        <div class="dropdown-submenu" id="premade-list-items"></div>
+                      </div>
+                      <div class="dropdown-divider"></div>
+                      <button class="dropdown-item" data-action="import-keyword-prompt">All URLs containing...</button>
+                      <button class="dropdown-item" data-action="import-entire-internet">Block entire internet</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="panel-body">
-              <div class="input-row">
-                <select id="website-list-select" class="input"><option value="">Select list...</option></select>
-                <select id="website-type-select" class="input" style="width:140px;"><option value="domain">Domain</option><option value="keyword">Keyword</option><option value="wildcard">Wildcard</option><option value="url_path">URL Path</option></select>
-                <input type="text" id="website-input" class="input" placeholder="e.g. reddit.com" style="flex:1;">
-                <button class="btn btn-primary" id="btn-add-website">Add</button>
+          </div>
+          <div class="panel fill-remaining">
+            <div class="panel-header">
+              <h3>Blocked Websites</h3>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" class="input search-input" id="search-websites" placeholder="Search websites...">
+                <button class="btn btn-danger btn-sm" data-action="clear-all-websites">Clear All</button>
               </div>
             </div>
-          </div>
-          <div class="panel" style="flex:1;">
-            <div class="panel-header"><h3>Blocked Websites</h3></div>
             <div class="panel-body" id="websites-list"><div class="empty-state">No websites blocked</div></div>
           </div>
         </div>
@@ -158,23 +167,23 @@
           <div class="panel" style="margin-bottom:14px;">
             <div class="panel-header"><h3>Add Exception</h3></div>
             <div class="panel-body">
-              <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Excepted sites will NOT be blocked even if they match a blocking rule.</p>
-              <div class="input-row">
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Excepted domains will NOT be blocked even if they match a blocking rule.</p>
+              <div class="add-website-fields">
                 <select id="exception-list-select" class="input"><option value="">Select list...</option></select>
-                <input type="text" id="exception-input" class="input" placeholder="e.g. docs.google.com" style="flex:1;">
-                <button class="btn btn-primary" id="btn-add-exception">Add Exception</button>
+                <input type="text" id="exception-input" class="input" placeholder="e.g. docs.google.com">
+                <button class="btn btn-primary" id="btn-add-exception">+ Add Exception</button>
               </div>
             </div>
           </div>
-          <div class="panel" style="flex:1;">
+          <div class="panel fill-remaining">
             <div class="panel-header"><h3>Exceptions (Whitelist)</h3></div>
-            <div class="panel-body" id="exceptions-list"><div class="empty-state">No exceptions</div></div>
+            <div class="panel-body" id="exceptions-list"><div class="empty-state">No exceptions — all matching sites will be blocked</div></div>
           </div>
         </div>
       </section>
 
       <!-- Applications -->
-      <section id="page-apps" class="page">
+      <section id="page-apps" class="page page-fixed">
         <header class="page-header">
           <h1>Applications</h1>
           <p class="page-subtitle">Manage blocked applications and executables</p>
@@ -190,8 +199,14 @@
             </div>
           </div>
         </div>
-        <div class="panel" style="flex:1;">
-          <div class="panel-header"><h3>Blocked Applications</h3></div>
+        <div class="panel fill-remaining">
+          <div class="panel-header">
+            <h3>Blocked Applications</h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" class="input search-input" id="search-apps" placeholder="Search apps...">
+              <button class="btn btn-danger btn-sm" data-action="clear-all-apps">Clear All</button>
+            </div>
+          </div>
           <div class="panel-body" id="apps-list"><div class="empty-state">No applications blocked</div></div>
         </div>
       </section>
@@ -310,6 +325,18 @@
       <div class="modal-header"><h3 id="modal-title">Create Block List</h3><button class="modal-close" id="btn-modal-close">&times;</button></div>
       <div class="modal-body" id="modal-body"></div>
       <div class="modal-footer"><button class="btn btn-secondary" id="btn-modal-cancel">Cancel</button><button class="btn btn-primary" id="modal-confirm">Create</button></div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal confirm-dialog">
+      <div class="modal-header"><h3 id="confirm-title">Confirm</h3></div>
+      <div class="modal-body"><p id="confirm-message"></p></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+      </div>
     </div>
   </div>
 

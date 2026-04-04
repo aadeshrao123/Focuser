@@ -165,16 +165,11 @@ body {
 
 #content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 28px 32px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.08) transparent;
+  display: flex;
+  flex-direction: column;
 }
-
-#content::-webkit-scrollbar { width: 6px; }
-#content::-webkit-scrollbar-track { background: transparent; }
-#content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-#content::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
 
 /* ─── Pages ──────────────────────────────────────────────────────── */
 
@@ -182,8 +177,20 @@ body {
 .page.active {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 56px);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   animation: fadeIn 200ms ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.page.active::-webkit-scrollbar { width: 5px; }
+.page.active::-webkit-scrollbar-track { background: transparent; }
+.page.active::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Pages with fixed layout — inner panels scroll, page doesn't */
+.page.page-fixed.active {
+  overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -256,9 +263,11 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
   box-shadow: var(--shadow-sm);
+  position: relative;
 }
+
+.panel.overflow-visible { overflow: visible; }
 
 .panel-header {
   padding: 14px 20px;
@@ -279,6 +288,34 @@ body {
 }
 
 .panel-body { padding: 18px 20px; }
+
+.panel-body.scrollable {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.panel-body.scrollable::-webkit-scrollbar { width: 5px; }
+.panel-body.scrollable::-webkit-scrollbar-track { background: transparent; }
+.panel-body.scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Panel that fills remaining space with scrollable body */
+.panel.fill-remaining {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.panel.fill-remaining .panel-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.panel.fill-remaining .panel-body::-webkit-scrollbar { width: 5px; }
+.panel.fill-remaining .panel-body::-webkit-scrollbar-track { background: transparent; }
+.panel.fill-remaining .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 
 .dashboard-panels {
   display: grid;
@@ -543,6 +580,13 @@ select.input {
 
 .input-row { display: flex; gap: 8px; align-items: center; }
 
+.search-input {
+  width: 200px;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: var(--bg-base);
+}
+
 /* ─── Toggle Switch ──────────────────────────────────────────────── */
 
 .toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
@@ -767,6 +811,9 @@ select.input {
 }
 .modal-close:hover { color: var(--text-primary); background: var(--bg-hover); }
 
+.confirm-dialog { width: 380px; }
+.confirm-dialog .modal-body p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
 .modal-body { padding: 20px; }
 
 .modal-footer {
@@ -852,18 +899,40 @@ select.input {
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 .tab-content { display: none; }
-.tab-content.active { display: flex; flex-direction: column; flex: 1; }
+.tab-content.active { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+
+/* ─── Add Website Row ────────────────────────────────────────────── */
+
+.add-website-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.add-website-fields {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.add-website-fields .input { min-width: 0; }
+.add-website-fields .input:nth-child(1) { width: 160px; flex-shrink: 0; }
+.add-website-fields .input:nth-child(2) { width: 120px; flex-shrink: 0; }
+.add-website-fields .input:nth-child(3) { flex: 1; min-width: 180px; }
+
+.add-website-actions { flex-shrink: 0; }
 
 /* ─── Dropdown ───────────────────────────────────────────────────── */
 
-.dropdown-wrap { position: relative; }
+.dropdown-wrap { position: relative; z-index: 9999; }
 
 .dropdown-menu {
   position: absolute; top: 100%; right: 0; margin-top: 4px;
   background: var(--bg-elevated); border: 1px solid var(--border-hover);
-  border-radius: var(--radius-md); min-width: 220px; z-index: 100;
+  border-radius: var(--radius-md); min-width: 200px; z-index: 9999;
   box-shadow: var(--shadow-lg); padding: 4px 0;
-  max-height: 360px; overflow-y: auto;
 }
 .dropdown-menu.hidden { display: none; }
 
@@ -877,10 +946,37 @@ select.input {
 
 .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
-.dropdown-label {
-  padding: 6px 14px 4px; font-size: 10px; font-weight: 600;
-  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
+/* Sub-dropdown (hover to expand) */
+.dropdown-item-sub {
+  position: relative;
 }
+
+.dropdown-item-sub-label {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; color: var(--text-secondary); font-size: 13px;
+  cursor: default; transition: all var(--transition);
+}
+
+.dropdown-item-sub-label::after {
+  content: ''; width: 0; height: 0;
+  border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  border-right: 5px solid var(--text-muted);
+}
+
+.dropdown-item-sub:hover .dropdown-item-sub-label {
+  background: var(--bg-hover); color: var(--text-primary);
+}
+
+.dropdown-submenu {
+  display: none;
+  position: absolute; right: 100%; top: -4px;
+  background: var(--bg-elevated); border: 1px solid var(--border-hover);
+  border-radius: var(--radius-md); min-width: 180px; z-index: 10000;
+  box-shadow: var(--shadow-lg); padding: 4px 0;
+  max-height: 320px; overflow-y: auto;
+}
+
+.dropdown-item-sub:hover .dropdown-submenu { display: block; }
 
 /* ─── Responsive ─────────────────────────────────────────────────── */
 
