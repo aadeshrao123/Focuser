@@ -190,11 +190,18 @@ function updateBadge(connected) {
     return;
   }
 
-  var count = blockedDomains.size + blockedKeywords.length + blockedUrlPaths.length;
+  // Count unique base domains (exclude www. duplicates)
+  var uniqueDomains = 0;
+  blockedDomains.forEach(function(d) {
+    if (!d.startsWith('www.') || !blockedDomains.has(d.substring(4))) {
+      uniqueDomains++;
+    }
+  });
+  var count = uniqueDomains + blockedKeywords.length + blockedUrlPaths.length;
   if (blockEntireInternet) count = '∞';
 
   chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
-  chrome.action.setBadgeBackgroundColor({ color: '#4e8fff' });
+  chrome.action.setBadgeBackgroundColor({ color: '#8b5cf6' });
   chrome.action.setTitle({ title: 'Focuser — ' + count + ' sites blocked' });
 }
 

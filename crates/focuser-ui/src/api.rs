@@ -5,10 +5,14 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tracing::{error, info};
 
 use crate::AppState;
+
+/// Flag to request the main window to show itself.
+pub static SHOW_WINDOW_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 const API_PORT: u16 = 17549;
 
@@ -110,6 +114,10 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
         ("POST", "/api/add-site") => api_add_site(body, state),
         ("POST", "/api/remove-site") => api_remove_site(body, state),
         ("POST", "/api/toggle-list") => api_toggle_list(body, state),
+        ("POST", "/api/show") | ("GET", "/api/show") => {
+            SHOW_WINDOW_REQUESTED.store(true, Ordering::Relaxed);
+            ("200 OK", r#"{"ok":true}"#.into())
+        }
         _ if path.starts_with("/api/check?") => api_check_domain(path, state),
         _ => ("404 Not Found", r#"{"error":"not found"}"#.into()),
     }

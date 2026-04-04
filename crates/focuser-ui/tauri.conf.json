@@ -60,10 +60,5 @@
       }
     }
   },
-  "plugins": {
-    "autostart": {
-      "macOSExtraArgs": [],
-      "args": ["--autostart"]
-    }
-  }
+  "plugins": {}
 }

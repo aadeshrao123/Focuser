@@ -20,7 +20,7 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
 tauri-plugin-autostart = "2"
 
@@ -30,6 +30,4 @@ windows = { version = "0.58", features = [
     "Win32_System_Threading",
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_Security",
-    "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
 ] }

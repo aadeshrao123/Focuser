@@ -7,6 +7,11 @@ mod commands;
 use directories::ProjectDirs;
 use focuser_core::{BlockEngine, Database};
 use std::sync::{Arc, Mutex};
+use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::TrayIconBuilder,
+    Manager,
+};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -16,24 +21,23 @@ pub struct AppState {
 }
 
 fn main() {
-    // On Windows, re-launch as admin if not already elevated
-    #[cfg(windows)]
-    {
-        if !is_elevated() {
-            relaunch_elevated();
-            return;
-        }
-    }
-
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
 
-    info!("Focuser starting (elevated)");
+    info!("Focuser starting");
 
-    // Initialize database
+    #[cfg(windows)]
+    {
+        if is_elevated() {
+            info!("Running with admin privileges");
+        } else {
+            info!("Running without admin — hosts file blocking may not work");
+        }
+    }
+
     let project_dirs = ProjectDirs::from("com", "focuser", "Focuser")
         .expect("Could not determine project directories");
     let data_dir = project_dirs.data_dir();
@@ -80,17 +84,79 @@ fn main() {
             commands::clear_all_websites,
             commands::clear_all_apps,
         ])
-        .setup(move |_app| {
+        .setup(move |app| {
             // Spawn background blocking loop
             let blocker_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || {
                 blocker::run_blocking_loop(blocker_state);
             });
 
-            // Spawn extension API server (port 17549)
+            // Spawn extension API server
             let api_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || {
                 api::run_api_server(api_state);
+            });
+
+            // System tray icon
+            let show = MenuItemBuilder::with_id("show", "Open Focuser").build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
+
+            let icon = app.default_window_icon().cloned().unwrap();
+
+            let _tray = TrayIconBuilder::new()
+                .icon(icon)
+                .tooltip("Focuser — Blocking active")
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        std::process::exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            // Poll for "show window" requests from the extension API
+            let show_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    if api::SHOW_WINDOW_REQUESTED
+                        .swap(false, std::sync::atomic::Ordering::Relaxed)
+                    {
+                        if let Some(window) = show_handle.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                }
+            });
+
+            // Close to tray instead of quitting
+            let app_handle = app.handle().clone();
+            let window = app.get_webview_window("main").unwrap();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    if let Some(win) = app_handle.get_webview_window("main") {
+                        let _ = win.hide();
+                    }
+                }
             });
 
             Ok(())
@@ -99,7 +165,6 @@ fn main() {
         .expect("error while running Focuser");
 }
 
-/// Check if the current process is running with admin privileges.
 #[cfg(windows)]
 fn is_elevated() -> bool {
     use windows::Win32::Foundation::CloseHandle;
@@ -126,31 +191,5 @@ fn is_elevated() -> bool {
 
         let _ = CloseHandle(token);
         result.is_ok() && elevation.TokenIsElevated != 0
-    }
-}
-
-/// Re-launch this executable with admin privileges via ShellExecuteW "runas".
-#[cfg(windows)]
-fn relaunch_elevated() {
-    use std::os::windows::ffi::OsStrExt;
-
-    let exe = std::env::current_exe().expect("Cannot get current exe path");
-    let exe_wide: Vec<u16> = exe
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
-    let verb: Vec<u16> = "runas\0".encode_utf16().collect();
-
-    unsafe {
-        windows::Win32::UI::Shell::ShellExecuteW(
-            None,
-            windows::core::PCWSTR(verb.as_ptr()),
-            windows::core::PCWSTR(exe_wide.as_ptr()),
-            None,
-            None,
-            windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
-        );
     }
 }

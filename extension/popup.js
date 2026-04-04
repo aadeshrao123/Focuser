@@ -24,8 +24,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // Button handlers
   document.getElementById('btn-add').addEventListener('click', addOrRemoveSite);
-  document.getElementById('btn-open-app').addEventListener('click', function() {
-    // Just close popup — can't launch desktop app from extension
+  document.getElementById('btn-open-app').addEventListener('click', async function() {
+    try {
+      await apiPost('/api/show', {});
+    } catch (e) {}
     window.close();
   });
   document.getElementById('list-select').addEventListener('change', function() {
