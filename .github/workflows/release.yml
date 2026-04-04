@@ -62,6 +62,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
+      - name: Build bundled binaries (service, CLI, native host)
+        shell: bash
+        run: |
+          cargo build --release --target ${{ matrix.target }} -p focuser-service -p focuser-cli -p focuser-native
+          # Copy to target/release/ where tauri.conf.json expects them
+          # Use .exe names on all platforms so tauri.conf.json resources resolve
+          mkdir -p target/release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp target/${{ matrix.target }}/release/focuser-service.exe target/release/ 2>/dev/null || true
+            cp target/${{ matrix.target }}/release/focuser-cli.exe target/release/ 2>/dev/null || true
+            cp target/${{ matrix.target }}/release/focuser-native.exe target/release/ 2>/dev/null || true
+          else
+            cp target/${{ matrix.target }}/release/focuser-service target/release/focuser-service.exe 2>/dev/null || true
+            cp target/${{ matrix.target }}/release/focuser-cli target/release/focuser-cli.exe 2>/dev/null || true
+            cp target/${{ matrix.target }}/release/focuser-native target/release/focuser-native.exe 2>/dev/null || true
+          fi
+
       - name: Build Tauri installer
         run: cargo tauri build --target ${{ matrix.target }}
         working-directory: crates/focuser-ui
