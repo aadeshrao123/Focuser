@@ -57,10 +57,11 @@ impl FocuserService {
                 tick.tick().await;
                 // In a full implementation, this would check running processes
                 // and kill blocked ones. For now, just refresh the engine cache.
-                if let Ok(mut eng) = engine_for_tick.lock()
-                    && let Err(e) = eng.refresh()
-                {
-                    warn!(error = %e, "Failed to refresh engine");
+                #[allow(clippy::collapsible_if)]
+                if let Ok(mut eng) = engine_for_tick.lock() {
+                    if let Err(e) = eng.refresh() {
+                        warn!(error = %e, "Failed to refresh engine");
+                    }
                 }
             }
         });

@@ -72,10 +72,10 @@ fn sync_hosts_file(domains: &[String]) {
     }
 }
 
-fn kill_blocked_processes(eng: &focuser_core::BlockEngine) {
+fn kill_blocked_processes(_eng: &focuser_core::BlockEngine) {
     #[cfg(windows)]
     {
-        kill_blocked_processes_windows(eng);
+        kill_blocked_processes_windows(_eng);
     }
 }
 
@@ -108,14 +108,14 @@ fn kill_blocked_processes_windows(eng: &focuser_core::BlockEngine) {
                 if let Some(list_name) = eng.check_app(&name, None, None) {
                     let pid = entry.th32ProcessID;
                     // Don't kill ourselves or system processes
-                    if pid > 4
-                        && pid != std::process::id()
-                        && let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid)
-                    {
-                        let _ = TerminateProcess(handle, 1);
-                        let _ = CloseHandle(handle);
-                        info!(pid, name = %name, list = %list_name, "Killed blocked process");
-                        let _ = eng.record_blocked(&name);
+                    #[allow(clippy::collapsible_if)]
+                    if pid > 4 && pid != std::process::id() {
+                        if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                            let _ = TerminateProcess(handle, 1);
+                            let _ = CloseHandle(handle);
+                            info!(pid, name = %name, list = %list_name, "Killed blocked process");
+                            let _ = eng.record_blocked(&name);
+                        }
                     }
                 }
 
