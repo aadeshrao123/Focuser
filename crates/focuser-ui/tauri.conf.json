@@ -24,7 +24,43 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": []
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": [],
+    "copyright": "Copyright 2026 Focuser Contributors",
+    "shortDescription": "Website and application blocker",
+    "longDescription": "Focuser is a free, open-source website and application blocker that helps you stay focused by blocking distracting websites and apps.",
+    "windows": {
+      "nsis": {
+        "installMode": "both",
+        "startMenuFolder": "Focuser",
+        "headerImage": null,
+        "sidebarImage": null
+      },
+      "wix": null
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libappindicator3-1"]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "autostart": {
+      "macOSExtraArgs": [],
+      "args": ["--autostart"]
+    }
   }
 }

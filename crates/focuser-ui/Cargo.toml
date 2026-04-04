@@ -22,6 +22,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+tauri-plugin-autostart = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

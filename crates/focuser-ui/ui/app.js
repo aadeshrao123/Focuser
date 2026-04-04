@@ -543,6 +543,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (e.key === 'Enter') { var ov = document.getElementById('modal-overlay'); if (ov && !ov.classList.contains('hidden')) { var cb = document.getElementById('modal-confirm'); if (cb) cb.click(); } }
   });
 
+  // Autostart toggle
+  var autoEl = document.getElementById('setting-autostart');
+  if (autoEl) {
+    // Check current state
+    try {
+      if (window.__TAURI__ && window.__TAURI__.core) {
+        var enabled = await window.__TAURI__.core.invoke('plugin:autostart|is_enabled');
+        autoEl.checked = enabled;
+      }
+    } catch (e) {}
+    autoEl.addEventListener('change', async function() {
+      try {
+        if (this.checked) {
+          await window.__TAURI__.core.invoke('plugin:autostart|enable');
+          toast('Auto-start enabled', 'success');
+        } else {
+          await window.__TAURI__.core.invoke('plugin:autostart|disable');
+          toast('Auto-start disabled', 'success');
+        }
+      } catch (e) { toast('Failed: ' + e, 'error'); }
+    });
+  }
+
   try { state.blockLists = await invoke('list_block_lists'); } catch (e) { state.blockLists = []; }
   ui.loadPremadeLists();
   ui.navigateTo('dashboard');
