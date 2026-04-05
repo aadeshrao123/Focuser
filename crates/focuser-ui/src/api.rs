@@ -33,12 +33,13 @@ static CONNECTED_BROWSERS: Mutex<Option<HashMap<BrowserType, Instant>>> = Mutex:
 
 /// Record that a browser's extension was seen (called from API request handler).
 fn record_extension_heartbeat(browser_name: &str) {
-    let browser_type = match browser_name {
-        "Chrome" => BrowserType::Chrome,
-        "Firefox" => BrowserType::Firefox,
-        "Edge" => BrowserType::Edge,
-        "Brave" => BrowserType::Brave,
-        "Opera" => BrowserType::Opera,
+    let name_lower = browser_name.to_lowercase();
+    let browser_type = match name_lower.as_str() {
+        "chrome" => BrowserType::Chrome,
+        "firefox" => BrowserType::Firefox,
+        "edge" => BrowserType::Edge,
+        "brave" => BrowserType::Brave,
+        "opera" => BrowserType::Opera,
         _ => return,
     };
 
@@ -132,11 +133,12 @@ fn handle_request(mut stream: std::net::TcpStream, state: &AppState) {
         if let Some(val) = header.strip_prefix("content-length:") {
             content_length = val.trim().parse().unwrap_or(0);
         }
-        if let Some(val) = header.strip_prefix("X-Focuser-Browser:") {
-            focuser_browser = Some(val.trim().to_string());
-        }
-        if let Some(val) = header.strip_prefix("x-focuser-browser:") {
-            focuser_browser = Some(val.trim().to_string());
+        // Case-insensitive header name match for X-Focuser-Browser
+        if let Some(pos) = header.to_lowercase().find("x-focuser-browser:") {
+            let val_start = pos + "x-focuser-browser:".len();
+            if val_start < header.len() {
+                focuser_browser = Some(header[val_start..].trim().to_string());
+            }
         }
     }
 
@@ -199,6 +201,20 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
             ("200 OK", r#"{"ok":true}"#.into())
         }
         _ if path.starts_with("/api/check?") => api_check_domain(path, state),
+        _ if path.starts_with("/api/heartbeat?") => {
+            // Dedicated heartbeat endpoint — browser identified via URL, not headers
+            let browser = path
+                .split("browser=")
+                .nth(1)
+                .unwrap_or("")
+                .split('&')
+                .next()
+                .unwrap_or("");
+            if !browser.is_empty() {
+                record_extension_heartbeat(browser);
+            }
+            ("200 OK", r#"{"ok":true}"#.into())
+        }
         _ => ("404 Not Found", r#"{"error":"not found"}"#.into()),
     }
 }

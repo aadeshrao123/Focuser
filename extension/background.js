@@ -117,9 +117,9 @@ function startHttpPolling() {
 function sendHeartbeat() {
   var browser = detectBrowser();
   var browserName = typeof browser === 'string' ? browser : 'Other';
-  fetch(API_BASE + '/api/status', {
-    headers: { 'X-Focuser-Browser': browserName }
-  }).catch(function() {});
+  // Use dedicated heartbeat endpoint (URL-based, no header parsing needed)
+  fetch(API_BASE + '/api/heartbeat?browser=' + encodeURIComponent(browserName))
+    .catch(function() {});
 }
 
 function stopHttpPolling() {
@@ -209,8 +209,23 @@ function isInternalUrl(protocol) {
 
 // ─── Blocking ───────────────────────────────────────────────────────
 
-// content-early.js (registered in manifest at document_start) handles hiding.
-// Once page commits, inject our full block page content script:
+// Step 1: Intercept BEFORE DNS resolution — redirect to block page immediately.
+// This handles HTTP sites where hosts file may have cached a bad DNS entry.
+chrome.webNavigation.onBeforeNavigate.addListener(function(details) {
+  if (details.frameId !== 0) return;
+  try {
+    var url = new URL(details.url);
+    if (isInternalUrl(url.protocol)) return;
+    if (isDomainBlocked(url.hostname, details.url)) {
+      // Redirect the tab to our block page
+      var blockUrl = chrome.runtime.getURL('blocked.html') + '?domain=' + encodeURIComponent(url.hostname);
+      chrome.tabs.update(details.tabId, { url: blockUrl });
+      reportBlocked(details.url, url.hostname);
+    }
+  } catch (e) {}
+});
+
+// Step 2: Safety net — if page somehow loaded, inject block content script:
 chrome.webNavigation.onCommitted.addListener(function(details) {
   if (details.frameId !== 0) return;
   try {
@@ -321,8 +336,11 @@ function updateBadge(connected) {
 // ─── Startup ───────────────────────────────────────────────────────
 
 // Send immediate heartbeat so the Focuser app knows this browser has the extension
-// (don't wait for native messaging to fail before sending HTTP heartbeat)
 sendHeartbeat();
+
+// Continuous heartbeat every 3 seconds — independent of polling/native messaging
+// This guarantees the app always knows we're alive, regardless of connection method
+setInterval(sendHeartbeat, 3000);
 
 // Try native messaging first, fall back to HTTP polling
 connectNative();

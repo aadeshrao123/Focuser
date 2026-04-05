@@ -68,11 +68,18 @@ var ui = {
     var c = document.getElementById('blocklists-container');
     if (state.blockLists.length === 0) { c.innerHTML = '<div class="empty-state">No block lists yet</div>'; return; }
     c.innerHTML = state.blockLists.map(function(l) {
+      var hasSchedule = l.schedule !== null && l.schedule !== undefined;
+      var alwaysActive = !hasSchedule;
+      var scheduleLabel = alwaysActive
+        ? '<span style="color:var(--success);font-size:11px;font-weight:500;">Always Active</span>'
+        : '<span style="color:var(--accent);font-size:11px;font-weight:500;">Scheduled</span>';
+
       return '<div class="blocklist-card" data-id="' + l.id + '">' +
         '<div class="blocklist-card-header"><span class="blocklist-card-name">' + esc(l.name) + '</span>' +
         '<label class="toggle"><input type="checkbox" data-action="toggle-list" data-list-id="' + l.id + '"' + (l.enabled ? ' checked' : '') + '><span class="toggle-slider"></span></label></div>' +
-        '<div class="blocklist-card-meta"><span>' + l.websites.length + ' sites</span><span>' + l.applications.length + ' apps</span><span>' + l.exceptions.length + ' exceptions</span></div>' +
+        '<div class="blocklist-card-meta"><span>' + l.websites.length + ' sites</span><span>' + l.applications.length + ' apps</span><span>' + l.exceptions.length + ' exceptions</span><span>' + scheduleLabel + '</span></div>' +
         '<div class="blocklist-card-actions">' +
+        '<button class="btn btn-sm" data-action="edit-schedule" data-list-id="' + l.id + '" style="font-size:11px;">Edit Schedule</button>' +
         '<button class="btn btn-danger btn-sm" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">Delete</button></div></div>';
     }).join('');
   },
@@ -90,7 +97,11 @@ var ui = {
   },
 
   async toggleList(id, enabled) {
-    try { await invoke('toggle_block_list', { id: id, enabled: enabled }); toast(enabled ? 'Enabled' : 'Disabled', 'success'); }
+    try {
+      await invoke('toggle_block_list', { id: id, enabled: enabled });
+      toast(enabled ? 'Enabled' : 'Disabled', 'success');
+      await this.refreshBlockLists();
+    }
     catch (e) { toast('Failed: ' + e, 'error'); }
   },
 
@@ -130,11 +141,34 @@ var ui = {
     });
     var searchEl = document.getElementById('search-websites');
     if (searchEl) searchEl.value = '';
+    // Schedule info bar
+    var schedBar = document.getElementById('website-schedule-bar');
+    if (!schedBar) {
+      schedBar = document.createElement('div');
+      schedBar.id = 'website-schedule-bar';
+      schedBar.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px;';
+      var websitesList = document.getElementById('websites-list');
+      if (websitesList) websitesList.parentElement.insertBefore(schedBar, websitesList);
+    }
+
     if (!selectedList) {
+      schedBar.style.display = 'none';
       var c = document.getElementById('websites-list');
       c.innerHTML = '<div class="empty-state">Select a block list to view its websites</div>';
       return;
     }
+
+    // Show schedule status for selected list
+    var selList = state.blockLists.find(function(l) { return l.id === selectedList; });
+    var isScheduled = selList && selList.schedule !== null && selList.schedule !== undefined;
+    var slotCount = isScheduled && selList.schedule.time_slots ? selList.schedule.time_slots.length : 0;
+    schedBar.style.display = 'flex';
+    schedBar.innerHTML = '<span style="color:var(--text-muted);">Schedule:</span>' +
+      (isScheduled
+        ? '<span style="color:var(--accent);font-weight:500;">Scheduled' + (slotCount > 0 ? ' (' + slotCount + ' slots)' : ' (no hours set)') + '</span>'
+        : '<span style="color:var(--success);font-weight:500;">Always Active</span>') +
+      '<button class="btn btn-sm" data-action="edit-schedule" data-list-id="' + selectedList + '" style="font-size:11px;margin-left:auto;">Edit Schedule</button>';
+
     this.renderFilteredWebsites('');
   },
 
@@ -256,13 +290,139 @@ var ui = {
     this.updateSelects();
     var grid = document.getElementById('schedule-grid');
     var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var dayLabels = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    var hours = ['12 AM','1 AM','2 AM','3 AM','4 AM','5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
+
+    // Build grid
     var html = '<div class="schedule-header"></div>';
-    for (var h = 0; h < 24; h++) html += '<div class="schedule-header">' + h + '</div>';
+    for (var h = 0; h < 24; h++) html += '<div class="schedule-header">' + hours[h] + '</div>';
     for (var d = 0; d < days.length; d++) {
-      html += '<div class="schedule-day-label">' + days[d] + '</div>';
-      for (var hr = 0; hr < 24; hr++) html += '<div class="schedule-cell" data-action="toggle-schedule" data-day="' + days[d] + '" data-hour="' + hr + '"></div>';
+      html += '<div class="schedule-day-label" title="' + dayLabels[d] + '">' + days[d] + '</div>';
+      for (var hr = 0; hr < 24; hr++) {
+        html += '<div class="schedule-cell" data-day="' + days[d] + '" data-hour="' + hr + '" title="' + dayLabels[d] + ' ' + hours[hr] + '"></div>';
+      }
     }
     grid.innerHTML = html;
+
+    // Load existing schedule from selected list
+    var sel = document.getElementById('schedule-list-select');
+    var alwaysActiveCheckbox = document.getElementById('schedule-always-active');
+    var statusEl = document.getElementById('schedule-status');
+
+    if (sel && sel.value) {
+      var list = state.blockLists.find(function(l) { return l.id === sel.value; });
+      var isScheduled = list && list.schedule !== null && list.schedule !== undefined;
+      var hasSlots = isScheduled && list.schedule.time_slots && list.schedule.time_slots.length > 0;
+
+      // Set "Always Active" checkbox — but don't override if user just unchecked it
+      if (alwaysActiveCheckbox && !this._scheduleManualMode) {
+        alwaysActiveCheckbox.checked = !isScheduled;
+      }
+
+      // Show/hide grid based on schedule mode
+      var showGrid = isScheduled || this._scheduleManualMode;
+      grid.style.opacity = showGrid ? '1' : '0.3';
+      grid.style.pointerEvents = showGrid ? 'auto' : 'none';
+
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        if (!isScheduled) {
+          statusEl.innerHTML = '<strong style="color:var(--success);">Always Active</strong> — this list blocks at all times. Uncheck "Always Active" to set a schedule.';
+        } else if (hasSlots) {
+          statusEl.innerHTML = 'This list blocks during <strong style="color:var(--accent);">' + list.schedule.time_slots.length + ' scheduled hours</strong>. Edit the grid below.';
+        } else {
+          statusEl.innerHTML = '<strong style="color:var(--warning);">Scheduled but no hours set</strong> — click hours below to set when blocking should be active.';
+        }
+      }
+
+      if (hasSlots) {
+        list.schedule.time_slots.forEach(function(slot) {
+          var dayKey = slot.day;
+          if (dayKey === 'Monday') dayKey = 'Mon';
+          else if (dayKey === 'Tuesday') dayKey = 'Tue';
+          else if (dayKey === 'Wednesday') dayKey = 'Wed';
+          else if (dayKey === 'Thursday') dayKey = 'Thu';
+          else if (dayKey === 'Friday') dayKey = 'Fri';
+          else if (dayKey === 'Saturday') dayKey = 'Sat';
+          else if (dayKey === 'Sunday') dayKey = 'Sun';
+          var startHour = parseInt(slot.start.split(':')[0], 10);
+          var cell = grid.querySelector('[data-day="' + dayKey + '"][data-hour="' + startHour + '"]');
+          if (cell) cell.classList.add('active');
+        });
+      }
+    } else {
+      if (alwaysActiveCheckbox) alwaysActiveCheckbox.checked = false;
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Select a block list to configure its schedule.'; }
+      grid.style.opacity = '0.3';
+      grid.style.pointerEvents = 'none';
+    }
+
+    // Click-drag support
+    this._setupScheduleDrag(grid);
+  },
+
+  _setupScheduleDrag: function(grid) {
+    if (grid._dragSetup) return;
+    grid._dragSetup = true;
+    var isDragging = false;
+    var dragMode = null; // 'activate' or 'deactivate'
+
+    grid.addEventListener('mousedown', function(e) {
+      var cell = e.target.closest('.schedule-cell');
+      if (!cell) return;
+      e.preventDefault();
+      isDragging = true;
+      dragMode = cell.classList.contains('active') ? 'deactivate' : 'activate';
+      cell.classList.toggle('active', dragMode === 'activate');
+    });
+
+    grid.addEventListener('mouseover', function(e) {
+      if (!isDragging) return;
+      var cell = e.target.closest('.schedule-cell');
+      if (!cell) return;
+      cell.classList.toggle('active', dragMode === 'activate');
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (isDragging) {
+        isDragging = false;
+        dragMode = null;
+        ui._saveSchedule();
+      }
+    });
+
+    // Single click also saves
+    grid.addEventListener('click', function(e) {
+      var cell = e.target.closest('.schedule-cell');
+      if (!cell) return;
+      // Toggle is handled by mousedown, just save
+      ui._saveSchedule();
+    });
+  },
+
+  _saveSchedule: async function(forceAlwaysActive) {
+    var sel = document.getElementById('schedule-list-select');
+    if (!sel || !sel.value) { toast('Select a list first', 'error'); return; }
+
+    if (forceAlwaysActive) {
+      // Clear schedule — set to always active
+      try {
+        await invoke('update_schedule', { listId: sel.value, slots: [], alwaysActive: true });
+        await this.refreshBlockLists();
+      } catch (e) { toast('Failed: ' + e, 'error'); }
+      return;
+    }
+
+    var grid = document.getElementById('schedule-grid');
+    var activeCells = grid.querySelectorAll('.schedule-cell.active');
+    var slots = [];
+    activeCells.forEach(function(cell) {
+      slots.push({ day: cell.getAttribute('data-day'), hour: parseInt(cell.getAttribute('data-hour'), 10) });
+    });
+    try {
+      await invoke('update_schedule', { listId: sel.value, slots: slots, alwaysActive: false });
+      await this.refreshBlockLists();
+    } catch (e) { toast('Failed to save schedule: ' + e, 'error'); }
   },
 
   _statsRange: '1d',
@@ -954,7 +1114,8 @@ document.addEventListener('click', function(e) {
   }
   while (el && el !== document.body) {
     var a = el.getAttribute('data-action');
-    if (a) { e.preventDefault(); doAction(a, el); return; }
+    // Don't preventDefault on checkboxes — let the change event handle them
+    if (a && el.tagName !== 'INPUT') { e.preventDefault(); doAction(a, el); return; }
     if (el.dataset && el.dataset.page && (el.classList.contains('nav-item') || el.classList.contains('quick-action-btn'))) { ui.navigateTo(el.dataset.page); return; }
     el = el.parentElement;
   }
@@ -971,7 +1132,7 @@ function doAction(a, el) {
     case 'remove-website': ui.removeWebsite(el.getAttribute('data-list-id'), el.getAttribute('data-rule-id')); break;
     case 'remove-app': ui.removeApp(el.getAttribute('data-list-id'), el.getAttribute('data-rule-id')); break;
     case 'remove-exception': ui.removeException(el.getAttribute('data-list-id'), el.getAttribute('data-exc-id')); break;
-    case 'toggle-schedule': el.classList.toggle('active'); break;
+    case 'toggle-schedule': break; // handled by schedule drag system
     case 'confirm-create-list': ui.createList(); break;
     case 'confirm-keyword': ui.confirmKeyword(el.getAttribute('data-list-id')); break;
     case 'switch-tab':
@@ -990,6 +1151,15 @@ function doAction(a, el) {
     case 'import-entire-internet': ui.importEntireInternet(); closeAllDropdowns(); break;
     case 'clear-all-websites': ui.clearAllWebsites(); break;
     case 'clear-all-apps': ui.clearAllApps(); break;
+    case 'edit-schedule':
+      // Navigate to schedule tab and select this list
+      var schedListId = el.getAttribute('data-list-id');
+      ui.navigateTo('schedule');
+      setTimeout(function() {
+        var sel = document.getElementById('schedule-list-select');
+        if (sel) { sel.value = schedListId; ui.refreshSchedule(); }
+      }, 100);
+      break;
     case 'close-modal': ui.closeModal(); break;
   }
 }
@@ -1022,6 +1192,39 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Stats time range buttons
   document.querySelectorAll('.stats-range-btn').forEach(function(btn) {
     btn.addEventListener('click', function() { ui._statsRange = btn.getAttribute('data-range'); ui.refreshStatistics(); });
+  });
+
+  // Schedule list select → reload grid with that list's schedule
+  var sls = document.getElementById('schedule-list-select');
+  if (sls) sls.addEventListener('change', function() { ui._scheduleManualMode = false; ui.refreshSchedule(); });
+  // "Always Active" checkbox — clears schedule when checked
+  var saa = document.getElementById('schedule-always-active');
+  if (saa) saa.addEventListener('change', function() {
+    if (saa.checked) {
+      // Set to always active — clear schedule from backend
+      document.querySelectorAll('.schedule-cell.active').forEach(function(c) { c.classList.remove('active'); });
+      ui._saveSchedule(true); // true = force always active
+      toast('Set to Always Active', 'success');
+      ui._scheduleManualMode = false;
+      ui.refreshSchedule();
+    } else {
+      // Switch to scheduled mode — save empty schedule (creates Schedule object)
+      ui._scheduleManualMode = true;
+      ui._saveSchedule(false); // false = scheduled mode with no slots yet
+      var grid = document.getElementById('schedule-grid');
+      if (grid) { grid.style.opacity = '1'; grid.style.pointerEvents = 'auto'; }
+      var statusEl = document.getElementById('schedule-status');
+      if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = 'Click hours below to set when blocking should be active. Changes save automatically.'; }
+      toast('Click hours to set schedule', 'info');
+    }
+  });
+  // Clear schedule button
+  var bcs = document.getElementById('btn-clear-schedule');
+  if (bcs) bcs.addEventListener('click', function() {
+    document.querySelectorAll('.schedule-cell.active').forEach(function(c) { c.classList.remove('active'); });
+    ui._saveSchedule();
+    toast('Schedule cleared', 'success');
+    ui.refreshSchedule();
   });
 
   // Redraw charts on window resize (prevents stretched/blurry canvas)

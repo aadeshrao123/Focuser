@@ -26,6 +26,7 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 
     // Browser enforcement state
     let mut grace_periods: HashMap<BrowserType, Instant> = HashMap::new();
+    let mut was_using_hosts = true; // Track when we switch from hosts to extension
 
     // Read settings
     let (grace_secs, enforce_enabled) = {
@@ -65,9 +66,31 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
         if let Ok(mut eng) = state.engine.lock() {
             let _ = eng.refresh();
 
-            // Sync hosts file
-            let domains = eng.collect_blocked_domains();
-            sync_hosts_file(&domains);
+            // Schedule enforcement: enable/disable lists based on their schedule
+            enforce_schedules(&mut eng);
+
+            // Sync hosts file — but skip if any browser extension is connected,
+            // because the extension provides a better experience (custom block page)
+            // while the hosts file just shows a connection error.
+            let any_extension_connected = !crate::api::get_connected_browsers(10).is_empty();
+            if any_extension_connected {
+                // Extension handles blocking — clear hosts file so extension can show block page
+                if was_using_hosts {
+                    // Just switched from hosts to extension — force clear and flush DNS
+                    info!(
+                        "Extension connected — switching from hosts file to extension-based blocking"
+                    );
+                    let _ = remove_hosts_blocks();
+                    was_using_hosts = false;
+                } else {
+                    sync_hosts_file(&[]);
+                }
+            } else {
+                // No extension — use hosts file as fallback
+                was_using_hosts = true;
+                let domains = eng.collect_blocked_domains();
+                sync_hosts_file(&domains);
+            }
 
             // Kill blocked processes
             kill_blocked_processes(&eng);
@@ -76,6 +99,37 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
             if enforce_enabled {
                 let has_active_blocks = eng.block_lists().iter().any(|l| l.enabled);
                 enforce_browser_extension(has_active_blocks, grace_duration, &mut grace_periods);
+            }
+        }
+    }
+}
+
+/// Check schedules and enable/disable block lists accordingly.
+/// Only applies to lists with a non-empty schedule. Lists without a schedule
+/// (or with an empty time_slots) are "always active" and managed by the user toggle.
+fn enforce_schedules(eng: &mut focuser_core::BlockEngine) {
+    let lists = eng.block_lists().to_vec();
+    for list in &lists {
+        if let Some(ref schedule) = list.schedule {
+            // Skip if schedule has no time slots (= "always active", user controls toggle)
+            if schedule.time_slots.is_empty() {
+                continue;
+            }
+            let should_be_active = schedule.is_active_now();
+            if should_be_active != list.enabled {
+                let mut updated = list.clone();
+                updated.enabled = should_be_active;
+                updated.updated_at = chrono::Utc::now();
+                if let Err(e) = eng.db().update_block_list(&updated) {
+                    warn!(error = %e, list = %list.name, "Failed to update schedule state");
+                } else {
+                    info!(
+                        list = %list.name,
+                        enabled = should_be_active,
+                        "Schedule toggled block list"
+                    );
+                    let _ = eng.refresh();
+                }
             }
         }
     }

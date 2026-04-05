@@ -86,6 +86,7 @@ fn main() {
             commands::clear_all_websites,
             commands::clear_all_apps,
             commands::pick_app_file,
+            commands::update_schedule,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run

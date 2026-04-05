@@ -240,6 +240,64 @@ pub fn get_blocked_events(
     serde_json::to_value(events).map_err(|e| e.to_string())
 }
 
+/// Update the schedule for a block list.
+/// If `always_active` is true, clears the schedule (list blocks at all times).
+/// Otherwise, sets the schedule to the given time slots.
+#[tauri::command]
+pub fn update_schedule(
+    state: State<'_, Arc<AppState>>,
+    list_id: String,
+    slots: Vec<Value>,
+    always_active: Option<bool>,
+) -> Result<String, String> {
+    let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| format!("Invalid ID: {e}"))?;
+
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
+
+    if always_active.unwrap_or(false) {
+        // Always active — remove schedule entirely
+        list.schedule = None;
+    } else {
+        // Convert JSON slots to TimeSlot structs
+        let mut time_slots = Vec::new();
+        for slot in &slots {
+            let day_str = slot["day"].as_str().unwrap_or("");
+            let hour = slot["hour"].as_u64().unwrap_or(0) as u32;
+
+            let day = match day_str {
+                "Mon" => chrono::Weekday::Mon,
+                "Tue" => chrono::Weekday::Tue,
+                "Wed" => chrono::Weekday::Wed,
+                "Thu" => chrono::Weekday::Thu,
+                "Fri" => chrono::Weekday::Fri,
+                "Sat" => chrono::Weekday::Sat,
+                "Sun" => chrono::Weekday::Sun,
+                _ => continue,
+            };
+
+            let start = chrono::NaiveTime::from_hms_opt(hour, 0, 0).unwrap_or_default();
+            let end = chrono::NaiveTime::from_hms_opt((hour + 1) % 24, 0, 0).unwrap_or_default();
+            time_slots.push(focuser_common::types::TimeSlot { day, start, end });
+        }
+
+        list.schedule = Some(focuser_common::types::Schedule {
+            id: uuid::Uuid::new_v4(),
+            name: format!("{} schedule", list.name),
+            time_slots,
+            enabled: true,
+        });
+    }
+    list.updated_at = chrono::Utc::now();
+
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
+    let _ = eng.refresh();
+
+    Ok("Schedule saved".into())
+}
+
 /// Apply all current blocks to the hosts file.
 #[tauri::command]
 pub fn apply_blocks(state: State<'_, Arc<AppState>>) -> Result<String, String> {

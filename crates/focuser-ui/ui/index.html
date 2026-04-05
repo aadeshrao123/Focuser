@@ -219,18 +219,27 @@
       <section id="page-schedule" class="page">
         <header class="page-header">
           <h1>Schedule</h1>
-          <p class="page-subtitle">Set recurring blocking times for each day of the week</p>
+          <p class="page-subtitle">Click or drag to set when blocking is active. Changes save automatically.</p>
         </header>
         <div class="panel" style="flex:1;">
           <div class="panel-header">
             <h3>Weekly Schedule</h3>
-            <select id="schedule-list-select" class="input" style="width:200px;"><option value="">Select list...</option></select>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <select id="schedule-list-select" class="input" style="width:200px;"><option value="">Select list...</option></select>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;margin-left:8px;">
+                <input type="checkbox" id="schedule-always-active" style="accent-color:var(--accent);">
+                <span>Always Active</span>
+              </label>
+              <button id="btn-clear-schedule" class="btn btn-sm" style="font-size:11px;">Clear Schedule</button>
+            </div>
           </div>
-          <div class="panel-body">
+          <div class="panel-body" style="overflow-x:auto;">
+            <div id="schedule-status" style="padding:8px 0 12px;font-size:13px;color:var(--text-secondary);display:none;"></div>
             <div class="schedule-grid" id="schedule-grid"></div>
-            <div class="schedule-legend">
-              <span class="legend-item"><span class="legend-dot active"></span> Active (blocking)</span>
-              <span class="legend-item"><span class="legend-dot"></span> Inactive</span>
+            <div class="schedule-legend" style="margin-top:12px;">
+              <span class="legend-item"><span class="legend-dot active"></span> Blocking active</span>
+              <span class="legend-item"><span class="legend-dot"></span> Not blocking</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">Tip: Click and drag to select multiple hours</span>
             </div>
           </div>
         </div>
