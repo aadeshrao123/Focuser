@@ -209,23 +209,9 @@ function isInternalUrl(protocol) {
 
 // ─── Blocking ───────────────────────────────────────────────────────
 
-// Step 1: Intercept BEFORE DNS resolution — redirect to block page immediately.
-// This handles HTTP sites where hosts file may have cached a bad DNS entry.
-chrome.webNavigation.onBeforeNavigate.addListener(function(details) {
-  if (details.frameId !== 0) return;
-  try {
-    var url = new URL(details.url);
-    if (isInternalUrl(url.protocol)) return;
-    if (isDomainBlocked(url.hostname, details.url)) {
-      // Redirect the tab to our block page
-      var blockUrl = chrome.runtime.getURL('blocked.html') + '?domain=' + encodeURIComponent(url.hostname);
-      chrome.tabs.update(details.tabId, { url: blockUrl });
-      reportBlocked(details.url, url.hostname);
-    }
-  } catch (e) {}
-});
-
-// Step 2: Safety net — if page somehow loaded, inject block content script:
+// content-early.js (registered in manifest at document_start) handles hiding.
+// Once page commits, inject our full block page content script.
+// The URL bar stays as the original blocked domain — clean!
 chrome.webNavigation.onCommitted.addListener(function(details) {
   if (details.frameId !== 0) return;
   try {
