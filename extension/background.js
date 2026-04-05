@@ -108,8 +108,18 @@ var httpPollTimer = null;
 
 function startHttpPolling() {
   if (httpPollTimer) return;
+  // Send immediate heartbeat so the app knows we're here
+  sendHeartbeat();
   fetchRulesHttp();
   httpPollTimer = setInterval(fetchRulesHttp, POLL_INTERVAL_MS);
+}
+
+function sendHeartbeat() {
+  var browser = detectBrowser();
+  var browserName = typeof browser === 'string' ? browser : 'Other';
+  fetch(API_BASE + '/api/status', {
+    headers: { 'X-Focuser-Browser': browserName }
+  }).catch(function() {});
 }
 
 function stopHttpPolling() {
@@ -309,6 +319,10 @@ function updateBadge(connected) {
 
 
 // ─── Startup ───────────────────────────────────────────────────────
+
+// Send immediate heartbeat so the Focuser app knows this browser has the extension
+// (don't wait for native messaging to fail before sending HTTP heartbeat)
+sendHeartbeat();
 
 // Try native messaging first, fall back to HTTP polling
 connectNative();

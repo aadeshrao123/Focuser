@@ -285,34 +285,46 @@ fn enforce_browser_extension_windows(
             }
             Some(started_at) => {
                 if now.duration_since(*started_at) >= grace_duration {
-                    // Grace expired — kill browser
-                    info!(
-                        browser = ?browser_type,
-                        pid_count = pids.len(),
-                        "Grace period expired — terminating browser without extension"
-                    );
+                    // Grace expired — but double-check the extension one more time
+                    // (it might have connected during the grace period)
+                    let fresh_check = crate::api::get_connected_browsers(15);
+                    if fresh_check.contains(browser_type) {
+                        // Extension connected just in time — cancel kill
+                        info!(
+                            browser = ?browser_type,
+                            "Extension connected during grace period — cancelling termination"
+                        );
+                        grace_periods.remove(browser_type);
+                    } else {
+                        // Confirmed: no extension — kill browser
+                        info!(
+                            browser = ?browser_type,
+                            pid_count = pids.len(),
+                            "Grace period expired — terminating browser without extension"
+                        );
 
-                    for &pid in pids {
-                        unsafe {
-                            if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-                                let _ = TerminateProcess(handle, 1);
-                                let _ = CloseHandle(handle);
+                        for &pid in pids {
+                            unsafe {
+                                if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                                    let _ = TerminateProcess(handle, 1);
+                                    let _ = CloseHandle(handle);
+                                }
                             }
                         }
+
+                        // Show the Focuser app with "install extension" prompt
+                        let browser_name = focuser_common::browser::KNOWN_BROWSERS
+                            .iter()
+                            .find(|b| b.browser_type == *browser_type)
+                            .map(|b| b.display_name)
+                            .unwrap_or("your browser");
+                        crate::api::set_killed_browser(browser_name);
+                        crate::api::SHOW_WINDOW_REQUESTED
+                            .store(true, std::sync::atomic::Ordering::Relaxed);
+
+                        // Reset so grace restarts if browser is relaunched
+                        grace_periods.remove(browser_type);
                     }
-
-                    // Show the Focuser app with "install extension" prompt
-                    let browser_name = focuser_common::browser::KNOWN_BROWSERS
-                        .iter()
-                        .find(|b| b.browser_type == *browser_type)
-                        .map(|b| b.display_name)
-                        .unwrap_or("your browser");
-                    crate::api::set_killed_browser(browser_name);
-                    crate::api::SHOW_WINDOW_REQUESTED
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-
-                    // Reset so grace restarts if browser is relaunched
-                    grace_periods.remove(browser_type);
                 }
             }
         }
