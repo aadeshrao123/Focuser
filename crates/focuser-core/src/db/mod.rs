@@ -1,7 +1,7 @@
 mod migrations;
 
 use focuser_common::error::{FocuserError, Result};
-use focuser_common::types::{BlockList, EntityId, UsageStat};
+use focuser_common::types::{BlockList, BlockedEvent, EntityId, UsageStat};
 use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Mutex;
@@ -208,6 +208,65 @@ impl Database {
         )
         .map_err(|e| FocuserError::Database(e.to_string()))?;
         Ok(())
+    }
+
+    // ─── Blocked Events (fine-grained timeline) ────────────
+
+    /// Record an individual block event with a precise timestamp.
+    pub fn record_blocked_event(&self, domain_or_app: &str) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO blocked_events (domain_or_app, timestamp) VALUES (?1, ?2)",
+            rusqlite::params![domain_or_app, now],
+        )
+        .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Get blocked events in a time range (ISO 8601 timestamps).
+    pub fn get_blocked_events(&self, from: &str, to: &str) -> Result<Vec<BlockedEvent>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT domain_or_app, timestamp FROM blocked_events
+                 WHERE timestamp >= ?1 AND timestamp <= ?2
+                 ORDER BY timestamp ASC",
+            )
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let events = stmt
+            .query_map(rusqlite::params![from, to], |row| {
+                Ok(BlockedEvent {
+                    domain_or_app: row.get(0)?,
+                    timestamp: row.get(1)?,
+                })
+            })
+            .map_err(|e| FocuserError::Database(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(events)
+    }
+
+    /// Delete blocked events older than the given number of days.
+    pub fn cleanup_old_events(&self, keep_days: u32) -> Result<u64> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let cutoff = (chrono::Utc::now() - chrono::Duration::days(keep_days as i64)).to_rfc3339();
+        let deleted = conn
+            .execute(
+                "DELETE FROM blocked_events WHERE timestamp < ?1",
+                rusqlite::params![cutoff],
+            )
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(deleted as u64)
     }
 
     pub fn get_stats(

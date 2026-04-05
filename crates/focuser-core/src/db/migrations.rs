@@ -19,9 +19,10 @@ pub fn run_all(conn: &Connection) -> Result<()> {
         )
         .unwrap_or(0);
 
-    let migrations: &[(&str, &str)] = &[(
-        "v1: block_lists and statistics",
-        "CREATE TABLE IF NOT EXISTS block_lists (
+    let migrations: &[(&str, &str)] = &[
+        (
+            "v1: block_lists and statistics",
+            "CREATE TABLE IF NOT EXISTS block_lists (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 data TEXT NOT NULL,
@@ -51,7 +52,21 @@ pub fn run_all(conn: &Connection) -> Result<()> {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );",
-    )];
+        ),
+        (
+            "v2: blocked_events for fine-grained timeline",
+            "CREATE TABLE IF NOT EXISTS blocked_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain_or_app TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_blocked_events_timestamp
+                ON blocked_events(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_blocked_events_domain
+                ON blocked_events(domain_or_app);",
+        ),
+    ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {
         let version = (i + 1) as i64;

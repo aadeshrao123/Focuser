@@ -776,7 +776,8 @@ select.input {
 .rule-type-badge.keyword { background: var(--warning-muted); color: var(--warning); }
 .rule-type-badge.wildcard { background: var(--success-muted); color: var(--success); }
 
-.rule-value { font-size: 13px; font-family: var(--font-mono); font-weight: 400; color: var(--text-primary); }
+.rule-value { font-size: 13px; font-family: var(--font-mono); font-weight: 400; color: var(--text-primary); cursor: pointer; border-radius: 4px; padding: 2px 4px; transition: background var(--transition), color var(--transition); }
+.rule-value:hover { background: var(--accent-muted); color: var(--accent-hover); }
 .rule-list-name { font-size: 11px; color: var(--text-muted); }
 
 /* ─── Modal ──────────────────────────────────────────────────────── */
@@ -823,6 +824,11 @@ select.input {
 }
 
 /* ─── Toast ──────────────────────────────────────────────────────── */
+
+/* ─── Stats Range Buttons ────────────────────────────────────────── */
+.stats-range-btn { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; font-weight: 500; padding: 5px 12px; cursor: pointer; transition: all var(--transition); }
+.stats-range-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
+.stats-range-btn.active { background: var(--accent-muted); color: var(--accent); border-color: var(--accent); }
 
 #toast-container {
   position: fixed; bottom: 20px; right: 20px; z-index: 2000;

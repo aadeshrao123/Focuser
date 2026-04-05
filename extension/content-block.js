@@ -10,6 +10,11 @@
 
   var domain = window.location.hostname;
 
+  // Report this block to the Focuser app
+  try {
+    chrome.runtime.sendMessage({ type: 'report-blocked', hostname: domain, url: window.location.href });
+  } catch (e) {}
+
   var quotes = [
     "The secret of getting ahead is getting started. —Mark Twain",
     "Focus on being productive instead of busy. —Tim Ferriss",

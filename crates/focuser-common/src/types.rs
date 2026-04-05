@@ -263,3 +263,10 @@ pub struct UsageStat {
     pub blocked_attempts: u64,
     pub date: chrono::NaiveDate,
 }
+
+/// A single block event with precise timestamp (for timeline charts).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockedEvent {
+    pub domain_or_app: String,
+    pub timestamp: String,
+}

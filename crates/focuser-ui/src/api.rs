@@ -193,6 +193,7 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
         ("POST", "/api/add-site") => api_add_site(body, state),
         ("POST", "/api/remove-site") => api_remove_site(body, state),
         ("POST", "/api/toggle-list") => api_toggle_list(body, state),
+        ("POST", "/api/blocked") => api_report_blocked(body, state),
         ("POST", "/api/show") | ("GET", "/api/show") => {
             SHOW_WINDOW_REQUESTED.store(true, Ordering::Relaxed);
             ("200 OK", r#"{"ok":true}"#.into())
@@ -367,6 +368,22 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
     let _ = eng.refresh();
     crate::commands::sync_hosts_now_static(&eng);
 
+    ("200 OK", r#"{"ok":true}"#.into())
+}
+
+fn api_report_blocked(body: &str, state: &AppState) -> (&'static str, String) {
+    let parsed: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return ("400 Bad Request", format!(r#"{{"error":"{}"}}"#, e)),
+    };
+
+    let domain = parsed["domain"].as_str().unwrap_or("");
+    if domain.is_empty() {
+        return ("400 Bad Request", r#"{"error":"domain required"}"#.into());
+    }
+
+    let eng = state.engine.lock().unwrap();
+    let _ = eng.record_blocked(domain);
     ("200 OK", r#"{"ok":true}"#.into())
 }
 

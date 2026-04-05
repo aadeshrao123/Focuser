@@ -50,6 +50,14 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
         info!(grace_secs, "Browser extension enforcement enabled");
     }
 
+    // Cleanup old events on startup (keep 30 days)
+    if let Ok(eng) = state.engine.lock() {
+        match eng.db().cleanup_old_events(30) {
+            Ok(n) if n > 0 => info!(deleted = n, "Cleaned up old blocked events"),
+            _ => {}
+        }
+    }
+
     loop {
         thread::sleep(Duration::from_secs(3));
 

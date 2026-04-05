@@ -225,6 +225,21 @@ pub fn get_stats(
     serde_json::to_value(stats).map_err(|e| e.to_string())
 }
 
+/// Get fine-grained blocked events for timeline charts.
+#[tauri::command]
+pub fn get_blocked_events(
+    state: State<'_, Arc<AppState>>,
+    from: String,
+    to: String,
+) -> Result<Value, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let events = eng
+        .db()
+        .get_blocked_events(&from, &to)
+        .map_err(|e| e.to_string())?;
+    serde_json::to_value(events).map_err(|e| e.to_string())
+}
+
 /// Apply all current blocks to the hosts file.
 #[tauri::command]
 pub fn apply_blocks(state: State<'_, Arc<AppState>>) -> Result<String, String> {

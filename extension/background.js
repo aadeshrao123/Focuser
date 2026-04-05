@@ -226,7 +226,7 @@ chrome.webNavigation.onCompleted.addListener(function(details) {
     if (isInternalUrl(url.protocol)) return;
     if (isDomainBlocked(url.hostname, details.url)) {
       chrome.scripting.executeScript({
-        target: { tabId: tab.id },
+        target: { tabId: details.tabId },
         files: ['content-block.js']
       }).catch(function() {});
     }
@@ -255,7 +255,15 @@ function enforceOnAllTabs() {
 
 // ─── Event Reporting ───────────────────────────────────────────────
 
+var _recentlyReported = {};
+
 function reportBlocked(url, hostname) {
+  // Deduplicate: don't report the same domain more than once per 5 seconds
+  var now = Date.now();
+  if (_recentlyReported[hostname] && now - _recentlyReported[hostname] < 5000) return;
+  _recentlyReported[hostname] = now;
+
+  // Report via native messaging if connected
   if (nativePort) {
     nativePort.postMessage({
       msg_type: 'Event',
@@ -268,6 +276,12 @@ function reportBlocked(url, hostname) {
       }
     });
   }
+  // Also report via HTTP API so the desktop app records the event
+  fetch(API_BASE + '/api/blocked', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain: hostname })
+  }).catch(function() {});
 }
 
 
@@ -317,8 +331,16 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     }
     return;
   }
+  if (msg.type === 'report-blocked') {
+    reportBlocked(msg.url || '', msg.hostname);
+    return;
+  }
   if (msg.type === 'check-domain') {
-    sendResponse({ blocked: isDomainBlocked(msg.hostname, msg.url) });
+    var isBlocked = isDomainBlocked(msg.hostname, msg.url);
+    if (isBlocked) {
+      reportBlocked(msg.url || '', msg.hostname);
+    }
+    sendResponse({ blocked: isBlocked });
     return;
   }
 });

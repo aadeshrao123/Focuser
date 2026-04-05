@@ -183,9 +183,11 @@ impl BlockEngine {
         self.compile_extension_rules().requires_extension()
     }
 
-    /// Record a blocked attempt in the database.
+    /// Record a blocked attempt in the database (daily aggregate + individual event).
     pub fn record_blocked(&self, domain_or_app: &str) -> Result<()> {
-        self.db.record_blocked_attempt(domain_or_app)
+        self.db.record_blocked_attempt(domain_or_app)?;
+        let _ = self.db.record_blocked_event(domain_or_app);
+        Ok(())
     }
 
     /// Get a reference to the database.

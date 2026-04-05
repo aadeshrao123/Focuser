@@ -122,10 +122,19 @@ var ui = {
 
   refreshWebsites: function() {
     this.updateSelects();
+    var selectedList = document.getElementById('website-list-select').value;
     state.allWebsiteRules = [];
-    state.blockLists.forEach(function(l) { l.websites.forEach(function(r) { state.allWebsiteRules.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); }); });
+    state.blockLists.forEach(function(l) {
+      if (selectedList && l.id !== selectedList) return;
+      l.websites.forEach(function(r) { state.allWebsiteRules.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); });
+    });
     var searchEl = document.getElementById('search-websites');
     if (searchEl) searchEl.value = '';
+    if (!selectedList) {
+      var c = document.getElementById('websites-list');
+      c.innerHTML = '<div class="empty-state">Select a block list to view its websites</div>';
+      return;
+    }
     this.renderFilteredWebsites('');
   },
 
@@ -168,10 +177,19 @@ var ui = {
 
   refreshApps: function() {
     this.updateSelects();
+    var selectedList = document.getElementById('app-list-select').value;
     state.allAppRules = [];
-    state.blockLists.forEach(function(l) { l.applications.forEach(function(r) { state.allAppRules.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); }); });
+    state.blockLists.forEach(function(l) {
+      if (selectedList && l.id !== selectedList) return;
+      l.applications.forEach(function(r) { state.allAppRules.push({ id: r.id, match_type: r.match_type, listName: l.name, listId: l.id }); });
+    });
     var searchEl = document.getElementById('search-apps');
     if (searchEl) searchEl.value = '';
+    if (!selectedList) {
+      var c = document.getElementById('apps-list');
+      c.innerHTML = '<div class="empty-state">Select a block list to view its applications</div>';
+      return;
+    }
     this.renderFilteredApps('');
   },
 
@@ -247,18 +265,431 @@ var ui = {
     grid.innerHTML = html;
   },
 
+  _statsRange: '1d',
+
   async refreshStatistics() {
     var c = document.getElementById('stats-content');
+
+    // Highlight active range button
+    document.querySelectorAll('.stats-range-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-range') === ui._statsRange);
+    });
+
+    // Fetch daily stats for bar chart + table
+    var today = new Date().toISOString().split('T')[0];
+    var week = new Date(Date.now() - 7*86400000).toISOString().split('T')[0];
     try {
-      var today = new Date().toISOString().split('T')[0];
-      var week = new Date(Date.now() - 7*86400000).toISOString().split('T')[0];
       var stats = await invoke('get_stats', { from: week, to: today });
-      if (!stats || stats.length === 0) { c.innerHTML = '<div class="empty-state">No data yet. Blocked attempts will appear here.</div>'; return; }
-      var html = '<table class="data-table"><thead><tr><th>Domain / App</th><th>Blocked</th><th>Date</th></tr></thead><tbody>';
-      stats.forEach(function(s) { html += '<tr><td style="font-family:var(--font-mono);font-size:13px;">' + esc(s.domain_or_app) + '</td><td>' + s.blocked_attempts + '</td><td style="color:var(--text-muted)">' + s.date + '</td></tr>'; });
-      html += '</tbody></table>';
-      c.innerHTML = html;
+      this._renderBarChart(stats || []);
+      this._renderStatsTable(stats || [], c);
     } catch (e) { c.innerHTML = '<div class="empty-state">No data yet</div>'; }
+
+    // Fetch fine-grained events for line chart
+    var rangeMs = this._rangeToMs(this._statsRange);
+    var now = new Date();
+    var from = new Date(now.getTime() - rangeMs);
+    try {
+      var events = await invoke('get_blocked_events', { from: from.toISOString(), to: now.toISOString() });
+      this._renderLineChart(events || [], from, now);
+    } catch (e) { /* no events yet */ }
+  },
+
+  _rangeToMs: function(range) {
+    switch (range) {
+      case '5m': return 5 * 60 * 1000;
+      case '10m': return 10 * 60 * 1000;
+      case '30m': return 30 * 60 * 1000;
+      case '1h': return 60 * 60 * 1000;
+      case '1d': return 24 * 60 * 60 * 1000;
+      case '7d': return 7 * 24 * 60 * 60 * 1000;
+      case '30d': return 30 * 24 * 60 * 60 * 1000;
+      default: return 24 * 60 * 60 * 1000;
+    }
+  },
+
+  _chartColors: ['#8b5cf6','#4e8fff','#22c55e','#f59e0b','#ef4444','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'],
+
+  _renderLineChart: function(events, fromDate, toDate) {
+    var canvas = document.getElementById('stats-line-chart');
+    var tooltipEl = document.getElementById('stats-line-tooltip');
+    var legendEl = document.getElementById('stats-line-legend');
+    if (!canvas) return;
+
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    var w = rect.width, h = rect.height;
+    var pad = { top: 20, right: 20, bottom: 36, left: 44 };
+    var chartW = w - pad.left - pad.right;
+    var chartH = h - pad.top - pad.bottom;
+    ctx.clearRect(0, 0, w, h);
+
+    if (events.length === 0) {
+      ctx.fillStyle = '#5c5f73';
+      ctx.font = '13px Inter, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('No events in this time range', w / 2, h / 2);
+      if (legendEl) legendEl.innerHTML = '';
+      return;
+    }
+
+    // Determine time buckets
+    var rangeMs = toDate.getTime() - fromDate.getTime();
+    var bucketCount = Math.min(30, Math.max(6, Math.floor(chartW / 40)));
+    var bucketMs = rangeMs / bucketCount;
+    var colors = this._chartColors;
+
+    // Find unique domains and assign colors
+    var domainSet = {};
+    events.forEach(function(e) { domainSet[e.domain_or_app] = true; });
+    var domains = Object.keys(domainSet).sort();
+    var domainColors = {};
+    domains.forEach(function(dom, i) { domainColors[dom] = colors[i % colors.length]; });
+
+    // Bucket events per domain
+    var buckets = {};
+    domains.forEach(function(dom) {
+      buckets[dom] = new Array(bucketCount).fill(0);
+    });
+    events.forEach(function(e) {
+      var t = new Date(e.timestamp).getTime();
+      var bi = Math.floor((t - fromDate.getTime()) / bucketMs);
+      if (bi >= bucketCount) bi = bucketCount - 1;
+      if (bi < 0) bi = 0;
+      if (buckets[e.domain_or_app]) buckets[e.domain_or_app][bi]++;
+    });
+
+    // Max value for Y scale
+    var maxVal = 1;
+    for (var bi = 0; bi < bucketCount; bi++) {
+      domains.forEach(function(dom) { if (buckets[dom][bi] > maxVal) maxVal = buckets[dom][bi]; });
+    }
+
+    // Grid
+    var gridLines = 4;
+    ctx.strokeStyle = '#2a2d3e';
+    ctx.lineWidth = 1;
+    ctx.font = '11px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#5c5f73';
+    ctx.textAlign = 'right';
+    for (var gi = 0; gi <= gridLines; gi++) {
+      var gy = pad.top + (chartH / gridLines) * gi;
+      var gval = Math.round(maxVal - (maxVal / gridLines) * gi);
+      ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(w - pad.right, gy); ctx.stroke();
+      ctx.fillText(gval.toString(), pad.left - 8, gy + 4);
+    }
+
+    // Draw lines per domain
+    var stepX = chartW / (bucketCount - 1 || 1);
+    var self = this;
+    this._lineChartPoints = [];
+
+    domains.forEach(function(dom) {
+      var color = domainColors[dom];
+      var vals = buckets[dom];
+
+      // Area fill
+      ctx.beginPath();
+      for (var i = 0; i < bucketCount; i++) {
+        var x = pad.left + i * stepX;
+        var y = pad.top + chartH - (vals[i] / maxVal) * chartH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.lineTo(pad.left + (bucketCount - 1) * stepX, pad.top + chartH);
+      ctx.lineTo(pad.left, pad.top + chartH);
+      ctx.closePath();
+      var grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+      grad.addColorStop(0, color + '20');
+      grad.addColorStop(1, color + '03');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Line
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      for (var i = 0; i < bucketCount; i++) {
+        var x = pad.left + i * stepX;
+        var y = pad.top + chartH - (vals[i] / maxVal) * chartH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Points + hover data
+      for (var i = 0; i < bucketCount; i++) {
+        var x = pad.left + i * stepX;
+        var y = pad.top + chartH - (vals[i] / maxVal) * chartH;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        self._lineChartPoints.push({ x: x, y: y, domain: dom, count: vals[i], bucketIndex: i, color: color });
+      }
+    });
+
+    // X labels
+    ctx.fillStyle = '#5c5f73';
+    ctx.textAlign = 'center';
+    ctx.font = '10px Inter, -apple-system, sans-serif';
+    var labelStep = Math.max(1, Math.floor(bucketCount / 7));
+    for (var li = 0; li < bucketCount; li += labelStep) {
+      var lx = pad.left + li * stepX;
+      var lt = new Date(fromDate.getTime() + li * bucketMs);
+      var label = rangeMs <= 3600000 ? lt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) :
+                  rangeMs <= 86400000 ? lt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) :
+                  (lt.getMonth()+1) + '/' + lt.getDate();
+      ctx.fillText(label, lx, h - pad.bottom + 14);
+    }
+
+    // Legend
+    if (legendEl) {
+      legendEl.innerHTML = domains.map(function(dom) {
+        return '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<div style="width:10px;height:10px;border-radius:3px;background:' + domainColors[dom] + ';flex-shrink:0;"></div>' +
+          '<span style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);">' + esc(dom) + '</span></div>';
+      }).join('');
+    }
+
+    // Hover
+    if (!this._lineHoverBound) {
+      this._lineHoverBound = true;
+      canvas.addEventListener('mousemove', function(e) {
+        var cr = canvas.getBoundingClientRect();
+        var mx = e.clientX - cr.left, my = e.clientY - cr.top;
+        var hit = null, minDist = 20;
+        (self._lineChartPoints || []).forEach(function(p) {
+          var d = Math.sqrt((mx - p.x) * (mx - p.x) + (my - p.y) * (my - p.y));
+          if (d < minDist) { minDist = d; hit = p; }
+        });
+        if (hit && tooltipEl) {
+          var bt = new Date(fromDate.getTime() + hit.bucketIndex * bucketMs);
+          tooltipEl.style.display = 'block';
+          tooltipEl.innerHTML = '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">' + esc(hit.domain) + '</div>' +
+            '<div style="color:var(--text-secondary);"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + hit.color + ';margin-right:6px;"></span>' + hit.count + ' blocked</div>' +
+            '<div style="color:var(--text-muted);font-size:11px;margin-top:2px;">' + bt.toLocaleString() + '</div>';
+          var tx = hit.x + 14;
+          if (tx + 180 > w) tx = hit.x - 180;
+          tooltipEl.style.left = tx + 'px';
+          tooltipEl.style.top = Math.max(0, hit.y - 30) + 'px';
+          canvas.style.cursor = 'crosshair';
+        } else {
+          if (tooltipEl) tooltipEl.style.display = 'none';
+          canvas.style.cursor = 'default';
+        }
+      });
+      canvas.addEventListener('mouseleave', function() {
+        if (tooltipEl) tooltipEl.style.display = 'none';
+      });
+    }
+  },
+
+  _renderBarChart: function(stats) {
+    var chartCanvas = document.getElementById('stats-chart');
+    var legendEl = document.getElementById('stats-legend');
+    var tooltipEl = document.getElementById('stats-tooltip');
+
+    if (!stats || stats.length === 0) {
+      if (legendEl) legendEl.innerHTML = '';
+      if (chartCanvas) { var ctx2 = chartCanvas.getContext('2d'); ctx2.clearRect(0, 0, chartCanvas.width, chartCanvas.height); }
+      return;
+    }
+
+    var colors = this._chartColors;
+
+    // Get 7-day date range
+    var today = new Date().toISOString().split('T')[0];
+    var weekAgo = new Date(Date.now() - 7*86400000).toISOString().split('T')[0];
+    var dates = [];
+    for (var d = new Date(weekAgo); d <= new Date(today); d.setDate(d.getDate() + 1)) {
+      dates.push(new Date(d).toISOString().split('T')[0]);
+    }
+    var domainSet = {};
+    stats.forEach(function(s) { domainSet[s.domain_or_app] = true; });
+    var domains = Object.keys(domainSet).sort();
+
+    var matrix = {};
+    domains.forEach(function(dom) { matrix[dom] = {}; dates.forEach(function(dt) { matrix[dom][dt] = 0; }); });
+    stats.forEach(function(s) { if (matrix[s.domain_or_app] && matrix[s.domain_or_app][s.date] !== undefined) matrix[s.domain_or_app][s.date] = s.blocked_attempts; });
+
+    var domainColors = {};
+    domains.forEach(function(dom, i) { domainColors[dom] = colors[i % colors.length]; });
+
+    this._statsChartData = { dates: dates, domains: domains, matrix: matrix, domainColors: domainColors };
+    this._drawStatsChart();
+
+    if (legendEl) {
+      legendEl.innerHTML = domains.map(function(dom) {
+        return '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<div style="width:10px;height:10px;border-radius:3px;background:' + domainColors[dom] + ';flex-shrink:0;"></div>' +
+          '<span style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);">' + esc(dom) + '</span></div>';
+      }).join('');
+    }
+  },
+
+  _renderStatsTable: function(stats, container) {
+    if (!stats || stats.length === 0) {
+      container.innerHTML = '<div class="empty-state">No data yet. Blocked attempts will appear here.</div>';
+      return;
+    }
+    var colors = this._chartColors;
+    var domainColors = {};
+    var di = 0;
+    stats.forEach(function(s) { if (!domainColors[s.domain_or_app]) { domainColors[s.domain_or_app] = colors[di % colors.length]; di++; } });
+
+    var html = '<table class="data-table"><thead><tr><th>Domain / App</th><th>Blocked</th><th>Date</th></tr></thead><tbody>';
+    stats.forEach(function(s) {
+      var color = domainColors[s.domain_or_app] || 'var(--text-primary)';
+      html += '<tr><td style="font-family:var(--font-mono);font-size:13px;">' +
+        '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + color + ';margin-right:8px;vertical-align:middle;"></span>' +
+        '<span class="rule-value">' + esc(s.domain_or_app) + '</span></td>' +
+        '<td>' + s.blocked_attempts + '</td>' +
+        '<td style="color:var(--text-muted)">' + s.date + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  },
+
+  _drawStatsChart: function() {
+    var canvas = document.getElementById('stats-chart');
+    var tooltipEl = document.getElementById('stats-tooltip');
+    if (!canvas || !this._statsChartData) return;
+
+    var data = this._statsChartData;
+    var dates = data.dates, domains = data.domains, matrix = data.matrix, domainColors = data.domainColors;
+
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    var w = rect.width, h = rect.height;
+    var pad = { top: 20, right: 20, bottom: 36, left: 44 };
+    var chartW = w - pad.left - pad.right;
+    var chartH = h - pad.top - pad.bottom;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Calculate stacked totals per date
+    var maxTotal = 1;
+    var stackedTotals = dates.map(function(dt) {
+      var total = 0;
+      domains.forEach(function(dom) { total += matrix[dom][dt]; });
+      if (total > maxTotal) maxTotal = total;
+      return total;
+    });
+
+    // Grid lines
+    var gridLines = 4;
+    ctx.strokeStyle = '#2a2d3e';
+    ctx.lineWidth = 1;
+    ctx.font = '11px Inter, -apple-system, sans-serif';
+    ctx.fillStyle = '#5c5f73';
+    ctx.textAlign = 'right';
+    for (var i = 0; i <= gridLines; i++) {
+      var y = pad.top + (chartH / gridLines) * i;
+      var val = Math.round(maxTotal - (maxTotal / gridLines) * i);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(w - pad.right, y);
+      ctx.stroke();
+      ctx.fillText(val.toString(), pad.left - 8, y + 4);
+    }
+
+    // Bars
+    var barCount = dates.length;
+    var barGap = Math.max(6, chartW * 0.06);
+    var barWidth = Math.max(16, (chartW - barGap * (barCount + 1)) / barCount);
+    var barRadius = Math.min(4, barWidth / 2);
+
+    // Store bar positions for hover detection
+    this._statsBarRects = [];
+
+    for (var di = 0; di < barCount; di++) {
+      var x = pad.left + barGap + di * (barWidth + barGap);
+      var stackY = pad.top + chartH; // bottom of chart
+
+      for (var si = 0; si < domains.length; si++) {
+        var dom = domains[si];
+        var count = matrix[dom][dates[di]];
+        if (count === 0) continue;
+        var segH = (count / maxTotal) * chartH;
+        var segY = stackY - segH;
+
+        ctx.fillStyle = domainColors[dom];
+
+        // Round top corners only for the topmost segment
+        var isTop = true;
+        for (var ck = si + 1; ck < domains.length; ck++) {
+          if (matrix[domains[ck]][dates[di]] > 0) { isTop = false; break; }
+        }
+
+        if (isTop && barRadius > 0) {
+          ctx.beginPath();
+          ctx.moveTo(x, segY + barRadius);
+          ctx.arcTo(x, segY, x + barRadius, segY, barRadius);
+          ctx.arcTo(x + barWidth, segY, x + barWidth, segY + barRadius, barRadius);
+          ctx.lineTo(x + barWidth, stackY);
+          ctx.lineTo(x, stackY);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.fillRect(x, segY, barWidth, segH);
+        }
+
+        this._statsBarRects.push({ x: x, y: segY, w: barWidth, h: segH, domain: dom, date: dates[di], count: count });
+        stackY = segY;
+      }
+
+      // Date label
+      ctx.fillStyle = '#5c5f73';
+      ctx.textAlign = 'center';
+      ctx.font = '11px Inter, -apple-system, sans-serif';
+      var label = dates[di].substring(5); // MM-DD
+      ctx.fillText(label, x + barWidth / 2, h - pad.bottom + 16);
+    }
+
+    // ── Hover interaction ───────────────────────────────
+    var self = this;
+    if (!this._statsHoverBound) {
+      this._statsHoverBound = true;
+      canvas.addEventListener('mousemove', function(e) {
+        var crect = canvas.getBoundingClientRect();
+        var mx = e.clientX - crect.left;
+        var my = e.clientY - crect.top;
+        var hit = null;
+        var rects = self._statsBarRects || [];
+        for (var i = rects.length - 1; i >= 0; i--) {
+          var r = rects[i];
+          if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) { hit = r; break; }
+        }
+        if (hit && tooltipEl) {
+          tooltipEl.style.display = 'block';
+          tooltipEl.innerHTML = '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">' + esc(hit.domain) + '</div>' +
+            '<div style="color:var(--text-secondary);"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + domainColors[hit.domain] + ';margin-right:6px;"></span>' + hit.count + ' blocked</div>' +
+            '<div style="color:var(--text-muted);font-size:11px;margin-top:2px;">' + hit.date + '</div>';
+          var tx = hit.x + hit.w + 12;
+          var ty = hit.y;
+          if (tx + 160 > w) tx = hit.x - 160;
+          if (ty + 80 > h) ty = h - 80;
+          tooltipEl.style.left = tx + 'px';
+          tooltipEl.style.top = ty + 'px';
+          canvas.style.cursor = 'pointer';
+        } else {
+          if (tooltipEl) tooltipEl.style.display = 'none';
+          canvas.style.cursor = 'default';
+        }
+      });
+      canvas.addEventListener('mouseleave', function() {
+        if (tooltipEl) tooltipEl.style.display = 'none';
+        canvas.style.cursor = 'default';
+      });
+    }
   },
 
   // ── Exceptions ──────────────────────────────────────────────
@@ -513,10 +944,18 @@ function toast(msg, type) {
 
 document.addEventListener('click', function(e) {
   var el = e.target;
+  // Click-to-copy on rule values (website domains, app names)
+  if (el.classList && el.classList.contains('rule-value')) {
+    var text = el.textContent.trim();
+    navigator.clipboard.writeText(text).then(function() {
+      toast('Copied to clipboard', 'success');
+    });
+    return;
+  }
   while (el && el !== document.body) {
     var a = el.getAttribute('data-action');
     if (a) { e.preventDefault(); doAction(a, el); return; }
-    if (el.classList && el.classList.contains('nav-item') && el.dataset.page) { ui.navigateTo(el.dataset.page); return; }
+    if (el.dataset && el.dataset.page && (el.classList.contains('nav-item') || el.classList.contains('quick-action-btn'))) { ui.navigateTo(el.dataset.page); return; }
     el = el.parentElement;
   }
   if (e.target.id === 'modal-overlay') ui.closeModal();
@@ -574,6 +1013,31 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (sw) sw.addEventListener('input', function() { ui.renderFilteredWebsites(this.value); });
   var sa = document.getElementById('search-apps');
   if (sa) sa.addEventListener('input', function() { ui.renderFilteredApps(this.value); });
+
+  // Refresh lists when select dropdown changes
+  var wls = document.getElementById('website-list-select');
+  if (wls) wls.addEventListener('change', function() { ui.refreshWebsites(); });
+  var als = document.getElementById('app-list-select');
+  if (als) als.addEventListener('change', function() { ui.refreshApps(); });
+  // Stats time range buttons
+  document.querySelectorAll('.stats-range-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { ui._statsRange = btn.getAttribute('data-range'); ui.refreshStatistics(); });
+  });
+
+  // Redraw charts on window resize (prevents stretched/blurry canvas)
+  var resizeTimer = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      if (state.currentPage === 'statistics') ui.refreshStatistics();
+    }, 150);
+  });
+
+  // Auto-refresh statistics every 5 seconds when on the statistics page
+  setInterval(function() {
+    if (state.currentPage === 'statistics') ui.refreshStatistics();
+  }, 5000);
+
   // Close dropdowns on outside click
   document.addEventListener('click', function() { closeAllDropdowns(); });
   var mc = document.getElementById('btn-modal-close'); if (mc) mc.addEventListener('click', function() { ui.closeModal(); });

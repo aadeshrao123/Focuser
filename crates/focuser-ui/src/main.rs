@@ -76,6 +76,7 @@ fn main() {
             commands::remove_app_rule,
             commands::check_domain,
             commands::get_stats,
+            commands::get_blocked_events,
             commands::apply_blocks,
             commands::remove_blocks,
             commands::bulk_import_websites,
@@ -87,6 +88,16 @@ fn main() {
             commands::pick_app_file,
         ])
         .setup(move |app| {
+            // Enable autostart by default on first run
+            {
+                use tauri_plugin_autostart::ManagerExt;
+                let autostart = app.autolaunch();
+                if !autostart.is_enabled().unwrap_or(false) {
+                    let _ = autostart.enable();
+                    info!("Autostart enabled by default");
+                }
+            }
+
             // Spawn background blocking loop
             let blocker_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || {

@@ -237,11 +237,40 @@
       </section>
 
       <!-- Statistics -->
-      <section id="page-statistics" class="page">
+      <section id="page-statistics" class="page" style="overflow-y:auto;">
         <header class="page-header">
           <h1>Statistics</h1>
-          <p class="page-subtitle">Your blocking activity over the past 7 days</p>
+          <p class="page-subtitle">Your blocking activity</p>
         </header>
+        <!-- Time range buttons -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+          <button class="btn btn-sm stats-range-btn" data-range="5m">5m</button>
+          <button class="btn btn-sm stats-range-btn" data-range="10m">10m</button>
+          <button class="btn btn-sm stats-range-btn" data-range="30m">30m</button>
+          <button class="btn btn-sm stats-range-btn" data-range="1h">1h</button>
+          <button class="btn btn-sm stats-range-btn active" data-range="1d">1d</button>
+          <button class="btn btn-sm stats-range-btn" data-range="7d">7d</button>
+          <button class="btn btn-sm stats-range-btn" data-range="30d">30d</button>
+        </div>
+        <!-- Line chart -->
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-header"><h3>Timeline</h3></div>
+          <div class="panel-body" style="position:relative;">
+            <canvas id="stats-line-chart" style="width:100%;height:260px;"></canvas>
+            <div id="stats-line-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-elevated);border:1px solid var(--border-hover);border-radius:8px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow-lg);z-index:10;min-width:160px;"></div>
+          </div>
+          <div id="stats-line-legend" style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 16px 14px;border-top:1px solid var(--border);"></div>
+        </div>
+        <!-- Bar chart (daily overview) -->
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-header"><h3>Daily Overview</h3></div>
+          <div class="panel-body" style="position:relative;">
+            <canvas id="stats-chart" style="width:100%;height:220px;"></canvas>
+            <div id="stats-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-elevated);border:1px solid var(--border-hover);border-radius:8px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow-lg);z-index:10;min-width:140px;"></div>
+          </div>
+          <div id="stats-legend" style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 16px 14px;border-top:1px solid var(--border);"></div>
+        </div>
+        <!-- Table -->
         <div class="panel" style="flex:1;">
           <div class="panel-header"><h3>Blocked Attempts</h3></div>
           <div class="panel-body" id="stats-content"><div class="empty-state">No data yet. Blocked attempts will appear here.</div></div>
