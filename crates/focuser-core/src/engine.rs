@@ -1,7 +1,8 @@
 use focuser_common::error::Result;
 use focuser_common::extension::ExtensionRuleSet;
+use focuser_common::ipc::ProtectionInfo;
 use focuser_common::platform::RunningProcess;
-use focuser_common::types::{BlockList, ExceptionType, WebsiteMatchType};
+use focuser_common::types::{BlockList, EntityId, ExceptionType, WebsiteMatchType};
 use tracing::{debug, info, warn};
 
 use crate::db::Database;
@@ -181,6 +182,48 @@ impl BlockEngine {
     /// Check if any active rules require the browser extension to be enforced.
     pub fn has_extension_only_rules(&self) -> bool {
         self.compile_extension_rules().requires_extension()
+    }
+
+    // ─── Protection ──────────────────────────────────────────
+
+    pub fn has_uninstall_protection(&self) -> bool {
+        self.cached_lists
+            .iter()
+            .any(|l| l.has_uninstall_protection())
+    }
+
+    pub fn has_service_protection(&self) -> bool {
+        self.cached_lists.iter().any(|l| l.has_service_protection())
+    }
+
+    pub fn has_any_active_protection(&self) -> bool {
+        self.cached_lists.iter().any(|l| l.has_active_protection())
+    }
+
+    pub fn is_block_list_protected(&self, id: EntityId) -> bool {
+        self.cached_lists
+            .iter()
+            .find(|l| l.id == id)
+            .is_some_and(|l| l.is_modification_protected())
+    }
+
+    pub fn active_protection_info(&self) -> Vec<ProtectionInfo> {
+        self.cached_lists
+            .iter()
+            .filter(|l| l.has_active_protection())
+            .map(|l| {
+                let p = l.protection.as_ref().unwrap();
+                ProtectionInfo {
+                    block_list_id: l.id,
+                    block_list_name: l.name.clone(),
+                    prevent_uninstall: p.prevent_uninstall,
+                    prevent_service_stop: p.prevent_service_stop,
+                    prevent_modification: p.prevent_modification,
+                    remaining_seconds: p.remaining_seconds(),
+                    expires_at: p.expires_at,
+                }
+            })
+            .collect()
     }
 
     /// Record a blocked attempt in the database (daily aggregate + individual event).

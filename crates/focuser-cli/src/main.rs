@@ -45,6 +45,27 @@ enum Commands {
     /// Show detected browsers and extension status.
     Browsers,
 
+    /// Enable focus protection on a block list.
+    Protect {
+        /// Block list ID.
+        id: String,
+        /// Duration in minutes.
+        #[arg(long, default_value = "60")]
+        duration: u32,
+        /// Prevent uninstallation.
+        #[arg(long, default_value = "true")]
+        uninstall: bool,
+        /// Prevent service stop.
+        #[arg(long, default_value = "true")]
+        service: bool,
+        /// Prevent block list modification.
+        #[arg(long, default_value = "true")]
+        modify: bool,
+    },
+
+    /// Show protection status for all block lists.
+    ProtectionStatus,
+
     /// Stop the service.
     Shutdown,
 }
@@ -313,6 +334,88 @@ async fn main() -> Result<()> {
                         "  {:<18} {:<10} Extension: {}",
                         s.display_name, running, ext
                     );
+                }
+            }
+            Ok(other) => println!("Unexpected: {other:?}"),
+            Err(e) => eprintln!("Error: {e}"),
+        },
+
+        Commands::Protect {
+            id,
+            duration,
+            uninstall,
+            service,
+            modify,
+        } => {
+            let uuid = parse_id(&id)?;
+            match client::send(IpcRequest::EnableProtection {
+                block_list_id: uuid,
+                duration_minutes: duration,
+                prevent_uninstall: uninstall,
+                prevent_service_stop: service,
+                prevent_modification: modify,
+            })
+            .await
+            {
+                Ok(IpcResponse::Ok) => {
+                    println!("Protection enabled for {duration} minutes.");
+                    if uninstall {
+                        println!("  Uninstall prevention: ON");
+                    }
+                    if service {
+                        println!("  Service stop prevention: ON");
+                    }
+                    if modify {
+                        println!("  Modification prevention: ON");
+                    }
+                }
+                Ok(IpcResponse::Error(e)) => eprintln!("Error: {e}"),
+                Ok(other) => println!("Unexpected: {other:?}"),
+                Err(e) => eprintln!("Error: {e}"),
+            }
+        }
+
+        Commands::ProtectionStatus => match client::send(IpcRequest::GetProtectionStatus).await {
+            Ok(IpcResponse::ProtectionStatus(infos)) => {
+                if infos.is_empty() {
+                    println!("No active protections.");
+                } else {
+                    println!("Active Protections");
+                    println!("══════════════════════════════════════════");
+                    for p in &infos {
+                        let mins = p.remaining_seconds / 60;
+                        let secs = p.remaining_seconds % 60;
+                        println!(
+                            "  {} ({})",
+                            p.block_list_name,
+                            &p.block_list_id.to_string()[..8]
+                        );
+                        println!("    Expires in: {}m {}s", mins, secs);
+                        println!(
+                            "    Uninstall:  {}",
+                            if p.prevent_uninstall {
+                                "BLOCKED"
+                            } else {
+                                "allowed"
+                            }
+                        );
+                        println!(
+                            "    Service:    {}",
+                            if p.prevent_service_stop {
+                                "BLOCKED"
+                            } else {
+                                "allowed"
+                            }
+                        );
+                        println!(
+                            "    Modify:     {}",
+                            if p.prevent_modification {
+                                "BLOCKED"
+                            } else {
+                                "allowed"
+                            }
+                        );
+                    }
                 }
             }
             Ok(other) => println!("Unexpected: {other:?}"),

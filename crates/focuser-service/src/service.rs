@@ -102,7 +102,7 @@ impl FocuserService {
             }
         });
 
-        // Spawn tick loop: engine refresh + browser enforcement
+        // Spawn tick loop: engine refresh + browser enforcement + protection enforcement
         let engine_for_tick = Arc::clone(&self.engine);
         let ext_conns_for_tick = Arc::clone(&self.extension_connections);
         let blocker_for_tick = Arc::clone(&self.blocker);
@@ -263,6 +263,12 @@ fn handle_request(
 
         IpcRequest::UpdateBlockList(list) => {
             let mut eng = engine.lock().unwrap();
+            if eng.is_block_list_protected(list.id) {
+                return IpcResponse::Error(
+                    "Protection is active — cannot modify this block list until it expires"
+                        .to_string(),
+                );
+            }
             match eng.db().update_block_list(&list) {
                 Ok(()) => {
                     let _ = eng.refresh();
@@ -274,6 +280,12 @@ fn handle_request(
 
         IpcRequest::DeleteBlockList(id) => {
             let mut eng = engine.lock().unwrap();
+            if eng.is_block_list_protected(id) {
+                return IpcResponse::Error(
+                    "Protection is active �� cannot delete this block list until it expires"
+                        .to_string(),
+                );
+            }
             match eng.db().delete_block_list(id) {
                 Ok(()) => {
                     let _ = eng.refresh();
@@ -285,6 +297,12 @@ fn handle_request(
 
         IpcRequest::SetBlockListEnabled { id, enabled } => {
             let mut eng = engine.lock().unwrap();
+            if !enabled && eng.is_block_list_protected(id) {
+                return IpcResponse::Error(
+                    "Protection is active — cannot disable this block list until it expires"
+                        .to_string(),
+                );
+            }
             match eng.db().get_block_list(id) {
                 Ok(mut list) => {
                     list.enabled = enabled;
@@ -365,6 +383,11 @@ fn handle_request(
 
         IpcRequest::StopBlock { block_list_id } => {
             let mut eng = engine.lock().unwrap();
+            if eng.is_block_list_protected(block_list_id) {
+                return IpcResponse::Error(
+                    "Protection is active — cannot stop this block until it expires".to_string(),
+                );
+            }
             match eng.db().get_block_list(block_list_id) {
                 Ok(mut list) => {
                     // Check if there's an active lock
@@ -497,7 +520,65 @@ fn handle_request(
             IpcResponse::BrowserStatus(statuses)
         }
 
+        IpcRequest::EnableProtection {
+            block_list_id,
+            duration_minutes,
+            prevent_uninstall,
+            prevent_service_stop,
+            prevent_modification,
+        } => {
+            let mut eng = engine.lock().unwrap();
+            match eng.db().get_block_list(block_list_id) {
+                Ok(mut list) => {
+                    if list.is_modification_protected() {
+                        return IpcResponse::Error(
+                            "Protection is already active on this block list".to_string(),
+                        );
+                    }
+
+                    let now = chrono::Utc::now();
+                    list.protection = Some(focuser_common::types::Protection {
+                        prevent_uninstall,
+                        prevent_service_stop,
+                        prevent_modification,
+                        started_at: now,
+                        expires_at: now + chrono::Duration::minutes(duration_minutes as i64),
+                    });
+                    list.updated_at = now;
+
+                    list.enabled = true;
+
+                    match eng.db().update_block_list(&list) {
+                        Ok(()) => {
+                            let _ = eng.refresh();
+                            info!(
+                                block_list = %list.name,
+                                duration_minutes,
+                                "Protection enabled"
+                            );
+                            IpcResponse::Ok
+                        }
+                        Err(e) => IpcResponse::Error(e.to_string()),
+                    }
+                }
+                Err(e) => IpcResponse::Error(e.to_string()),
+            }
+        }
+
+        IpcRequest::GetProtectionStatus => {
+            let eng = engine.lock().unwrap();
+            IpcResponse::ProtectionStatus(eng.active_protection_info())
+        }
+
         IpcRequest::Shutdown => {
+            let eng = engine.lock().unwrap();
+            if eng.has_service_protection() {
+                return IpcResponse::Error(
+                    "Protection is active — cannot shut down the service until all protections expire"
+                        .to_string(),
+                );
+            }
+            drop(eng);
             info!("Shutdown requested via IPC");
             std::process::exit(0);
         }

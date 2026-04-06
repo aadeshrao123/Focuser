@@ -20,6 +20,7 @@ pub struct BlockList {
     pub applications: Vec<AppRule>,
     pub exceptions: Vec<ExceptionRule>,
     pub lock: Option<Lock>,
+    pub protection: Option<Protection>,
     pub schedule: Option<Schedule>,
     pub breaks: Option<BreakConfig>,
     pub created_at: DateTime<Utc>,
@@ -37,11 +38,40 @@ impl BlockList {
             applications: Vec::new(),
             exceptions: Vec::new(),
             lock: None,
+            protection: None,
             schedule: None,
             breaks: None,
             created_at: now,
             updated_at: now,
         }
+    }
+}
+
+impl BlockList {
+    pub fn has_active_protection(&self) -> bool {
+        self.enabled && self.protection.as_ref().is_some_and(|p| p.is_active())
+    }
+
+    pub fn is_modification_protected(&self) -> bool {
+        self.protection
+            .as_ref()
+            .is_some_and(|p| p.is_active() && p.prevent_modification)
+    }
+
+    pub fn has_uninstall_protection(&self) -> bool {
+        self.enabled
+            && self
+                .protection
+                .as_ref()
+                .is_some_and(|p| p.is_active() && p.prevent_uninstall)
+    }
+
+    pub fn has_service_protection(&self) -> bool {
+        self.enabled
+            && self
+                .protection
+                .as_ref()
+                .is_some_and(|p| p.is_active() && p.prevent_service_stop)
     }
 }
 
@@ -184,6 +214,39 @@ impl ExceptionRule {
             exception_type: ExceptionType::Domain(domain.into()),
             enabled: true,
         }
+    }
+}
+
+// ─── Protection ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Protection {
+    pub prevent_uninstall: bool,
+    pub prevent_service_stop: bool,
+    pub prevent_modification: bool,
+    pub started_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+impl Protection {
+    pub fn for_duration(minutes: u32) -> Self {
+        let now = Utc::now();
+        Self {
+            prevent_uninstall: true,
+            prevent_service_stop: true,
+            prevent_modification: true,
+            started_at: now,
+            expires_at: now + chrono::Duration::minutes(minutes as i64),
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        Utc::now() < self.expires_at
+    }
+
+    pub fn remaining_seconds(&self) -> u64 {
+        let remaining = self.expires_at - Utc::now();
+        remaining.num_seconds().max(0) as u64
     }
 }
 

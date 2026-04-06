@@ -21,7 +21,10 @@ pub enum IpcRequest {
     /// List all block lists.
     ListBlockLists,
     /// Enable or disable a block list.
-    SetBlockListEnabled { id: EntityId, enabled: bool },
+    SetBlockListEnabled {
+        id: EntityId,
+        enabled: bool,
+    },
 
     // ─── Blocking control ───────────────────────────────────
     /// Start a block with an optional timer (minutes).
@@ -30,7 +33,9 @@ pub enum IpcRequest {
         duration_minutes: Option<u32>,
     },
     /// Stop a block (only works if no lock prevents it).
-    StopBlock { block_list_id: EntityId },
+    StopBlock {
+        block_list_id: EntityId,
+    },
 
     // ─── Status ─────────────────────────────────────────────
     /// Get current blocking status.
@@ -53,7 +58,10 @@ pub enum IpcRequest {
     /// Get a setting value by key.
     GetSetting(String),
     /// Set a setting value.
-    SetSetting { key: String, value: String },
+    SetSetting {
+        key: String,
+        value: String,
+    },
 
     // ─── Extension ──────────────────────────────────���────────
     /// Get the compiled rule set for the browser extension.
@@ -64,6 +72,16 @@ pub enum IpcRequest {
     GetCapabilities,
     /// Get status of all detected browsers and their extension state.
     GetBrowserStatus,
+
+    // ─── Protection ──────────────────────────────────────────
+    EnableProtection {
+        block_list_id: EntityId,
+        duration_minutes: u32,
+        prevent_uninstall: bool,
+        prevent_service_stop: bool,
+        prevent_modification: bool,
+    },
+    GetProtectionStatus,
 
     // ─── Service control ────────────────────────────────────
     /// Ping — check if service is alive.
@@ -101,8 +119,20 @@ pub enum IpcResponse {
     Capabilities(BlockingCapabilities),
     /// Browser detection and extension status.
     BrowserStatus(Vec<BrowserStatusInfo>),
+    ProtectionStatus(Vec<ProtectionInfo>),
     /// Pong response.
     Pong,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionInfo {
+    pub block_list_id: EntityId,
+    pub block_list_name: String,
+    pub prevent_uninstall: bool,
+    pub prevent_service_stop: bool,
+    pub prevent_modification: bool,
+    pub remaining_seconds: u64,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// Overall service status.

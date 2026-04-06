@@ -5,6 +5,22 @@ use tracing::{debug, info, warn};
 
 use crate::hosts;
 
+const MACOS_UNINSTALLER_APPS: &[&str] = &[
+    "AppCleaner",
+    "CleanMyMac",
+    "AppZapper",
+    "AppDelete",
+    "TrashMe",
+    "Pearcleaner",
+];
+
+const PROTECTED_PATHS: &[&str] = &[
+    "/usr/local/bin/focuser-service",
+    "/usr/local/bin/focuser-cli",
+    "/usr/local/bin/focuser-ui",
+    "/Library/LaunchDaemons/com.focuser.service.plist",
+];
+
 pub struct MacOsBlocker;
 
 impl MacOsBlocker {
@@ -12,7 +28,6 @@ impl MacOsBlocker {
         Self
     }
 
-    /// List processes using `ps` command (simple and reliable).
     fn list_ps_processes() -> Result<Vec<RunningProcess>> {
         let output = std::process::Command::new("ps")
             .args(["-eo", "pid,comm"])
@@ -50,6 +65,40 @@ impl MacOsBlocker {
             .map_err(|e| FocuserError::Platform(format!("Cannot kill process {pid}: {e}")))?;
 
         info!(pid, "Terminated blocked process");
+        Ok(())
+    }
+
+    fn read_ps_cmdline(pid: u32) -> Option<String> {
+        let output = std::process::Command::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "args="])
+            .output()
+            .ok()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }
+
+    fn set_immutable(path: &str, immutable: bool) -> Result<()> {
+        if !std::path::Path::new(path).exists() {
+            debug!(path, "Skipping chflags — file does not exist");
+            return Ok(());
+        }
+
+        let flag = if immutable { "schg" } else { "noschg" };
+        let status = std::process::Command::new("chflags")
+            .args([flag, path])
+            .status()
+            .map_err(|e| FocuserError::Platform(format!("Failed to run chflags: {e}")))?;
+
+        if status.success() {
+            info!(path, immutable, "Set system immutable flag");
+        } else {
+            warn!(path, immutable, "chflags failed (may need root)");
+        }
         Ok(())
     }
 }
@@ -114,5 +163,71 @@ impl PlatformBlocker for MacOsBlocker {
 
     fn hosts_file_path(&self) -> &str {
         "/etc/hosts"
+    }
+
+    fn detect_uninstall_attempts(&self, processes: &[RunningProcess]) -> Vec<u32> {
+        let mut pids_to_kill = Vec::new();
+
+        for proc in processes {
+            let name_lower = proc.name.to_lowercase();
+
+            let is_uninstaller = MACOS_UNINSTALLER_APPS
+                .iter()
+                .any(|app| name_lower.contains(&app.to_lowercase()));
+
+            if is_uninstaller {
+                info!(
+                    pid = proc.pid,
+                    name = %proc.name,
+                    "Detected cleanup/uninstaller app while protection is active"
+                );
+                pids_to_kill.push(proc.pid);
+            }
+
+            if name_lower == "launchctl" {
+                if let Some(cmdline) = self.get_process_cmdline(proc.pid) {
+                    let lower = cmdline.to_lowercase();
+                    if lower.contains("unload") && lower.contains("focuser") {
+                        info!(pid = proc.pid, "Detected launchctl unload of Focuser");
+                        pids_to_kill.push(proc.pid);
+                    }
+                }
+            }
+
+            if name_lower == "rm" {
+                if let Some(cmdline) = self.get_process_cmdline(proc.pid) {
+                    let lower = cmdline.to_lowercase();
+                    if lower.contains("focuser") {
+                        info!(
+                            pid = proc.pid,
+                            "Detected manual deletion attempt of Focuser"
+                        );
+                        pids_to_kill.push(proc.pid);
+                    }
+                }
+            }
+        }
+
+        pids_to_kill
+    }
+
+    fn protect_installation(&self) -> Result<()> {
+        info!("Enabling installation protection on macOS");
+        for path in PROTECTED_PATHS {
+            let _ = Self::set_immutable(path, true);
+        }
+        Ok(())
+    }
+
+    fn unprotect_installation(&self) -> Result<()> {
+        info!("Disabling installation protection on macOS");
+        for path in PROTECTED_PATHS {
+            let _ = Self::set_immutable(path, false);
+        }
+        Ok(())
+    }
+
+    fn get_process_cmdline(&self, pid: u32) -> Option<String> {
+        Self::read_ps_cmdline(pid)
     }
 }

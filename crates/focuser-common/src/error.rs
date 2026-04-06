@@ -35,6 +35,9 @@ pub enum FocuserError {
     #[error("Lock is active — cannot modify block: {0}")]
     LockActive(String),
 
+    #[error("Protection is active — {0}")]
+    ProtectionActive(String),
+
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
 

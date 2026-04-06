@@ -26,7 +26,7 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 
     // Browser enforcement state
     let mut grace_periods: HashMap<BrowserType, Instant> = HashMap::new();
-    let mut was_using_hosts = true; // Track when we switch from hosts to extension
+    let mut was_using_hosts = true;
 
     // Read settings
     let (grace_secs, enforce_enabled) = {

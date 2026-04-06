@@ -87,6 +87,8 @@ fn main() {
             commands::clear_all_apps,
             commands::pick_app_file,
             commands::update_schedule,
+            commands::enable_protection,
+            commands::get_protection_status,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run

@@ -8,15 +8,21 @@ use tauri::State;
 
 use crate::AppState;
 
-/// After any rule change, immediately sync the hosts file.
 fn sync_hosts_now(eng: &focuser_core::BlockEngine) {
     sync_hosts_now_static(eng);
 }
 
-/// Public version for use by the API module.
 pub fn sync_hosts_now_static(eng: &focuser_core::BlockEngine) {
     let domains = eng.collect_blocked_domains();
     let _ = crate::blocker::apply_hosts_blocks(&domains);
+}
+
+fn check_protected(eng: &focuser_core::BlockEngine, id: uuid::Uuid) -> Result<(), String> {
+    if eng.is_block_list_protected(id) {
+        Err("Protection is active — cannot modify this block list until it expires".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -68,6 +74,9 @@ pub fn create_block_list(state: State<'_, Arc<AppState>>, name: String) -> Resul
 pub fn update_block_list(state: State<'_, Arc<AppState>>, list_json: String) -> Result<(), String> {
     let list: BlockList = serde_json::from_str(&list_json).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    if eng.is_block_list_protected(list.id) {
+        return Err("Protection is active — cannot modify this block list".to_string());
+    }
     eng.db()
         .update_block_list(&list)
         .map_err(|e| e.to_string())?;
@@ -80,6 +89,9 @@ pub fn update_block_list(state: State<'_, Arc<AppState>>, list_json: String) -> 
 pub fn delete_block_list(state: State<'_, Arc<AppState>>, id: String) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    if eng.is_block_list_protected(uuid) {
+        return Err("Protection is active — cannot delete this block list".to_string());
+    }
     eng.db()
         .delete_block_list(uuid)
         .map_err(|e| e.to_string())?;
@@ -96,6 +108,9 @@ pub fn toggle_block_list(
 ) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    if !enabled && eng.is_block_list_protected(uuid) {
+        return Err("Protection is active — cannot disable this block list".to_string());
+    }
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.enabled = enabled;
     list.updated_at = chrono::Utc::now();
@@ -116,6 +131,7 @@ pub fn add_website_rule(
 ) -> Result<Value, String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
 
     let rule = match rule_type.as_str() {
@@ -145,6 +161,7 @@ pub fn remove_website_rule(
 ) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.websites.retain(|r| r.id.to_string() != rule_id);
     list.updated_at = chrono::Utc::now();
@@ -165,6 +182,7 @@ pub fn add_app_rule(
 ) -> Result<Value, String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
 
     let rule = match rule_type.as_str() {
@@ -191,6 +209,7 @@ pub fn remove_app_rule(
 ) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.applications.retain(|r| r.id.to_string() != rule_id);
     list.updated_at = chrono::Utc::now();
@@ -253,6 +272,7 @@ pub fn update_schedule(
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| format!("Invalid ID: {e}"))?;
 
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
 
     if always_active.unwrap_or(false) {
@@ -328,6 +348,7 @@ pub fn bulk_import_websites(
 ) -> Result<Value, String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
 
     let mut added = 0u32;
@@ -377,6 +398,7 @@ pub fn add_exception(
 ) -> Result<Value, String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
 
     use focuser_common::types::ExceptionRule;
@@ -408,6 +430,7 @@ pub fn remove_exception(
 ) -> Result<(), String> {
     let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
     let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    check_protected(&eng, uuid)?;
     let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     list.exceptions.retain(|e| e.id.to_string() != exception_id);
     list.updated_at = chrono::Utc::now();
@@ -426,7 +449,7 @@ pub fn clear_all_websites(state: State<'_, Arc<AppState>>) -> Result<Value, Stri
     let lists = eng.db().list_block_lists().map_err(|e| e.to_string())?;
     let mut cleared = 0u32;
     for mut list in lists {
-        if !list.websites.is_empty() {
+        if !list.websites.is_empty() && !list.is_modification_protected() {
             cleared += list.websites.len() as u32;
             list.websites.clear();
             list.updated_at = chrono::Utc::now();
@@ -447,7 +470,7 @@ pub fn clear_all_apps(state: State<'_, Arc<AppState>>) -> Result<Value, String> 
     let lists = eng.db().list_block_lists().map_err(|e| e.to_string())?;
     let mut cleared = 0u32;
     for mut list in lists {
-        if !list.applications.is_empty() {
+        if !list.applications.is_empty() && !list.is_modification_protected() {
             cleared += list.applications.len() as u32;
             list.applications.clear();
             list.updated_at = chrono::Utc::now();
@@ -487,7 +510,65 @@ pub fn pick_app_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
     rx.recv().map_err(|e| format!("Dialog error: {e}"))
 }
 
-/// Export a block list as JSON.
+#[tauri::command]
+pub fn enable_protection(
+    state: State<'_, Arc<AppState>>,
+    list_id: String,
+    duration_minutes: u32,
+    prevent_uninstall: bool,
+    prevent_service_stop: bool,
+    prevent_modification: bool,
+) -> Result<(), String> {
+    let uuid = uuid::Uuid::parse_str(&list_id).map_err(|e| e.to_string())?;
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
+
+    if list.is_modification_protected() {
+        return Err("Protection is already active on this block list".to_string());
+    }
+
+    let now = chrono::Utc::now();
+    list.protection = Some(focuser_common::types::Protection {
+        prevent_uninstall,
+        prevent_service_stop,
+        prevent_modification,
+        started_at: now,
+        expires_at: now + chrono::Duration::minutes(duration_minutes as i64),
+    });
+    list.enabled = true;
+    list.updated_at = now;
+
+    eng.db()
+        .update_block_list(&list)
+        .map_err(|e| e.to_string())?;
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_protection_status(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let infos: Vec<Value> = eng
+        .block_lists()
+        .iter()
+        .filter(|l| l.has_active_protection())
+        .map(|l| {
+            let p = l.protection.as_ref().unwrap();
+            serde_json::json!({
+                "block_list_id": l.id.to_string(),
+                "block_list_name": l.name,
+                "prevent_uninstall": p.prevent_uninstall,
+                "prevent_service_stop": p.prevent_service_stop,
+                "prevent_modification": p.prevent_modification,
+                "remaining_seconds": p.remaining_seconds(),
+                "expires_at": p.expires_at.to_rfc3339(),
+            })
+        })
+        .collect();
+    Ok(serde_json::json!(infos))
+}
+
 #[tauri::command]
 pub fn export_block_list(
     state: State<'_, Arc<AppState>>,

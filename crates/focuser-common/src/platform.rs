@@ -27,6 +27,13 @@ pub trait PlatformBlocker: Send + Sync {
 
     /// Get the path to the system hosts file.
     fn hosts_file_path(&self) -> &str;
+
+    // ─── Uninstall Protection ──────────────────────────────────
+
+    fn detect_uninstall_attempts(&self, processes: &[RunningProcess]) -> Vec<u32>;
+    fn protect_installation(&self) -> Result<()>;
+    fn unprotect_installation(&self) -> Result<()>;
+    fn get_process_cmdline(&self, pid: u32) -> Option<String>;
 }
 
 /// Info about a running process.

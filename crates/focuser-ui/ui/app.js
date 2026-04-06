@@ -74,13 +74,31 @@ var ui = {
         ? '<span style="color:var(--success);font-size:11px;font-weight:500;">Always Active</span>'
         : '<span style="color:var(--accent);font-size:11px;font-weight:500;">Scheduled</span>';
 
+      var prot = l.protection;
+      var isProtected = prot && new Date(prot.expires_at) > new Date();
+      var protBadge = '';
+      if (isProtected) {
+        var remaining = Math.max(0, Math.floor((new Date(prot.expires_at) - new Date()) / 1000));
+        var h = Math.floor(remaining / 3600);
+        var m = Math.floor((remaining % 3600) / 60);
+        var timeStr = h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+        protBadge = '<span style="background:rgba(248,113,113,0.15);color:#f87171;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;letter-spacing:0.03em;">LOCKED ' + timeStr + '</span>';
+      }
+
+      var protBtn = isProtected
+        ? '<button class="btn btn-sm" disabled style="font-size:11px;opacity:0.5;cursor:not-allowed;">Focus Locked</button>'
+        : '<button class="btn btn-sm" data-action="focus-lock" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '" style="font-size:11px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.25);">Focus Lock</button>';
+
       return '<div class="blocklist-card" data-id="' + l.id + '">' +
         '<div class="blocklist-card-header"><span class="blocklist-card-name">' + esc(l.name) + '</span>' +
-        '<label class="toggle"><input type="checkbox" data-action="toggle-list" data-list-id="' + l.id + '"' + (l.enabled ? ' checked' : '') + '><span class="toggle-slider"></span></label></div>' +
+        (protBadge ? '<span style="margin-left:8px;">' + protBadge + '</span>' : '') +
+        '<label class="toggle" style="margin-left:auto;"><input type="checkbox" data-action="toggle-list" data-list-id="' + l.id + '"' + (l.enabled ? ' checked' : '') + (isProtected ? ' disabled' : '') + '><span class="toggle-slider"></span></label></div>' +
         '<div class="blocklist-card-meta"><span>' + l.websites.length + ' sites</span><span>' + l.applications.length + ' apps</span><span>' + l.exceptions.length + ' exceptions</span><span>' + scheduleLabel + '</span></div>' +
         '<div class="blocklist-card-actions">' +
+        protBtn +
         '<button class="btn btn-sm" data-action="edit-schedule" data-list-id="' + l.id + '" style="font-size:11px;">Edit Schedule</button>' +
-        '<button class="btn btn-danger btn-sm" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">Delete</button></div></div>';
+        (isProtected ? '' : '<button class="btn btn-danger btn-sm" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">Delete</button>') +
+        '</div></div>';
     }).join('');
   },
 
@@ -130,6 +148,65 @@ var ui = {
   },
 
   closeModal: function() { document.getElementById('modal-overlay').classList.add('hidden'); },
+
+  showFocusLockModal: function(listId, listName) {
+    document.getElementById('modal-title').textContent = 'Focus Lock';
+    document.getElementById('modal-body').innerHTML =
+      '<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Lock <strong style="color:var(--text-primary);">' + esc(listName) + '</strong> for a set duration. While locked, this block list cannot be modified, disabled, or deleted.</p>' +
+      '<label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Duration</label>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
+        '<button class="btn btn-sm focus-lock-dur" data-minutes="30" style="font-size:12px;">30m</button>' +
+        '<button class="btn btn-sm focus-lock-dur" data-minutes="60" style="font-size:12px;">1h</button>' +
+        '<button class="btn btn-sm focus-lock-dur active" data-minutes="120" style="font-size:12px;">2h</button>' +
+        '<button class="btn btn-sm focus-lock-dur" data-minutes="300" style="font-size:12px;">5h</button>' +
+        '<button class="btn btn-sm focus-lock-dur" data-minutes="480" style="font-size:12px;">8h</button>' +
+        '<button class="btn btn-sm focus-lock-dur" data-minutes="1440" style="font-size:12px;">24h</button>' +
+      '</div>' +
+      '<label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Or enter minutes</label>' +
+      '<input type="number" id="focus-lock-custom-mins" class="input" style="width:120px;" value="120" min="1" max="14400">' +
+      '<p style="font-size:11px;color:var(--text-muted);margin-top:12px;opacity:0.7;">Once locked, you cannot undo this until the timer expires.</p>';
+
+    document.getElementById('modal-confirm').textContent = 'Activate Lock';
+    document.getElementById('modal-confirm').setAttribute('data-action', 'confirm-focus-lock');
+    document.getElementById('modal-confirm').setAttribute('data-list-id', listId);
+    document.getElementById('modal-confirm').style.cssText = 'background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);';
+    document.getElementById('modal-overlay').classList.remove('hidden');
+
+    // Duration button selection
+    document.querySelectorAll('.focus-lock-dur').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.focus-lock-dur').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var input = document.getElementById('focus-lock-custom-mins');
+        if (input) input.value = btn.getAttribute('data-minutes');
+      });
+    });
+  },
+
+  async activateFocusLock(listId) {
+    var minsInput = document.getElementById('focus-lock-custom-mins');
+    var mins = minsInput ? parseInt(minsInput.value, 10) : 120;
+    if (!mins || mins < 1) { toast('Enter a valid duration', 'error'); return; }
+
+    var ok = await showConfirm('Confirm Focus Lock',
+      'Lock this block list for ' + mins + ' minutes? You will NOT be able to undo this until the timer expires.');
+    if (!ok) return;
+
+    try {
+      await invoke('enable_protection', {
+        listId: listId,
+        durationMinutes: mins,
+        preventUninstall: false,
+        preventServiceStop: false,
+        preventModification: true,
+      });
+      toast('Focus Lock activated for ' + mins + ' minutes', 'success');
+      this.closeModal();
+      this.refreshBlockLists();
+    } catch (e) {
+      toast('Failed: ' + e, 'error');
+    }
+  },
 
   refreshWebsites: function() {
     this.updateSelects();
@@ -1160,6 +1237,8 @@ function doAction(a, el) {
         if (sel) { sel.value = schedListId; ui.refreshSchedule(); }
       }, 100);
       break;
+    case 'focus-lock': ui.showFocusLockModal(el.getAttribute('data-list-id'), el.getAttribute('data-list-name')); break;
+    case 'confirm-focus-lock': ui.activateFocusLock(el.getAttribute('data-list-id')); break;
     case 'close-modal': ui.closeModal(); break;
   }
 }
