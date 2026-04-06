@@ -5,22 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Focuser</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="lucide.js"></script>
 </head>
 <body>
   <div id="app">
     <nav id="sidebar">
       <div class="sidebar-brand">
-        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <i data-lucide="shield" class="brand-icon"></i>
         <span class="brand-text">Focuser</span>
       </div>
       <div class="sidebar-nav">
-        <button class="nav-item active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></button>
-        <button class="nav-item" data-page="blocklists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Block Lists</span></button>
-        <button class="nav-item" data-page="websites"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span>Websites</span></button>
-        <button class="nav-item" data-page="apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>Applications</span></button>
-        <button class="nav-item" data-page="schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Schedule</span></button>
-        <button class="nav-item" data-page="statistics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Statistics</span></button>
-        <button class="nav-item" data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span></button>
+        <button class="nav-item active" data-page="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+        <button class="nav-item" data-page="blocklists"><i data-lucide="shield-check"></i><span>Block Lists</span></button>
+        <button class="nav-item" data-page="websites"><i data-lucide="globe"></i><span>Websites</span></button>
+        <button class="nav-item" data-page="apps"><i data-lucide="monitor"></i><span>Applications</span></button>
+        <button class="nav-item" data-page="schedule"><i data-lucide="calendar-clock"></i><span>Schedule</span></button>
+        <button class="nav-item" data-page="statistics"><i data-lucide="bar-chart-3"></i><span>Statistics</span></button>
+        <button class="nav-item" data-page="settings"><i data-lucide="settings"></i><span>Settings</span></button>
       </div>
       <div class="sidebar-footer">
         <div id="service-status" class="status-indicator online">
@@ -39,16 +40,16 @@
         </header>
 
         <div class="stats-grid">
-          <div class="stat-card"><div class="stat-label">Active blocks</div><div class="stat-value accent" id="stat-active-blocks">0</div></div>
-          <div class="stat-card"><div class="stat-label">Blocked today</div><div class="stat-value" id="stat-blocked-today">0</div></div>
-          <div class="stat-card"><div class="stat-label">Sites blocked</div><div class="stat-value" id="stat-total-sites">0</div></div>
-          <div class="stat-card"><div class="stat-label">Apps blocked</div><div class="stat-value" id="stat-total-apps">0</div></div>
+          <div class="stat-card"><div class="stat-label"><i data-lucide="shield"></i> Active blocks</div><div class="stat-value accent" id="stat-active-blocks">0</div></div>
+          <div class="stat-card"><div class="stat-label"><i data-lucide="ban"></i> Blocked today</div><div class="stat-value" id="stat-blocked-today">0</div></div>
+          <div class="stat-card"><div class="stat-label"><i data-lucide="globe"></i> Sites blocked</div><div class="stat-value" id="stat-total-sites">0</div></div>
+          <div class="stat-card"><div class="stat-label"><i data-lucide="monitor"></i> Apps blocked</div><div class="stat-value" id="stat-total-apps">0</div></div>
         </div>
 
         <div class="dashboard-panels">
           <div class="panel">
             <div class="panel-header">
-              <h3>Active Block Lists</h3>
+              <h3><i data-lucide="list"></i> Active Block Lists</h3>
             </div>
             <div class="panel-body" id="dashboard-active-lists">
               <div class="empty-state">No active blocks</div>
@@ -57,24 +58,24 @@
 
           <div class="panel">
             <div class="panel-header">
-              <h3>Quick Actions</h3>
+              <h3><i data-lucide="zap"></i> Quick Actions</h3>
             </div>
             <div class="panel-body">
               <div class="quick-actions-grid">
                 <button class="quick-action-btn accent-border" data-page="blocklists">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <i data-lucide="shield-check"></i>
                   <span>Manage Block Lists</span>
                 </button>
                 <button class="quick-action-btn success-border" data-page="websites">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <i data-lucide="globe"></i>
                   <span>Add Website Rule</span>
                 </button>
                 <button class="quick-action-btn warning-border" data-page="apps">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <i data-lucide="monitor"></i>
                   <span>Block Application</span>
                 </button>
                 <button class="quick-action-btn error-border" data-page="schedule">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <i data-lucide="calendar-clock"></i>
                   <span>Edit Schedule</span>
                 </button>
               </div>
@@ -84,7 +85,7 @@
 
         <div class="panel recent-activity-panel">
           <div class="panel-header">
-            <h3>Recent Activity</h3>
+            <h3><i data-lucide="activity"></i> Recent Activity</h3>
           </div>
           <div class="panel-body">
             <div class="activity-item">
@@ -101,7 +102,7 @@
         <header class="page-header">
           <h1>Block Lists</h1>
           <p class="page-subtitle">Manage your blocking profiles</p>
-          <button class="btn btn-primary" id="btn-new-blocklist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New list</button>
+          <button class="btn btn-primary" id="btn-new-blocklist"><i data-lucide="plus"></i> New list</button>
         </header>
         <div id="blocklists-container" class="card-grid"><div class="empty-state">No block lists yet</div></div>
       </section>
@@ -114,36 +115,36 @@
         </header>
 
         <div class="tabs" style="margin-bottom:14px;">
-          <button class="tab active" data-action="switch-tab" data-tab="websites-tab-block">Websites</button>
-          <button class="tab" data-action="switch-tab" data-tab="websites-tab-exceptions">Exceptions</button>
+          <button class="tab active" data-action="switch-tab" data-tab="websites-tab-block"><i data-lucide="globe"></i> Websites</button>
+          <button class="tab" data-action="switch-tab" data-tab="websites-tab-exceptions"><i data-lucide="shield-off"></i> Exceptions</button>
         </div>
 
         <!-- Websites Tab -->
         <div id="websites-tab-block" class="tab-content active">
           <div class="panel overflow-visible" style="margin-bottom:14px;">
-            <div class="panel-header"><h3>Add Website</h3></div>
+            <div class="panel-header"><h3><i data-lucide="plus-circle"></i> Add Website</h3></div>
             <div class="panel-body">
               <div class="add-website-row">
                 <div class="add-website-fields">
                   <select id="website-list-select" class="input"><option value="">Select list...</option></select>
                   <select id="website-type-select" class="input"><option value="domain">Domain</option><option value="keyword">Keyword</option><option value="wildcard">Wildcard</option><option value="url_path">URL Path</option></select>
                   <input type="text" id="website-input" class="input" placeholder="e.g. reddit.com">
-                  <button class="btn btn-primary" id="btn-add-website">+ Add</button>
+                  <button class="btn btn-primary" id="btn-add-website"><i data-lucide="plus"></i> Add</button>
                 </div>
                 <div class="add-website-actions">
                   <div class="dropdown-wrap">
-                    <button class="btn btn-secondary btn-sm" id="btn-import-dropdown">Import</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-import-dropdown"><i data-lucide="download"></i> Import</button>
                     <div class="dropdown-menu hidden" id="import-dropdown">
-                      <button class="dropdown-item" data-action="import-text">Import from text file</button>
-                      <button class="dropdown-item" data-action="import-json">Import from JSON file</button>
+                      <button class="dropdown-item" data-action="import-text"><i data-lucide="file-text"></i> Import from text file</button>
+                      <button class="dropdown-item" data-action="import-json"><i data-lucide="file-json"></i> Import from JSON file</button>
                       <div class="dropdown-divider"></div>
                       <div class="dropdown-item-sub">
                         <span class="dropdown-item-sub-label">Pre-made lists</span>
                         <div class="dropdown-submenu" id="premade-list-items"></div>
                       </div>
                       <div class="dropdown-divider"></div>
-                      <button class="dropdown-item" data-action="import-keyword-prompt">All URLs containing...</button>
-                      <button class="dropdown-item" data-action="import-entire-internet">Block entire internet</button>
+                      <button class="dropdown-item" data-action="import-keyword-prompt"><i data-lucide="text-search"></i> All URLs containing...</button>
+                      <button class="dropdown-item" data-action="import-entire-internet"><i data-lucide="earth-lock"></i> Block entire internet</button>
                     </div>
                   </div>
                 </div>
@@ -152,10 +153,10 @@
           </div>
           <div class="panel fill-remaining">
             <div class="panel-header">
-              <h3>Blocked Websites</h3>
+              <h3><i data-lucide="list"></i> Blocked Websites</h3>
               <div style="display:flex;gap:8px;align-items:center;">
                 <input type="text" class="input search-input" id="search-websites" placeholder="Search websites...">
-                <button class="btn btn-danger btn-sm" data-action="clear-all-websites">Clear All</button>
+                <button class="btn btn-danger btn-sm" data-action="clear-all-websites"><i data-lucide="trash-2"></i> Clear All</button>
               </div>
             </div>
             <div class="panel-body" id="websites-list"><div class="empty-state">No websites blocked</div></div>
@@ -165,18 +166,18 @@
         <!-- Exceptions Tab -->
         <div id="websites-tab-exceptions" class="tab-content">
           <div class="panel" style="margin-bottom:14px;">
-            <div class="panel-header"><h3>Add Exception</h3></div>
+            <div class="panel-header"><h3><i data-lucide="shield-off"></i> Add Exception</h3></div>
             <div class="panel-body">
               <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Excepted domains will NOT be blocked even if they match a blocking rule.</p>
               <div class="add-website-fields">
                 <select id="exception-list-select" class="input"><option value="">Select list...</option></select>
                 <input type="text" id="exception-input" class="input" placeholder="e.g. docs.google.com">
-                <button class="btn btn-primary" id="btn-add-exception">+ Add Exception</button>
+                <button class="btn btn-primary" id="btn-add-exception"><i data-lucide="plus"></i> Add Exception</button>
               </div>
             </div>
           </div>
           <div class="panel fill-remaining">
-            <div class="panel-header"><h3>Exceptions (Whitelist)</h3></div>
+            <div class="panel-header"><h3><i data-lucide="check-circle"></i> Exceptions (Whitelist)</h3></div>
             <div class="panel-body" id="exceptions-list"><div class="empty-state">No exceptions — all matching sites will be blocked</div></div>
           </div>
         </div>
@@ -189,26 +190,26 @@
           <p class="page-subtitle">Manage blocked applications and executables</p>
         </header>
         <div class="panel" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>Add Application</h3></div>
+          <div class="panel-header"><h3><i data-lucide="plus-circle"></i> Add Application</h3></div>
           <div class="panel-body">
             <div class="add-website-row">
               <div class="add-website-fields">
                 <select id="app-list-select" class="input"><option value="">Select list...</option></select>
                 <input type="text" id="app-input" class="input" placeholder="e.g. steam.exe">
-                <button class="btn btn-primary" id="btn-add-app">+ Add</button>
+                <button class="btn btn-primary" id="btn-add-app"><i data-lucide="plus"></i> Add</button>
               </div>
               <div class="add-website-actions">
-                <button class="btn btn-secondary btn-sm" id="btn-browse-apps">Browse Apps</button>
+                <button class="btn btn-secondary btn-sm" id="btn-browse-apps"><i data-lucide="folder-search"></i> Browse Apps</button>
               </div>
             </div>
           </div>
         </div>
         <div class="panel fill-remaining">
           <div class="panel-header">
-            <h3>Blocked Applications</h3>
+            <h3><i data-lucide="list"></i> Blocked Applications</h3>
             <div style="display:flex;gap:8px;align-items:center;">
               <input type="text" class="input search-input" id="search-apps" placeholder="Search apps...">
-              <button class="btn btn-danger btn-sm" data-action="clear-all-apps">Clear All</button>
+              <button class="btn btn-danger btn-sm" data-action="clear-all-apps"><i data-lucide="trash-2"></i> Clear All</button>
             </div>
           </div>
           <div class="panel-body" id="apps-list"><div class="empty-state">No applications blocked</div></div>
@@ -221,9 +222,9 @@
           <h1>Schedule</h1>
           <p class="page-subtitle">Click or drag to set when blocking is active. Changes save automatically.</p>
         </header>
-        <div class="panel" style="flex:1;">
+        <div class="panel" style="flex:1;min-width:0;overflow:hidden;">
           <div class="panel-header">
-            <h3>Weekly Schedule</h3>
+            <h3><i data-lucide="calendar-clock"></i> Weekly Schedule</h3>
             <div style="display:flex;align-items:center;gap:10px;">
               <select id="schedule-list-select" class="input" style="width:200px;"><option value="">Select list...</option></select>
               <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;margin-left:8px;">
@@ -246,13 +247,12 @@
       </section>
 
       <!-- Statistics -->
-      <section id="page-statistics" class="page" style="overflow-y:auto;">
-        <header class="page-header">
+      <section id="page-statistics" class="page page-fixed">
+        <header class="page-header" style="flex-shrink:0;">
           <h1>Statistics</h1>
           <p class="page-subtitle">Your blocking activity</p>
         </header>
-        <!-- Time range buttons -->
-        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;flex-shrink:0;">
           <button class="btn btn-sm stats-range-btn" data-range="5m">5m</button>
           <button class="btn btn-sm stats-range-btn" data-range="10m">10m</button>
           <button class="btn btn-sm stats-range-btn" data-range="30m">30m</button>
@@ -261,28 +261,29 @@
           <button class="btn btn-sm stats-range-btn" data-range="7d">7d</button>
           <button class="btn btn-sm stats-range-btn" data-range="30d">30d</button>
         </div>
-        <!-- Line chart -->
-        <div class="panel" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>Timeline</h3></div>
-          <div class="panel-body" style="position:relative;">
-            <canvas id="stats-line-chart" style="width:100%;height:260px;"></canvas>
-            <div id="stats-line-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-elevated);border:1px solid var(--border-hover);border-radius:8px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow-lg);z-index:10;min-width:160px;"></div>
+        <!-- Charts row: two charts side by side taking full width -->
+        <div class="stats-charts-row">
+          <div class="panel stats-chart-panel">
+            <div class="panel-header"><h3><i data-lucide="trending-up"></i> Timeline</h3></div>
+            <div class="panel-body" style="position:relative;flex:1;min-height:0;">
+              <canvas id="stats-line-chart" style="width:100%;height:100%;"></canvas>
+              <div id="stats-line-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-elevated);border:1px solid var(--border-hover);border-radius:10px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow-lg);z-index:10;min-width:160px;"></div>
+            </div>
+            <div id="stats-line-legend" style="display:flex;flex-wrap:wrap;gap:12px;padding:6px 16px 10px;border-top:1px solid var(--border);flex-shrink:0;"></div>
           </div>
-          <div id="stats-line-legend" style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 16px 14px;border-top:1px solid var(--border);"></div>
-        </div>
-        <!-- Bar chart (daily overview) -->
-        <div class="panel" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>Daily Overview</h3></div>
-          <div class="panel-body" style="position:relative;">
-            <canvas id="stats-chart" style="width:100%;height:220px;"></canvas>
-            <div id="stats-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-elevated);border:1px solid var(--border-hover);border-radius:8px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow-lg);z-index:10;min-width:140px;"></div>
+          <div class="panel stats-chart-panel">
+            <div class="panel-header"><h3><i data-lucide="bar-chart-3"></i> Daily Overview</h3></div>
+            <div class="panel-body" style="position:relative;flex:1;min-height:0;">
+              <canvas id="stats-chart" style="width:100%;height:100%;"></canvas>
+              <div id="stats-tooltip" style="display:none;position:absolute;pointer-events:none;background:var(--bg-elevated);border:1px solid var(--border-hover);border-radius:10px;padding:10px 14px;font-size:12px;box-shadow:var(--shadow-lg);z-index:10;min-width:140px;"></div>
+            </div>
+            <div id="stats-legend" style="display:flex;flex-wrap:wrap;gap:12px;padding:6px 16px 10px;border-top:1px solid var(--border);flex-shrink:0;"></div>
           </div>
-          <div id="stats-legend" style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 16px 14px;border-top:1px solid var(--border);"></div>
         </div>
-        <!-- Table -->
-        <div class="panel" style="flex:1;">
-          <div class="panel-header"><h3>Blocked Attempts</h3></div>
-          <div class="panel-body" id="stats-content"><div class="empty-state">No data yet. Blocked attempts will appear here.</div></div>
+        <!-- Blocked attempts: compact with scroll -->
+        <div class="panel stats-table-panel">
+          <div class="panel-header"><h3><i data-lucide="table"></i> Blocked Attempts</h3></div>
+          <div class="panel-body stats-table-body" id="stats-content"><div class="empty-state">No data yet. Blocked attempts will appear here.</div></div>
         </div>
       </section>
 
@@ -294,7 +295,7 @@
         </header>
 
         <div class="panel" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>General</h3></div>
+          <div class="panel-header"><h3><i data-lucide="sliders-horizontal"></i> General</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Launch on startup</span><span class="setting-desc">Start Focuser automatically when your computer boots</span></div>
@@ -308,21 +309,21 @@
         </div>
 
         <div class="panel" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>Import / Export</h3></div>
+          <div class="panel-header"><h3><i data-lucide="arrow-left-right"></i> Import / Export</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Export configuration</span><span class="setting-desc">Save your block lists, rules, and schedules to a file</span></div>
-              <button class="btn btn-secondary btn-sm">Export</button>
+              <button class="btn btn-secondary btn-sm"><i data-lucide="upload"></i> Export</button>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Import configuration</span><span class="setting-desc">Load block lists and rules from a previously exported file</span></div>
-              <button class="btn btn-secondary btn-sm">Import</button>
+              <button class="btn btn-secondary btn-sm"><i data-lucide="download"></i> Import</button>
             </div>
           </div>
         </div>
 
         <div class="panel" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>Data</h3></div>
+          <div class="panel-header"><h3><i data-lucide="database"></i> Data</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Statistics retention</span><span class="setting-desc">How long to keep blocking statistics before auto-cleanup</span></div>
@@ -330,27 +331,27 @@
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Clear statistics</span><span class="setting-desc">Remove all stored blocking statistics and activity data</span></div>
-              <button class="btn btn-secondary btn-sm">Clear</button>
+              <button class="btn btn-secondary btn-sm"><i data-lucide="eraser"></i> Clear</button>
             </div>
           </div>
         </div>
 
         <div class="panel panel-danger" style="margin-bottom:14px;">
-          <div class="panel-header"><h3>Danger Zone</h3></div>
+          <div class="panel-header"><h3><i data-lucide="alert-triangle"></i> Danger Zone</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Reset all settings</span><span class="setting-desc">Restore all settings to their default values</span></div>
-              <button class="btn btn-danger btn-sm">Reset</button>
+              <button class="btn btn-danger btn-sm"><i data-lucide="rotate-ccw"></i> Reset</button>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Delete all data</span><span class="setting-desc">Permanently remove all block lists, rules, schedules, and statistics</span></div>
-              <button class="btn btn-danger btn-sm">Delete All</button>
+              <button class="btn btn-danger btn-sm"><i data-lucide="trash-2"></i> Delete All</button>
             </div>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-header"><h3>About</h3></div>
+          <div class="panel-header"><h3><i data-lucide="info"></i> About</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Focuser v0.1.0</span><span class="setting-desc">Open-source website and application blocker</span></div>

@@ -5,14 +5,14 @@
 
 const Charts = {
   colors: {
-    blue: '#4e8fff',
-    red: '#ef4444',
-    green: '#22c55e',
-    purple: '#a855f7',
-    yellow: '#eab308',
-    grid: '#2a2d3e',
-    text: '#5c5f73',
-    textLight: '#8b8fa3',
+    blue: '#60a5fa',
+    red: '#f87171',
+    green: '#34d399',
+    purple: '#a78bfa',
+    yellow: '#fbbf24',
+    grid: '#1c1c28',
+    text: '#5e5e72',
+    textLight: '#a8a8b8',
   },
 
   /**

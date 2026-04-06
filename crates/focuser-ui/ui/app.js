@@ -32,6 +32,7 @@ var ui = {
       case 'schedule': this.refreshSchedule(); break;
       case 'statistics': this.refreshStatistics(); break;
     }
+    refreshIcons();
   },
 
   async refreshDashboard() {
@@ -55,6 +56,7 @@ var ui = {
             '</div></div>';
         }).join('');
       }
+      refreshIcons();
     } catch (e) {}
   },
 
@@ -70,9 +72,9 @@ var ui = {
     c.innerHTML = state.blockLists.map(function(l) {
       var hasSchedule = l.schedule !== null && l.schedule !== undefined;
       var alwaysActive = !hasSchedule;
-      var scheduleLabel = alwaysActive
-        ? '<span style="color:var(--success);font-size:11px;font-weight:500;">Always Active</span>'
-        : '<span style="color:var(--accent);font-size:11px;font-weight:500;">Scheduled</span>';
+      var scheduleStatus = alwaysActive
+        ? '<span class="meta-status" style="color:var(--success);">' + ico('check-circle', 13) + ' Always Active</span>'
+        : '<span class="meta-status" style="color:var(--accent);">' + ico('clock', 13) + ' Scheduled</span>';
 
       var prot = l.protection;
       var isProtected = prot && new Date(prot.expires_at) > new Date();
@@ -82,24 +84,32 @@ var ui = {
         var h = Math.floor(remaining / 3600);
         var m = Math.floor((remaining % 3600) / 60);
         var timeStr = h > 0 ? h + 'h ' + m + 'm' : m + 'm';
-        protBadge = '<span style="background:rgba(248,113,113,0.15);color:#f87171;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;letter-spacing:0.03em;">LOCKED ' + timeStr + '</span>';
+        protBadge = '<span class="locked-badge">' + ico('lock', 12) + ' LOCKED ' + timeStr + '</span>';
       }
 
       var protBtn = isProtected
-        ? '<button class="btn btn-sm" disabled style="font-size:11px;opacity:0.5;cursor:not-allowed;">Focus Locked</button>'
-        : '<button class="btn btn-sm" data-action="focus-lock" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '" style="font-size:11px;background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.25);">Focus Lock</button>';
+        ? '<button class="btn btn-sm" disabled style="font-size:11px;opacity:0.5;cursor:not-allowed;">' + ico('lock', 13) + ' Focus Locked</button>'
+        : '<button class="btn btn-sm" data-action="focus-lock" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '" style="font-size:11px;background:var(--error-dim);color:var(--error);">' + ico('shield-alert', 13) + ' Focus Lock</button>';
 
       return '<div class="blocklist-card" data-id="' + l.id + '">' +
         '<div class="blocklist-card-header"><span class="blocklist-card-name">' + esc(l.name) + '</span>' +
         (protBadge ? '<span style="margin-left:8px;">' + protBadge + '</span>' : '') +
         '<label class="toggle" style="margin-left:auto;"><input type="checkbox" data-action="toggle-list" data-list-id="' + l.id + '"' + (l.enabled ? ' checked' : '') + (isProtected ? ' disabled' : '') + '><span class="toggle-slider"></span></label></div>' +
-        '<div class="blocklist-card-meta"><span>' + l.websites.length + ' sites</span><span>' + l.applications.length + ' apps</span><span>' + l.exceptions.length + ' exceptions</span><span>' + scheduleLabel + '</span></div>' +
+        '<div class="blocklist-card-meta">' +
+          '<span class="meta-item">' + ico('globe', 14) + '<span class="meta-value">' + l.websites.length + '</span><span class="meta-label">sites</span></span>' +
+          '<span class="meta-separator"></span>' +
+          '<span class="meta-item">' + ico('monitor', 14) + '<span class="meta-value">' + l.applications.length + '</span><span class="meta-label">apps</span></span>' +
+          '<span class="meta-separator"></span>' +
+          '<span class="meta-item">' + ico('shield-off', 14) + '<span class="meta-value">' + l.exceptions.length + '</span><span class="meta-label">exceptions</span></span>' +
+          scheduleStatus +
+        '</div>' +
         '<div class="blocklist-card-actions">' +
         protBtn +
-        '<button class="btn btn-sm" data-action="edit-schedule" data-list-id="' + l.id + '" style="font-size:11px;">Edit Schedule</button>' +
-        (isProtected ? '' : '<button class="btn btn-danger btn-sm" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">Delete</button>') +
+        '<button class="btn btn-sm" data-action="edit-schedule" data-list-id="' + l.id + '" style="font-size:11px;">' + ico('calendar-clock', 13) + ' Edit Schedule</button>' +
+        (isProtected ? '' : '<button class="btn btn-danger btn-sm" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">' + ico('trash-2', 13) + ' Delete</button>') +
         '</div></div>';
     }).join('');
+    refreshIcons();
   },
 
   updateSelects: function() {
@@ -132,9 +142,10 @@ var ui = {
 
   showCreateListModal: function() {
     document.getElementById('modal-title').textContent = 'New Block List';
-    document.getElementById('modal-body').innerHTML = '<label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Name</label><input type="text" id="modal-list-name" class="input" style="width:100%;" placeholder="e.g. Social Media">';
+    document.getElementById('modal-body').innerHTML = '<label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-muted);">Name</label><input type="text" id="modal-list-name" class="input" style="width:100%;" placeholder="e.g. Social Media">';
     document.getElementById('modal-confirm').textContent = 'Create';
     document.getElementById('modal-confirm').setAttribute('data-action', 'confirm-create-list');
+    document.getElementById('modal-confirm').style.cssText = '';
     document.getElementById('modal-overlay').classList.remove('hidden');
     setTimeout(function() { var i = document.getElementById('modal-list-name'); if (i) i.focus(); }, 80);
   },
@@ -152,8 +163,8 @@ var ui = {
   showFocusLockModal: function(listId, listName) {
     document.getElementById('modal-title').textContent = 'Focus Lock';
     document.getElementById('modal-body').innerHTML =
-      '<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Lock <strong style="color:var(--text-primary);">' + esc(listName) + '</strong> for a set duration. While locked, this block list cannot be modified, disabled, or deleted.</p>' +
-      '<label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Duration</label>' +
+      '<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">' + ico('lock', 15) + ' Lock <strong style="color:var(--text-primary);">' + esc(listName) + '</strong> for a set duration. While locked, this block list cannot be modified, disabled, or deleted.</p>' +
+      '<label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-muted);">Duration</label>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
         '<button class="btn btn-sm focus-lock-dur" data-minutes="30" style="font-size:12px;">30m</button>' +
         '<button class="btn btn-sm focus-lock-dur" data-minutes="60" style="font-size:12px;">1h</button>' +
@@ -162,15 +173,16 @@ var ui = {
         '<button class="btn btn-sm focus-lock-dur" data-minutes="480" style="font-size:12px;">8h</button>' +
         '<button class="btn btn-sm focus-lock-dur" data-minutes="1440" style="font-size:12px;">24h</button>' +
       '</div>' +
-      '<label style="display:block;margin-bottom:4px;font-size:12px;color:var(--text-muted);">Or enter minutes</label>' +
+      '<label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-muted);">Or enter minutes</label>' +
       '<input type="number" id="focus-lock-custom-mins" class="input" style="width:120px;" value="120" min="1" max="14400">' +
-      '<p style="font-size:11px;color:var(--text-muted);margin-top:12px;opacity:0.7;">Once locked, you cannot undo this until the timer expires.</p>';
+      '<p style="font-size:11px;color:var(--text-muted);margin-top:14px;opacity:0.7;">' + ico('alert-triangle', 12) + ' Once locked, you cannot undo this until the timer expires.</p>';
 
     document.getElementById('modal-confirm').textContent = 'Activate Lock';
     document.getElementById('modal-confirm').setAttribute('data-action', 'confirm-focus-lock');
     document.getElementById('modal-confirm').setAttribute('data-list-id', listId);
-    document.getElementById('modal-confirm').style.cssText = 'background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);';
+    document.getElementById('modal-confirm').style.cssText = 'background:var(--error-dim);color:var(--error);';
     document.getElementById('modal-overlay').classList.remove('hidden');
+    refreshIcons();
 
     // Duration button selection
     document.querySelectorAll('.focus-lock-dur').forEach(function(btn) {
@@ -267,8 +279,9 @@ var ui = {
     c.innerHTML = all.map(function(r) {
       var t = mtName(r.match_type), v = mtVal(r.match_type);
       return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge ' + t + '">' + t + '</span><span class="rule-value">' + esc(v) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
-        '<button class="btn-icon" data-action="remove-website" data-list-id="' + r.listId + '" data-rule-id="' + r.id + '">' + ico('x',14) + '</button></div>';
+        '<button class="btn-icon" data-action="remove-website" data-list-id="' + r.listId + '" data-rule-id="' + r.id + '">' + ico('x', 14) + '</button></div>';
     }).join('');
+    refreshIcons();
   },
 
   async addWebsite() {
@@ -322,8 +335,9 @@ var ui = {
     c.innerHTML = all.map(function(r) {
       var t = amtName(r.match_type), v = amtVal(r.match_type);
       return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge">' + t + '</span><span class="rule-value">' + esc(v) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
-        '<button class="btn-icon" data-action="remove-app" data-list-id="' + r.listId + '" data-rule-id="' + r.id + '">' + ico('x',14) + '</button></div>';
+        '<button class="btn-icon" data-action="remove-app" data-list-id="' + r.listId + '" data-rule-id="' + r.id + '">' + ico('x', 14) + '</button></div>';
     }).join('');
+    refreshIcons();
   },
 
   async addApp() {
@@ -368,7 +382,7 @@ var ui = {
     var grid = document.getElementById('schedule-grid');
     var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     var dayLabels = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    var hours = ['12 AM','1 AM','2 AM','3 AM','4 AM','5 AM','6 AM','7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM','10 PM','11 PM'];
+    var hours = ['12a','1a','2a','3a','4a','5a','6a','7a','8a','9a','10a','11a','12p','1p','2p','3p','4p','5p','6p','7p','8p','9p','10p','11p'];
 
     // Build grid
     var html = '<div class="schedule-header"></div>';
@@ -565,7 +579,7 @@ var ui = {
     ctx.clearRect(0, 0, w, h);
 
     if (events.length === 0) {
-      ctx.fillStyle = '#5c5f73';
+      ctx.fillStyle = '#5e5e72';
       ctx.font = '13px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('No events in this time range', w / 2, h / 2);
@@ -607,10 +621,10 @@ var ui = {
 
     // Grid
     var gridLines = 4;
-    ctx.strokeStyle = '#2a2d3e';
+    ctx.strokeStyle = '#1c1c28';
     ctx.lineWidth = 1;
     ctx.font = '11px Inter, -apple-system, sans-serif';
-    ctx.fillStyle = '#5c5f73';
+    ctx.fillStyle = '#5e5e72';
     ctx.textAlign = 'right';
     for (var gi = 0; gi <= gridLines; gi++) {
       var gy = pad.top + (chartH / gridLines) * gi;
@@ -669,7 +683,7 @@ var ui = {
     });
 
     // X labels
-    ctx.fillStyle = '#5c5f73';
+    ctx.fillStyle = '#5e5e72';
     ctx.textAlign = 'center';
     ctx.font = '10px Inter, -apple-system, sans-serif';
     var labelStep = Math.max(1, Math.floor(bucketCount / 7));
@@ -823,10 +837,10 @@ var ui = {
 
     // Grid lines
     var gridLines = 4;
-    ctx.strokeStyle = '#2a2d3e';
+    ctx.strokeStyle = '#1c1c28';
     ctx.lineWidth = 1;
     ctx.font = '11px Inter, -apple-system, sans-serif';
-    ctx.fillStyle = '#5c5f73';
+    ctx.fillStyle = '#5e5e72';
     ctx.textAlign = 'right';
     for (var i = 0; i <= gridLines; i++) {
       var y = pad.top + (chartH / gridLines) * i;
@@ -884,7 +898,7 @@ var ui = {
       }
 
       // Date label
-      ctx.fillStyle = '#5c5f73';
+      ctx.fillStyle = '#5e5e72';
       ctx.textAlign = 'center';
       ctx.font = '11px Inter, -apple-system, sans-serif';
       var label = dates[di].substring(5); // MM-DD
@@ -950,9 +964,10 @@ var ui = {
     });
     if (all.length === 0) { c.innerHTML = '<div class="empty-state">No exceptions — all matching sites will be blocked</div>'; return; }
     c.innerHTML = all.map(function(r) {
-      return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge" style="background:var(--success-muted);color:var(--success);">allowed</span><span class="rule-value">' + esc(r.value) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
-        '<button class="btn-icon" data-action="remove-exception" data-list-id="' + r.listId + '" data-exc-id="' + r.id + '">' + ico('x',14) + '</button></div>';
+      return '<div class="rule-item"><div class="rule-info"><span class="rule-type-badge" style="background:var(--success-dim);color:var(--success);">allowed</span><span class="rule-value">' + esc(r.value) + '</span><span class="rule-list-name">' + esc(r.listName) + '</span></div>' +
+        '<button class="btn-icon" data-action="remove-exception" data-list-id="' + r.listId + '" data-exc-id="' + r.id + '">' + ico('x', 14) + '</button></div>';
     }).join('');
+    refreshIcons();
   },
 
   async addException() {
@@ -1142,8 +1157,12 @@ function amtName(m) { if (m.ExecutableName !== undefined) return 'exe'; if (m.Ex
 function amtVal(m) { return m.ExecutableName || m.ExecutablePath || m.WindowTitle || JSON.stringify(m); }
 
 function ico(name, sz) {
-  var p = { x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' };
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="' + (sz||16) + '" height="' + (sz||16) + '">' + (p[name]||'') + '</svg>';
+  sz = sz || 16;
+  return '<i data-lucide="' + name + '" style="width:' + sz + 'px;height:' + sz + 'px;"></i>';
+}
+
+function refreshIcons() {
+  if (window.lucide) lucide.createIcons();
 }
 
 function showConfirm(title, message) {
@@ -1355,6 +1374,34 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   try { state.blockLists = await invoke('list_block_lists'); } catch (e) { state.blockLists = []; }
   ui.loadPremadeLists();
+  refreshIcons();
   ui.navigateTo('dashboard');
   setInterval(function() { if (state.currentPage === 'dashboard') ui.refreshDashboard(); }, 5000);
+
+  // ── Cursor spotlight glow on cards/panels ───────────────────────
+  setupSpotlightGlow();
 });
+
+function setupSpotlightGlow() {
+  document.addEventListener('mousemove', function(e) {
+    var cards = document.querySelectorAll('.glow-card');
+    cards.forEach(function(card) {
+      var rect = card.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+      card.style.setProperty('--mouse-x', x + 'px');
+      card.style.setProperty('--mouse-y', y + 'px');
+    });
+  });
+
+  // Apply glow-card class to interactive elements
+  var glowObserver = new MutationObserver(applyGlowClasses);
+  glowObserver.observe(document.getElementById('content'), { childList: true, subtree: true });
+  applyGlowClasses();
+}
+
+function applyGlowClasses() {
+  document.querySelectorAll('.stat-card, .blocklist-card, .quick-action-btn').forEach(function(el) {
+    if (!el.classList.contains('glow-card')) el.classList.add('glow-card');
+  });
+}
