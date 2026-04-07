@@ -45,19 +45,164 @@ var ui = {
       document.getElementById('stat-total-sites').textContent = totalSites;
       document.getElementById('stat-total-apps').textContent = totalApps;
 
-      var container = document.getElementById('dashboard-active-lists');
-      if (status.active_blocks.length === 0) {
-        container.innerHTML = '<div class="empty-state">No active blocks</div>';
-      } else {
-        container.innerHTML = status.active_blocks.map(function(b) {
-          return '<div class="rule-item"><div class="rule-info">' +
-            '<span class="rule-value">' + esc(b.block_list_name) + '</span>' +
-            '<span class="rule-list-name">' + b.blocked_websites + ' sites, ' + b.blocked_apps + ' apps</span>' +
-            '</div></div>';
-        }).join('');
-      }
+      this._renderDashboardActiveLists(status.active_blocks);
+      await this._renderDashboardRecentActivity();
+      await this._renderBrowserStatus();
       refreshIcons();
     } catch (e) {}
+  },
+
+  _renderBrowserStatus: async function() {
+    var container = document.getElementById('dashboard-browser-status');
+    if (!container) return;
+    try {
+      var data = await invoke('get_browser_status');
+      var browsers = (data && data.browsers) || [];
+      if (browsers.length === 0) {
+        container.innerHTML = '<div class="empty-state">No browsers detected</div>';
+        return;
+      }
+
+      // Browser icon mapping (lucide names)
+      var iconFor = function(displayName) {
+        var n = displayName.toLowerCase();
+        if (n.indexOf('chrome') !== -1) return 'chrome';
+        if (n.indexOf('firefox') !== -1) return 'flame';
+        if (n.indexOf('edge') !== -1) return 'globe-2';
+        if (n.indexOf('brave') !== -1) return 'shield';
+        if (n.indexOf('opera') !== -1) return 'circle';
+        return 'globe';
+      };
+
+      container.innerHTML = browsers.map(function(b) {
+        var statusClass, statusText, statusIcon;
+        if (!b.running) {
+          statusClass = 'browser-status-off';
+          statusText = 'Not running';
+          statusIcon = 'circle';
+        } else if (b.extension_connected) {
+          statusClass = 'browser-status-protected';
+          statusText = 'Extension active';
+          statusIcon = 'shield-check';
+        } else {
+          statusClass = 'browser-status-warning';
+          statusText = 'No extension';
+          statusIcon = 'shield-alert';
+        }
+
+        return '<div class="browser-status-row ' + statusClass + '">' +
+            '<div class="browser-status-icon">' + ico(iconFor(b.display_name), 18) + '</div>' +
+            '<div class="browser-status-name">' + esc(b.display_name) + '</div>' +
+            '<div class="browser-status-pill">' +
+              ico(statusIcon, 12) +
+              '<span>' + statusText + '</span>' +
+            '</div>' +
+          '</div>';
+      }).join('');
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state">Could not query browser status</div>';
+    }
+  },
+
+  _renderDashboardActiveLists: function(activeBlocks) {
+    var container = document.getElementById('dashboard-active-lists');
+    if (!activeBlocks || activeBlocks.length === 0) {
+      container.innerHTML =
+        '<div class="dashboard-empty">' +
+          '<div class="dashboard-empty-icon">' + ico('shield-off', 24) + '</div>' +
+          '<div class="dashboard-empty-title">No active block lists</div>' +
+          '<div class="dashboard-empty-sub">Enable a block list to start focusing</div>' +
+          '<button class="btn btn-primary btn-sm" data-page="blocklists" style="margin-top:14px;">' +
+            ico('plus', 13) + ' Create a block list' +
+          '</button>' +
+        '</div>';
+      return;
+    }
+
+    // Deterministic color palette — same as block list page
+    var palette = [
+      { bg: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', shadow: 'rgba(139, 92, 246, 0.35)' },
+      { bg: 'linear-gradient(135deg, #60a5fa, #2563eb)', shadow: 'rgba(96, 165, 250, 0.35)' },
+      { bg: 'linear-gradient(135deg, #34d399, #059669)', shadow: 'rgba(52, 211, 153, 0.35)' },
+      { bg: 'linear-gradient(135deg, #f472b6, #db2777)', shadow: 'rgba(244, 114, 182, 0.35)' },
+      { bg: 'linear-gradient(135deg, #fbbf24, #d97706)', shadow: 'rgba(251, 191, 36, 0.35)' },
+      { bg: 'linear-gradient(135deg, #f87171, #dc2626)', shadow: 'rgba(248, 113, 113, 0.35)' },
+      { bg: 'linear-gradient(135deg, #a78bfa, #7c3aed)', shadow: 'rgba(167, 139, 250, 0.35)' },
+      { bg: 'linear-gradient(135deg, #22d3ee, #0891b2)', shadow: 'rgba(34, 211, 238, 0.35)' },
+    ];
+    function colorFor(name) {
+      var h = 0;
+      for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+      return palette[h % palette.length];
+    }
+
+    container.innerHTML = activeBlocks.map(function(b) {
+      var name = b.block_list_name || 'Unnamed';
+      var color = colorFor(name);
+      var initial = name.trim().charAt(0).toUpperCase() || '?';
+      var avatarStyle = 'background:' + color.bg + ';box-shadow: 0 4px 14px ' + color.shadow + ', inset 0 1px 0 rgba(255,255,255,0.2);';
+
+      return '<div class="mini-list-card" data-list-id="' + b.block_list_id + '">' +
+          '<div class="mini-list-avatar" style="' + avatarStyle + '">' + esc(initial) + '</div>' +
+          '<div class="mini-list-info">' +
+            '<div class="mini-list-name">' + esc(name) + '</div>' +
+            '<div class="mini-list-meta">' +
+              '<span>' + ico('globe', 12) + ' ' + (b.blocked_websites || 0) + ' sites</span>' +
+              '<span class="dot-sep"></span>' +
+              '<span>' + ico('monitor', 12) + ' ' + (b.blocked_apps || 0) + ' apps</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="mini-list-pulse" title="Active"></div>' +
+          '<div class="mini-list-arrow">' + ico('chevron-right', 16) + '</div>' +
+        '</div>';
+    }).join('');
+
+    // Click handler — navigate to Block Lists page
+    container.querySelectorAll('.mini-list-card').forEach(function(el) {
+      el.addEventListener('click', function() {
+        ui.navigateTo('blocklists');
+      });
+    });
+  },
+
+  _renderDashboardRecentActivity: async function() {
+    var container = document.getElementById('dashboard-recent-activity');
+    try {
+      var now = new Date();
+      var from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      var events = await invoke('get_blocked_events', {
+        from: from.toISOString(),
+        to: now.toISOString()
+      });
+
+      if (!events || events.length === 0) {
+        container.innerHTML = '<div class="empty-state">No activity yet — blocked attempts will appear here</div>';
+        return;
+      }
+
+      // Most recent first, limit to 8
+      events = events.slice().reverse().slice(0, 8);
+
+      container.innerHTML = events.map(function(e) {
+        var domain = e.domain_or_app || 'unknown';
+        var isKeyword = domain.indexOf('kw:') === 0;
+        var displayName = isKeyword ? domain.substring(3) : domain;
+        var iconName = isKeyword ? 'search' : 'shield-alert';
+        var ts = new Date(e.timestamp);
+        var ago = formatTimeAgo(ts);
+
+        return '<div class="activity-row">' +
+            '<div class="activity-icon">' + ico(iconName, 14) + '</div>' +
+            '<div class="activity-main">' +
+              '<div class="activity-title">Blocked ' + (isKeyword ? 'search' : 'visit') + '</div>' +
+              '<div class="activity-sub">' + esc(displayName) + '</div>' +
+            '</div>' +
+            '<div class="activity-time">' + ago + '</div>' +
+          '</div>';
+      }).join('');
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state">No activity yet — blocked attempts will appear here</div>';
+    }
   },
 
   async refreshBlockLists() {
@@ -69,12 +214,33 @@ var ui = {
   renderBlockLists: function() {
     var c = document.getElementById('blocklists-container');
     if (state.blockLists.length === 0) { c.innerHTML = '<div class="empty-state">No block lists yet</div>'; return; }
+
+    // Deterministic color palette — each list gets a consistent color based on its name.
+    var palette = [
+      { bg: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', shadow: 'rgba(139, 92, 246, 0.35)' },
+      { bg: 'linear-gradient(135deg, #60a5fa, #2563eb)', shadow: 'rgba(96, 165, 250, 0.35)' },
+      { bg: 'linear-gradient(135deg, #34d399, #059669)', shadow: 'rgba(52, 211, 153, 0.35)' },
+      { bg: 'linear-gradient(135deg, #f472b6, #db2777)', shadow: 'rgba(244, 114, 182, 0.35)' },
+      { bg: 'linear-gradient(135deg, #fbbf24, #d97706)', shadow: 'rgba(251, 191, 36, 0.35)' },
+      { bg: 'linear-gradient(135deg, #f87171, #dc2626)', shadow: 'rgba(248, 113, 113, 0.35)' },
+      { bg: 'linear-gradient(135deg, #a78bfa, #7c3aed)', shadow: 'rgba(167, 139, 250, 0.35)' },
+      { bg: 'linear-gradient(135deg, #22d3ee, #0891b2)', shadow: 'rgba(34, 211, 238, 0.35)' },
+    ];
+    function colorFor(name) {
+      var h = 0;
+      for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+      return palette[h % palette.length];
+    }
+
     c.innerHTML = state.blockLists.map(function(l) {
       var hasSchedule = l.schedule !== null && l.schedule !== undefined;
       var alwaysActive = !hasSchedule;
-      var scheduleStatus = alwaysActive
-        ? '<span class="meta-status" style="color:var(--success);">' + ico('check-circle', 13) + ' Always Active</span>'
-        : '<span class="meta-status" style="color:var(--accent);">' + ico('clock', 13) + ' Scheduled</span>';
+      var color = colorFor(l.name || '?');
+      var initial = (l.name || '?').trim().charAt(0).toUpperCase() || '?';
+
+      var statusPill = alwaysActive
+        ? '<span class="status-pill status-active">' + ico('check-circle', 12) + ' Always Active</span>'
+        : '<span class="status-pill status-scheduled">' + ico('clock', 12) + ' Scheduled</span>';
 
       var prot = l.protection;
       var isProtected = prot && new Date(prot.expires_at) > new Date();
@@ -84,30 +250,48 @@ var ui = {
         var h = Math.floor(remaining / 3600);
         var m = Math.floor((remaining % 3600) / 60);
         var timeStr = h > 0 ? h + 'h ' + m + 'm' : m + 'm';
-        protBadge = '<span class="locked-badge">' + ico('lock', 12) + ' LOCKED ' + timeStr + '</span>';
+        protBadge = '<span class="locked-badge">' + ico('lock', 11) + ' LOCKED · ' + timeStr + '</span>';
       }
 
       var protBtn = isProtected
-        ? '<button class="btn btn-sm" disabled style="font-size:11px;opacity:0.5;cursor:not-allowed;">' + ico('lock', 13) + ' Focus Locked</button>'
-        : '<button class="btn btn-sm" data-action="focus-lock" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '" style="font-size:11px;background:var(--error-dim);color:var(--error);">' + ico('shield-alert', 13) + ' Focus Lock</button>';
+        ? '<button class="btn btn-sm btn-ghost" disabled>' + ico('lock', 13) + ' Focus Locked</button>'
+        : '<button class="btn btn-sm btn-lock" data-action="focus-lock" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">' + ico('shield-alert', 13) + ' Focus Lock</button>';
 
-      return '<div class="blocklist-card" data-id="' + l.id + '">' +
-        '<div class="blocklist-card-header"><span class="blocklist-card-name">' + esc(l.name) + '</span>' +
-        (protBadge ? '<span style="margin-left:8px;">' + protBadge + '</span>' : '') +
-        '<label class="toggle" style="margin-left:auto;"><input type="checkbox" data-action="toggle-list" data-list-id="' + l.id + '"' + (l.enabled ? ' checked' : '') + (isProtected ? ' disabled' : '') + '><span class="toggle-slider"></span></label></div>' +
-        '<div class="blocklist-card-meta">' +
-          '<span class="meta-item">' + ico('globe', 14) + '<span class="meta-value">' + l.websites.length + '</span><span class="meta-label">sites</span></span>' +
-          '<span class="meta-separator"></span>' +
-          '<span class="meta-item">' + ico('monitor', 14) + '<span class="meta-value">' + l.applications.length + '</span><span class="meta-label">apps</span></span>' +
-          '<span class="meta-separator"></span>' +
-          '<span class="meta-item">' + ico('shield-off', 14) + '<span class="meta-value">' + l.exceptions.length + '</span><span class="meta-label">exceptions</span></span>' +
-          scheduleStatus +
+      var avatarStyle = 'background:' + color.bg + ';box-shadow: 0 4px 16px ' + color.shadow + ', inset 0 1px 0 rgba(255,255,255,0.2);';
+      var enabledClass = l.enabled ? ' is-enabled' : ' is-disabled';
+
+      return '<div class="blocklist-card' + enabledClass + '" data-id="' + l.id + '">' +
+        '<div class="blocklist-card-top">' +
+          '<div class="blocklist-avatar" style="' + avatarStyle + '">' + esc(initial) + '</div>' +
+          '<div class="blocklist-title">' +
+            '<div class="blocklist-name-row">' +
+              '<span class="blocklist-card-name">' + esc(l.name) + '</span>' +
+              (protBadge || '') +
+            '</div>' +
+            '<div class="blocklist-status-row">' + statusPill + '</div>' +
+          '</div>' +
+          '<label class="toggle"><input type="checkbox" data-action="toggle-list" data-list-id="' + l.id + '"' + (l.enabled ? ' checked' : '') + (isProtected ? ' disabled' : '') + '><span class="toggle-slider"></span></label>' +
+        '</div>' +
+        '<div class="blocklist-stats">' +
+          '<div class="stat-chip">' +
+            '<div class="stat-chip-icon">' + ico('globe', 15) + '</div>' +
+            '<div class="stat-chip-text"><span class="stat-chip-value">' + l.websites.length + '</span><span class="stat-chip-label">Sites</span></div>' +
+          '</div>' +
+          '<div class="stat-chip">' +
+            '<div class="stat-chip-icon">' + ico('monitor', 15) + '</div>' +
+            '<div class="stat-chip-text"><span class="stat-chip-value">' + l.applications.length + '</span><span class="stat-chip-label">Apps</span></div>' +
+          '</div>' +
+          '<div class="stat-chip">' +
+            '<div class="stat-chip-icon">' + ico('shield-off', 15) + '</div>' +
+            '<div class="stat-chip-text"><span class="stat-chip-value">' + l.exceptions.length + '</span><span class="stat-chip-label">Exceptions</span></div>' +
+          '</div>' +
         '</div>' +
         '<div class="blocklist-card-actions">' +
-        protBtn +
-        '<button class="btn btn-sm" data-action="edit-schedule" data-list-id="' + l.id + '" style="font-size:11px;">' + ico('calendar-clock', 13) + ' Edit Schedule</button>' +
-        (isProtected ? '' : '<button class="btn btn-danger btn-sm" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">' + ico('trash-2', 13) + ' Delete</button>') +
-        '</div></div>';
+          protBtn +
+          '<button class="btn btn-sm btn-ghost" data-action="edit-schedule" data-list-id="' + l.id + '">' + ico('calendar-clock', 13) + ' Schedule</button>' +
+          (isProtected ? '' : '<button class="btn btn-sm btn-ghost btn-danger-ghost" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">' + ico('trash-2', 13) + ' Delete</button>') +
+        '</div>' +
+      '</div>';
     }).join('');
     refreshIcons();
   },
@@ -121,6 +305,9 @@ var ui = {
       var prev = el.value; // save current selection
       el.innerHTML = def + opts;
       if (prev) el.value = prev; // restore selection
+      // Sync custom dropdown trigger label
+      var wrap = el.closest('.dd-wrap');
+      if (wrap && wrap.__ddSync) wrap.__ddSync();
     });
   },
 
@@ -382,74 +569,128 @@ var ui = {
     var grid = document.getElementById('schedule-grid');
     var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     var dayLabels = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    var hours = ['12a','1a','2a','3a','4a','5a','6a','7a','8a','9a','10a','11a','12p','1p','2p','3p','4p','5p','6p','7p','8p','9p','10p','11p'];
 
-    // Build grid
-    var html = '<div class="schedule-header"></div>';
-    for (var h = 0; h < 24; h++) html += '<div class="schedule-header">' + hours[h] + '</div>';
+    // Build the grid: day label + 24 hour cells per row
+    var html = '';
     for (var d = 0; d < days.length; d++) {
       html += '<div class="schedule-day-label" title="' + dayLabels[d] + '">' + days[d] + '</div>';
       for (var hr = 0; hr < 24; hr++) {
-        html += '<div class="schedule-cell" data-day="' + days[d] + '" data-hour="' + hr + '" title="' + dayLabels[d] + ' ' + hours[hr] + '"></div>';
+        var hourLabel = (hr === 0 ? '12a' : (hr < 12 ? hr + 'a' : (hr === 12 ? '12p' : (hr - 12) + 'p')));
+        html += '<div class="schedule-cell" data-day="' + days[d] + '" data-hour="' + hr + '" title="' + dayLabels[d] + ' ' + hourLabel + '"></div>';
       }
     }
     grid.innerHTML = html;
 
-    // Load existing schedule from selected list
     var sel = document.getElementById('schedule-list-select');
-    var alwaysActiveCheckbox = document.getElementById('schedule-always-active');
-    var statusEl = document.getElementById('schedule-status');
+    var heroPanel = document.getElementById('schedule-hero');
+    var gridPanel = document.getElementById('schedule-grid-panel');
+    var emptyPanel = document.getElementById('schedule-empty');
+    var modeAlways = document.getElementById('mode-always');
+    var modeScheduled = document.getElementById('mode-scheduled');
+    var summaryValue = document.getElementById('schedule-summary-value');
+    var summaryLabel = document.getElementById('schedule-summary-label');
 
-    if (sel && sel.value) {
-      var list = state.blockLists.find(function(l) { return l.id === sel.value; });
-      var isScheduled = list && list.schedule !== null && list.schedule !== undefined;
-      var hasSlots = isScheduled && list.schedule.time_slots && list.schedule.time_slots.length > 0;
-
-      // Set "Always Active" checkbox — but don't override if user just unchecked it
-      if (alwaysActiveCheckbox && !this._scheduleManualMode) {
-        alwaysActiveCheckbox.checked = !isScheduled;
-      }
-
-      // Show/hide grid based on schedule mode
-      var showGrid = isScheduled || this._scheduleManualMode;
-      grid.style.opacity = showGrid ? '1' : '0.3';
-      grid.style.pointerEvents = showGrid ? 'auto' : 'none';
-
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        if (!isScheduled) {
-          statusEl.innerHTML = '<strong style="color:var(--success);">Always Active</strong> — this list blocks at all times. Uncheck "Always Active" to set a schedule.';
-        } else if (hasSlots) {
-          statusEl.innerHTML = 'This list blocks during <strong style="color:var(--accent);">' + list.schedule.time_slots.length + ' scheduled hours</strong>. Edit the grid below.';
-        } else {
-          statusEl.innerHTML = '<strong style="color:var(--warning);">Scheduled but no hours set</strong> — click hours below to set when blocking should be active.';
-        }
-      }
-
-      if (hasSlots) {
-        list.schedule.time_slots.forEach(function(slot) {
-          var dayKey = slot.day;
-          if (dayKey === 'Monday') dayKey = 'Mon';
-          else if (dayKey === 'Tuesday') dayKey = 'Tue';
-          else if (dayKey === 'Wednesday') dayKey = 'Wed';
-          else if (dayKey === 'Thursday') dayKey = 'Thu';
-          else if (dayKey === 'Friday') dayKey = 'Fri';
-          else if (dayKey === 'Saturday') dayKey = 'Sat';
-          else if (dayKey === 'Sunday') dayKey = 'Sun';
-          var startHour = parseInt(slot.start.split(':')[0], 10);
-          var cell = grid.querySelector('[data-day="' + dayKey + '"][data-hour="' + startHour + '"]');
-          if (cell) cell.classList.add('active');
-        });
-      }
-    } else {
-      if (alwaysActiveCheckbox) alwaysActiveCheckbox.checked = false;
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Select a block list to configure its schedule.'; }
-      grid.style.opacity = '0.3';
-      grid.style.pointerEvents = 'none';
+    if (!sel || !sel.value) {
+      // No list selected
+      if (heroPanel) heroPanel.style.display = 'none';
+      if (gridPanel) gridPanel.style.display = 'none';
+      if (emptyPanel) emptyPanel.style.display = 'block';
+      if (modeAlways) modeAlways.classList.add('active');
+      if (modeScheduled) modeScheduled.classList.remove('active');
+      if (summaryValue) summaryValue.textContent = '—';
+      if (summaryLabel) summaryLabel.textContent = 'Select a block list';
+      this._setupScheduleDrag(grid);
+      refreshIcons();
+      return;
     }
 
-    // Click-drag support
+    var list = state.blockLists.find(function(l) { return l.id === sel.value; });
+    var isScheduled = list && list.schedule !== null && list.schedule !== undefined;
+    var slots = (isScheduled && list.schedule.time_slots) || [];
+
+    // If user just switched to Scheduled mode, treat as scheduled even if no slots yet
+    var mode = (isScheduled || this._scheduleManualMode) ? 'scheduled' : 'always';
+
+    if (emptyPanel) emptyPanel.style.display = 'none';
+
+    if (mode === 'always') {
+      if (heroPanel) heroPanel.style.display = 'block';
+      if (gridPanel) gridPanel.style.display = 'none';
+      if (modeAlways) modeAlways.classList.add('active');
+      if (modeScheduled) modeScheduled.classList.remove('active');
+      if (summaryValue) summaryValue.textContent = '24/7';
+      if (summaryLabel) summaryLabel.textContent = 'Always blocking';
+    } else {
+      if (heroPanel) heroPanel.style.display = 'none';
+      if (gridPanel) gridPanel.style.display = 'block';
+      if (modeAlways) modeAlways.classList.remove('active');
+      if (modeScheduled) modeScheduled.classList.add('active');
+      var hoursCount = slots.length;
+      if (summaryValue) summaryValue.textContent = hoursCount + 'h';
+      if (summaryLabel) summaryLabel.textContent = 'per week blocked';
+
+      // Populate active cells
+      slots.forEach(function(slot) {
+        var dayKey = slot.day;
+        if (dayKey === 'Monday') dayKey = 'Mon';
+        else if (dayKey === 'Tuesday') dayKey = 'Tue';
+        else if (dayKey === 'Wednesday') dayKey = 'Wed';
+        else if (dayKey === 'Thursday') dayKey = 'Thu';
+        else if (dayKey === 'Friday') dayKey = 'Fri';
+        else if (dayKey === 'Saturday') dayKey = 'Sat';
+        else if (dayKey === 'Sunday') dayKey = 'Sun';
+        var startHour = parseInt(slot.start.split(':')[0], 10);
+        var cell = grid.querySelector('[data-day="' + dayKey + '"][data-hour="' + startHour + '"]');
+        if (cell) cell.classList.add('active');
+      });
+    }
+
     this._setupScheduleDrag(grid);
+    refreshIcons();
+  },
+
+  _applySchedulePreset: async function(preset) {
+    var grid = document.getElementById('schedule-grid');
+    if (!grid) return;
+    var cells = grid.querySelectorAll('.schedule-cell');
+    cells.forEach(function(c) { c.classList.remove('active'); });
+
+    var weekdays = ['Mon','Tue','Wed','Thu','Fri'];
+    var weekends = ['Sat','Sun'];
+    var allDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+    function activate(days, hours) {
+      days.forEach(function(d) {
+        hours.forEach(function(h) {
+          var cell = grid.querySelector('[data-day="' + d + '"][data-hour="' + h + '"]');
+          if (cell) cell.classList.add('active');
+        });
+      });
+    }
+
+    if (preset === 'weekdays-work') {
+      activate(weekdays, [9, 10, 11, 12, 13, 14, 15, 16]);
+    } else if (preset === 'evenings') {
+      activate(allDays, [18, 19, 20, 21, 22]);
+    } else if (preset === 'weekends') {
+      activate(weekends, [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]);
+    } else if (preset === 'all') {
+      activate(allDays, [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]);
+    }
+
+    // Preset switches to scheduled mode and must persist + refresh state
+    this._scheduleManualMode = true;
+    await this._saveSchedule();
+  },
+
+  _updateScheduleSummary: function() {
+    var grid = document.getElementById('schedule-grid');
+    if (!grid) return;
+    var activeCount = grid.querySelectorAll('.schedule-cell.active').length;
+    var summaryValue = document.getElementById('schedule-summary-value');
+    var summaryLabel = document.getElementById('schedule-summary-label');
+    if (summaryValue) summaryValue.textContent = activeCount + 'h';
+    if (summaryLabel) summaryLabel.textContent = 'per week blocked';
   },
 
   _setupScheduleDrag: function(grid) {
@@ -465,6 +706,7 @@ var ui = {
       isDragging = true;
       dragMode = cell.classList.contains('active') ? 'deactivate' : 'activate';
       cell.classList.toggle('active', dragMode === 'activate');
+      ui._updateScheduleSummary();
     });
 
     grid.addEventListener('mouseover', function(e) {
@@ -472,6 +714,7 @@ var ui = {
       var cell = e.target.closest('.schedule-cell');
       if (!cell) return;
       cell.classList.toggle('active', dragMode === 'activate');
+      ui._updateScheduleSummary();
     });
 
     document.addEventListener('mouseup', function() {
@@ -479,15 +722,16 @@ var ui = {
         isDragging = false;
         dragMode = null;
         ui._saveSchedule();
+        ui._updateScheduleSummary();
       }
     });
 
-    // Single click also saves
+    // Single click also saves (mousedown already toggled + updated summary)
     grid.addEventListener('click', function(e) {
       var cell = e.target.closest('.schedule-cell');
       if (!cell) return;
-      // Toggle is handled by mousedown, just save
       ui._saveSchedule();
+      ui._updateScheduleSummary();
     });
   },
 
@@ -1145,6 +1389,126 @@ var ui = {
       container.innerHTML = html;
     } catch (e) {}
   },
+
+  // ─── Settings Actions ─────────────────────────────────────────
+
+  async exportConfiguration() {
+    try {
+      var path = await invoke('export_configuration');
+      if (!path) return; // user cancelled the dialog
+      toast('Exported to ' + path, 'success');
+    } catch (e) {
+      toast('Export failed: ' + e, 'error');
+    }
+  },
+
+  async importConfiguration() {
+    var text;
+    try {
+      text = await invoke('pick_import_file');
+    } catch (err) {
+      toast('Failed to open file: ' + err, 'error');
+      return;
+    }
+    if (!text) return; // user cancelled
+
+    // Validate JSON before showing warning
+    try { JSON.parse(text); }
+    catch (err) { toast('Invalid JSON file', 'error'); return; }
+
+    var ok = await showConfirm(
+      'Import Configuration',
+      'This will REPLACE all existing block lists, rules, and schedules with the imported data. Statistics will be preserved. This cannot be undone. Continue?'
+    );
+    if (!ok) return;
+
+    try {
+      var result = await invoke('import_configuration', { json: text });
+      toast('Imported ' + (result.imported || 0) + ' block lists', 'success');
+      await this.refreshBlockLists();
+      if (state.currentPage === 'dashboard') this.refreshDashboard();
+    } catch (err) {
+      toast('Import failed: ' + err, 'error');
+    }
+  },
+
+  async clearStatistics() {
+    var ok = await showConfirm(
+      'Clear Statistics',
+      'Remove all blocking statistics and activity data? Block lists will be preserved. This cannot be undone.'
+    );
+    if (!ok) return;
+    try {
+      await invoke('clear_statistics');
+      toast('Statistics cleared', 'success');
+      if (state.currentPage === 'statistics') ui.refreshStatistics();
+      if (state.currentPage === 'dashboard') ui.refreshDashboard();
+    } catch (e) {
+      toast('Failed: ' + e, 'error');
+    }
+  },
+
+  async applyRetention() {
+    var input = document.getElementById('setting-retention-input');
+    if (!input) return;
+    var days = parseInt(input.value, 10);
+    if (!days || days < 1) {
+      toast('Enter a valid number of days (minimum 1)', 'error');
+      return;
+    }
+    if (days > 36500) {
+      toast('Maximum is 36500 days', 'error');
+      return;
+    }
+    try {
+      var deleted = await invoke('set_stats_retention', { days: days });
+      if (deleted > 0) {
+        toast('Retention set to ' + days + ' days · ' + deleted + ' old entries cleaned', 'success');
+      } else {
+        toast('Retention set to ' + days + ' days', 'success');
+      }
+      if (state.currentPage === 'statistics') ui.refreshStatistics();
+      if (state.currentPage === 'dashboard') ui.refreshDashboard();
+    } catch (e) {
+      toast('Failed: ' + e, 'error');
+    }
+  },
+
+  async resetSettings() {
+    var ok = await showConfirm(
+      'Reset All Settings',
+      'Restore all settings (auto-start, notifications, etc.) to their default values? Block lists and statistics will be preserved.'
+    );
+    if (!ok) return;
+    try {
+      await invoke('reset_settings');
+      toast('Settings reset to defaults', 'success');
+    } catch (e) {
+      toast('Failed: ' + e, 'error');
+    }
+  },
+
+  async deleteAllData() {
+    var ok = await showConfirm(
+      'Delete All Data',
+      'PERMANENTLY delete ALL block lists, rules, schedules, exceptions, statistics, and settings? This cannot be undone.'
+    );
+    if (!ok) return;
+    // Double confirmation for this destructive action
+    var ok2 = await showConfirm(
+      'Are you absolutely sure?',
+      'This will erase everything. All your block lists and history will be gone forever.'
+    );
+    if (!ok2) return;
+    try {
+      await invoke('delete_all_data');
+      toast('All data deleted', 'success');
+      await ui.refreshBlockLists();
+      ui.navigateTo('dashboard');
+    } catch (e) {
+      toast('Failed: ' + e, 'error');
+    }
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -1163,6 +1527,16 @@ function ico(name, sz) {
 
 function refreshIcons() {
   if (window.lucide) lucide.createIcons();
+}
+
+function formatTimeAgo(date) {
+  var now = new Date();
+  var diff = Math.floor((now - date) / 1000);
+  if (diff < 5) return 'just now';
+  if (diff < 60) return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
 }
 
 function showConfirm(title, message) {
@@ -1212,7 +1586,7 @@ document.addEventListener('click', function(e) {
     var a = el.getAttribute('data-action');
     // Don't preventDefault on checkboxes — let the change event handle them
     if (a && el.tagName !== 'INPUT') { e.preventDefault(); doAction(a, el); return; }
-    if (el.dataset && el.dataset.page && (el.classList.contains('nav-item') || el.classList.contains('quick-action-btn'))) { ui.navigateTo(el.dataset.page); return; }
+    if (el.dataset && el.dataset.page && (el.classList.contains('nav-item') || el.classList.contains('quick-action-btn') || el.classList.contains('quick-action-card') || el.tagName === 'BUTTON')) { ui.navigateTo(el.dataset.page); return; }
     el = el.parentElement;
   }
   if (e.target.id === 'modal-overlay') ui.closeModal();
@@ -1271,6 +1645,34 @@ function closeAllDropdowns() {
 document.addEventListener('DOMContentLoaded', async function() {
   var b = document.getElementById('btn-new-blocklist'); if (b) b.addEventListener('click', function() { ui.showCreateListModal(); });
   var bw = document.getElementById('btn-add-website'); if (bw) bw.addEventListener('click', function() { ui.addWebsite(); });
+
+  // Settings page buttons
+  var bExport = document.getElementById('btn-export-config');
+  if (bExport) bExport.addEventListener('click', function() { ui.exportConfiguration(); });
+  var bImport = document.getElementById('btn-import-config');
+  if (bImport) bImport.addEventListener('click', function() { ui.importConfiguration(); });
+  var bClearStats = document.getElementById('btn-clear-stats');
+  if (bClearStats) bClearStats.addEventListener('click', function() { ui.clearStatistics(); });
+  var bReset = document.getElementById('btn-reset-settings');
+  if (bReset) bReset.addEventListener('click', function() { ui.resetSettings(); });
+  var bDeleteAll = document.getElementById('btn-delete-all');
+  if (bDeleteAll) bDeleteAll.addEventListener('click', function() { ui.deleteAllData(); });
+  var bApplyRetention = document.getElementById('btn-apply-retention');
+  if (bApplyRetention) bApplyRetention.addEventListener('click', function() { ui.applyRetention(); });
+  var rInput = document.getElementById('setting-retention-input');
+  if (rInput) {
+    rInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); ui.applyRetention(); }
+    });
+  }
+  // Load current retention value
+  (async function() {
+    try {
+      var days = await invoke('get_stats_retention');
+      var input = document.getElementById('setting-retention-input');
+      if (input && days) input.value = days;
+    } catch (e) {}
+  })();
   var be = document.getElementById('btn-add-exception'); if (be) be.addEventListener('click', function() { ui.addException(); });
   var ba = document.getElementById('btn-add-app'); if (ba) ba.addEventListener('click', function() { ui.addApp(); });
   var bi = document.getElementById('btn-import-dropdown'); if (bi) bi.addEventListener('click', function(e) { e.stopPropagation(); ui.toggleImportDropdown(); });
@@ -1295,34 +1697,48 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Schedule list select → reload grid with that list's schedule
   var sls = document.getElementById('schedule-list-select');
   if (sls) sls.addEventListener('change', function() { ui._scheduleManualMode = false; ui.refreshSchedule(); });
-  // "Always Active" checkbox — clears schedule when checked
-  var saa = document.getElementById('schedule-always-active');
-  if (saa) saa.addEventListener('change', function() {
-    if (saa.checked) {
-      // Set to always active — clear schedule from backend
-      document.querySelectorAll('.schedule-cell.active').forEach(function(c) { c.classList.remove('active'); });
-      ui._saveSchedule(true); // true = force always active
-      toast('Set to Always Active', 'success');
-      ui._scheduleManualMode = false;
-      ui.refreshSchedule();
-    } else {
-      // Switch to scheduled mode — save empty schedule (creates Schedule object)
-      ui._scheduleManualMode = true;
-      ui._saveSchedule(false); // false = scheduled mode with no slots yet
-      var grid = document.getElementById('schedule-grid');
-      if (grid) { grid.style.opacity = '1'; grid.style.pointerEvents = 'auto'; }
-      var statusEl = document.getElementById('schedule-status');
-      if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = 'Click hours below to set when blocking should be active. Changes save automatically.'; }
-      toast('Click hours to set schedule', 'info');
-    }
+
+  // Mode toggle buttons (Always Active / Scheduled)
+  var modeAlwaysBtn = document.getElementById('mode-always');
+  if (modeAlwaysBtn) modeAlwaysBtn.addEventListener('click', async function() {
+    var sel = document.getElementById('schedule-list-select');
+    if (!sel || !sel.value) { toast('Select a block list first', 'error'); return; }
+    document.querySelectorAll('.schedule-cell.active').forEach(function(c) { c.classList.remove('active'); });
+    ui._scheduleManualMode = false;
+    await ui._saveSchedule(true);
+    toast('Set to Always Active', 'success');
+    ui.refreshSchedule();
   });
+
+  var modeScheduledBtn = document.getElementById('mode-scheduled');
+  if (modeScheduledBtn) modeScheduledBtn.addEventListener('click', async function() {
+    var sel = document.getElementById('schedule-list-select');
+    if (!sel || !sel.value) { toast('Select a block list first', 'error'); return; }
+    ui._scheduleManualMode = true;
+    await ui._saveSchedule(false);
+    toast('Switched to scheduled mode — click hours to set blocking', 'info');
+    ui.refreshSchedule();
+  });
+
   // Clear schedule button
   var bcs = document.getElementById('btn-clear-schedule');
-  if (bcs) bcs.addEventListener('click', function() {
+  if (bcs) bcs.addEventListener('click', async function() {
     document.querySelectorAll('.schedule-cell.active').forEach(function(c) { c.classList.remove('active'); });
-    ui._saveSchedule();
+    await ui._saveSchedule();
     toast('Schedule cleared', 'success');
     ui.refreshSchedule();
+  });
+
+  // Preset buttons
+  document.querySelectorAll('.schedule-preset-btn[data-preset]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var sel = document.getElementById('schedule-list-select');
+      if (!sel || !sel.value) { toast('Select a block list first', 'error'); return; }
+      var preset = btn.getAttribute('data-preset');
+      await ui._applySchedulePreset(preset);
+      toast('Applied preset', 'success');
+      ui.refreshSchedule();
+    });
   });
 
   // Redraw charts on window resize (prevents stretched/blurry canvas)
@@ -1380,6 +1796,150 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // ── Cursor spotlight glow on cards/panels ───────────────────────
   setupSpotlightGlow();
+
+  // ── Enhance all native selects with custom dropdown UI ──────────
+  enhanceAllSelects();
+});
+
+// ─── Custom Dropdown Component ──────────────────────────────────────
+// Wraps a native <select> with a custom styled UI. Keeps the native
+// element for state, forms, and events. Modular — change styles/behavior
+// from one place.
+
+function enhanceSelect(selectEl) {
+  if (!selectEl || selectEl.__ddEnhanced) return;
+  selectEl.__ddEnhanced = true;
+
+  var wrap = document.createElement('div');
+  wrap.className = 'dd-wrap';
+
+  // Preserve sizing from the original element
+  if (selectEl.style.width) wrap.style.width = selectEl.style.width;
+  if (selectEl.classList.contains('dd-block')) wrap.classList.add('dd-block');
+
+  var trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'dd-trigger';
+  trigger.innerHTML =
+    '<span class="dd-label"></span>' +
+    '<i data-lucide="chevron-down" class="dd-chev"></i>';
+
+  var menu = document.createElement('div');
+  menu.className = 'dd-menu hidden';
+
+  // Insert wrap before select, move select into wrap
+  selectEl.parentNode.insertBefore(wrap, selectEl);
+  wrap.appendChild(trigger);
+  wrap.appendChild(menu);
+  wrap.appendChild(selectEl);
+  selectEl.classList.add('dd-native');
+
+  function syncTrigger() {
+    var labelEl = trigger.querySelector('.dd-label');
+    var selected = selectEl.options[selectEl.selectedIndex];
+    if (selected) {
+      labelEl.textContent = selected.textContent;
+      if (!selected.value) labelEl.classList.add('dd-placeholder');
+      else labelEl.classList.remove('dd-placeholder');
+    } else {
+      labelEl.textContent = 'Select...';
+      labelEl.classList.add('dd-placeholder');
+    }
+  }
+
+  function rebuildMenu() {
+    menu.innerHTML = '';
+    var opts = Array.from(selectEl.options);
+    if (opts.length === 0) {
+      menu.innerHTML = '<div class="dd-empty">No options</div>';
+      return;
+    }
+    opts.forEach(function(opt, i) {
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'dd-item';
+      if (opt.value === selectEl.value) item.classList.add('selected');
+      if (!opt.value && i === 0 && opts.length > 1) item.classList.add('dd-placeholder');
+      var labelSpan = document.createElement('span');
+      labelSpan.textContent = opt.textContent;
+      item.appendChild(labelSpan);
+      item.addEventListener('click', function(e) {
+        e.stopPropagation();
+        selectEl.value = opt.value;
+        syncTrigger();
+        closeMenu();
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  function openMenu() {
+    closeAllCustomDropdowns();
+    rebuildMenu();
+    menu.classList.remove('hidden');
+    wrap.classList.add('open');
+    refreshIcons();
+  }
+
+  function closeMenu() {
+    menu.classList.add('hidden');
+    wrap.classList.remove('open');
+  }
+
+  wrap.__ddClose = closeMenu;
+  wrap.__ddSync = syncTrigger;
+
+  trigger.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (wrap.classList.contains('open')) closeMenu();
+    else openMenu();
+  });
+
+  trigger.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+    if (e.key === 'Escape') closeMenu();
+  });
+
+  // Watch for programmatic changes to options/value
+  var observer = new MutationObserver(function() {
+    syncTrigger();
+    if (wrap.classList.contains('open')) rebuildMenu();
+  });
+  observer.observe(selectEl, { childList: true, attributes: true, attributeFilter: ['value'] });
+
+  // Also sync when the native change event fires (e.g., from JS setting .value)
+  var origDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  if (origDescriptor && origDescriptor.set) {
+    try {
+      Object.defineProperty(selectEl, 'value', {
+        get: function() { return origDescriptor.get.call(this); },
+        set: function(v) {
+          origDescriptor.set.call(this, v);
+          syncTrigger();
+        },
+        configurable: true
+      });
+    } catch (e) {}
+  }
+
+  syncTrigger();
+  refreshIcons();
+}
+
+function enhanceAllSelects() {
+  document.querySelectorAll('select.input').forEach(enhanceSelect);
+}
+
+function closeAllCustomDropdowns() {
+  document.querySelectorAll('.dd-wrap.open').forEach(function(w) {
+    if (w.__ddClose) w.__ddClose();
+  });
+}
+
+// Close any open custom dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.dd-wrap')) closeAllCustomDropdowns();
 });
 
 function setupSpotlightGlow() {
@@ -1401,7 +1961,7 @@ function setupSpotlightGlow() {
 }
 
 function applyGlowClasses() {
-  document.querySelectorAll('.stat-card, .blocklist-card, .quick-action-btn').forEach(function(el) {
+  document.querySelectorAll('.stat-card, .blocklist-card, .quick-action-card, .mini-list-card').forEach(function(el) {
     if (!el.classList.contains('glow-card')) el.classList.add('glow-card');
   });
 }

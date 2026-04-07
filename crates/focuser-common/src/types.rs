@@ -48,6 +48,30 @@ impl BlockList {
 }
 
 impl BlockList {
+    /// Whether this block list should actually enforce blocking right now.
+    /// Combines the user's `enabled` toggle AND the schedule (if set).
+    ///
+    /// Rules:
+    /// - If `enabled` is false → never active (user override wins)
+    /// - If no schedule → always active when enabled
+    /// - If schedule has no time slots → always active when enabled
+    /// - If schedule has time slots → active only when current time matches a slot
+    pub fn is_effectively_active(&self) -> bool {
+        if !self.enabled {
+            return false;
+        }
+        match &self.schedule {
+            None => true,
+            Some(schedule) => {
+                if schedule.time_slots.is_empty() {
+                    true
+                } else {
+                    schedule.is_active_now()
+                }
+            }
+        }
+    }
+
     pub fn has_active_protection(&self) -> bool {
         self.enabled && self.protection.as_ref().is_some_and(|p| p.is_active())
     }

@@ -10,6 +10,7 @@
     "webNavigation",
     "scripting",
     "storage",
+    "alarms",
     "nativeMessaging"
   ],
   "host_permissions": [
@@ -47,7 +48,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html", "blocked.css", "content-block.js", "content-hide.css", "content-early.js"],
+      "resources": ["blocked.html", "blocked.css", "content-block.js", "content-hide.css", "content-early.js", "messages.json", "premade-lists.json"],
       "matches": ["<all_urls>"]
     }
   ]

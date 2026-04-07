@@ -31,6 +31,35 @@ static KILLED_BROWSER_NAME: Mutex<Option<String>> = Mutex::new(None);
 /// Updated when the extension sends an API request with the `X-Focuser-Browser` header.
 static CONNECTED_BROWSERS: Mutex<Option<HashMap<BrowserType, Instant>>> = Mutex::new(None);
 
+/// Server-side dedup window for blocked reports.
+/// Prevents double-counting from:
+/// - Multi-tab: multiple tabs of the same site reporting nearly simultaneously
+/// - Browser navigation events: onCommitted + onCompleted for the same URL
+/// - Service worker restarts: extension's local dedup state lost
+/// - Both the Tauri app and focuser-service running (rare)
+/// - Chrome retrying failed loads
+static RECENT_REPORTS: Mutex<Option<HashMap<String, Instant>>> = Mutex::new(None);
+const REPORT_DEDUP_WINDOW_SECS: u64 = 3;
+
+/// Returns true if this domain should be recorded (not a duplicate of a recent report).
+fn should_record_blocked(tracking_key: &str) -> bool {
+    let now = Instant::now();
+    let mut guard = RECENT_REPORTS.lock().unwrap();
+    let map = guard.get_or_insert_with(HashMap::new);
+
+    // Cleanup old entries (keep only recent ones)
+    let window = std::time::Duration::from_secs(REPORT_DEDUP_WINDOW_SECS * 4);
+    map.retain(|_, ts| now.duration_since(*ts) < window);
+
+    if let Some(last) = map.get(tracking_key)
+        && now.duration_since(*last) < std::time::Duration::from_secs(REPORT_DEDUP_WINDOW_SECS)
+    {
+        return false;
+    }
+    map.insert(tracking_key.to_string(), now);
+    true
+}
+
 /// Record that a browser's extension was seen (called from API request handler).
 fn record_extension_heartbeat(browser_name: &str) {
     let name_lower = browser_name.to_lowercase();
@@ -201,6 +230,7 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
             ("200 OK", r#"{"ok":true}"#.into())
         }
         _ if path.starts_with("/api/check?") => api_check_domain(path, state),
+        _ if path.starts_with("/api/blocked-count?") => api_blocked_count(path, state),
         _ if path.starts_with("/api/heartbeat?") => {
             // Dedicated heartbeat endpoint — browser identified via URL, not headers
             let browser = path
@@ -266,7 +296,66 @@ fn api_lists(state: &AppState) -> (&'static str, String) {
 fn api_rules(state: &AppState) -> (&'static str, String) {
     let eng = state.engine.lock().unwrap();
     let rules = eng.compile_extension_rules();
-    ("200 OK", serde_json::to_string(&rules).unwrap_or_default())
+
+    let mut domain_categories: HashMap<String, String> = HashMap::new();
+    for list in eng.block_lists().iter().filter(|l| l.enabled) {
+        let category = normalize_category(&list.name);
+        for rule in &list.websites {
+            if let focuser_common::types::WebsiteMatchType::Domain(ref d) = rule.match_type {
+                domain_categories.insert(d.to_lowercase(), category.clone());
+            }
+        }
+    }
+
+    let mut response = serde_json::to_value(&rules).unwrap_or_default();
+    if let Some(obj) = response.as_object_mut() {
+        obj.insert(
+            "domain_categories".to_string(),
+            serde_json::to_value(&domain_categories).unwrap_or_default(),
+        );
+    }
+
+    ("200 OK", response.to_string())
+}
+
+fn normalize_category(list_name: &str) -> String {
+    let name = list_name.to_lowercase();
+    for (keyword, category) in [
+        ("porn", "adult"),
+        ("adult", "adult"),
+        ("nsfw", "adult"),
+        ("xxx", "adult"),
+        ("social", "social_media"),
+        ("instagram", "social_media"),
+        ("facebook", "social_media"),
+        ("twitter", "social_media"),
+        ("tiktok", "social_media"),
+        ("video", "video"),
+        ("stream", "video"),
+        ("youtube", "video"),
+        ("netflix", "video"),
+        ("entertain", "video"),
+        ("dating", "dating"),
+        ("tinder", "dating"),
+        ("bumble", "dating"),
+        ("gaming", "gaming"),
+        ("game", "gaming"),
+        ("steam", "gaming"),
+        ("news", "news"),
+        ("reddit", "news"),
+        ("forum", "news"),
+        ("shop", "shopping"),
+        ("amazon", "shopping"),
+        ("ebay", "shopping"),
+        ("gambling", "gambling"),
+        ("betting", "gambling"),
+        ("casino", "gambling"),
+    ] {
+        if name.contains(keyword) {
+            return category.to_string();
+        }
+    }
+    "default".to_string()
 }
 
 fn api_check_domain(path: &str, state: &AppState) -> (&'static str, String) {
@@ -398,9 +487,70 @@ fn api_report_blocked(body: &str, state: &AppState) -> (&'static str, String) {
         return ("400 Bad Request", r#"{"error":"domain required"}"#.into());
     }
 
+    let tracking_key = parsed["tracking_key"].as_str().unwrap_or(domain);
+
+    // Server-side dedup: only record if this exact tracking_key wasn't recorded
+    // within the last REPORT_DEDUP_WINDOW_SECS seconds. This handles multi-tab,
+    // navigation redirects, service worker restarts, and duplicate event sources.
+    let recorded = should_record_blocked(tracking_key);
+
     let eng = state.engine.lock().unwrap();
-    let _ = eng.record_blocked(domain);
-    ("200 OK", r#"{"ok":true}"#.into())
+
+    if recorded {
+        let _ = eng.record_blocked(domain);
+        if tracking_key != domain {
+            let _ = eng.db().record_blocked_attempt(tracking_key);
+        }
+    }
+
+    // Always return the current count (whether or not we just incremented).
+    let count = if tracking_key != domain {
+        eng.db().get_blocked_count_today(tracking_key).unwrap_or(0)
+    } else {
+        eng.db().get_blocked_count_today(domain).unwrap_or(0)
+    };
+
+    let json = serde_json::json!({ "ok": true, "count": count, "recorded": recorded });
+    ("200 OK", json.to_string())
+}
+
+fn api_blocked_count(path: &str, state: &AppState) -> (&'static str, String) {
+    let key = path
+        .split("key=")
+        .nth(1)
+        .unwrap_or("")
+        .split('&')
+        .next()
+        .unwrap_or("");
+    let decoded = percent_decode(key);
+    let eng = state.engine.lock().unwrap();
+    let count = eng.db().get_blocked_count_today(&decoded).unwrap_or(0);
+    let json = serde_json::json!({ "key": decoded, "count": count });
+    ("200 OK", json.to_string())
+}
+
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let Ok(h) = std::str::from_utf8(&bytes[i + 1..i + 3])
+            && let Ok(byte) = u8::from_str_radix(h, 16)
+        {
+            out.push(byte);
+            i += 3;
+            continue;
+        }
+        if bytes[i] == b'+' {
+            out.push(b' ');
+        } else {
+            out.push(bytes[i]);
+        }
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).to_string()
 }
 
 fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {

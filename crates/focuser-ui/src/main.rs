@@ -89,6 +89,15 @@ fn main() {
             commands::update_schedule,
             commands::enable_protection,
             commands::get_protection_status,
+            commands::export_configuration,
+            commands::import_configuration,
+            commands::pick_import_file,
+            commands::clear_statistics,
+            commands::get_stats_retention,
+            commands::set_stats_retention,
+            commands::reset_settings,
+            commands::delete_all_data,
+            commands::get_browser_status,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run

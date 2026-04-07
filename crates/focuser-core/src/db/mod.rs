@@ -319,6 +319,92 @@ impl Database {
             .map_err(|e| FocuserError::Database(e.to_string()))?;
         Ok(count)
     }
+
+    /// Delete statistics older than `keep_days` days. Returns the number
+    /// of rows deleted.
+    pub fn cleanup_old_statistics(&self, keep_days: u32) -> Result<u64> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let cutoff = (chrono::Utc::now().date_naive() - chrono::Duration::days(keep_days as i64))
+            .to_string();
+        let stats_deleted = conn
+            .execute(
+                "DELETE FROM statistics WHERE date < ?1",
+                rusqlite::params![cutoff],
+            )
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        // Also cleanup blocked events (timestamped, not date-based)
+        let cutoff_ts =
+            (chrono::Utc::now() - chrono::Duration::days(keep_days as i64)).to_rfc3339();
+        let _ = conn.execute(
+            "DELETE FROM blocked_events WHERE timestamp < ?1",
+            rusqlite::params![cutoff_ts],
+        );
+        Ok(stats_deleted as u64)
+    }
+
+    /// Clear all settings (resets preferences to defaults).
+    pub fn clear_settings(&self) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute("DELETE FROM settings", [])
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Clear all statistics and blocked events.
+    pub fn clear_all_statistics(&self) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute("DELETE FROM statistics", [])
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute("DELETE FROM blocked_events", [])
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Delete EVERYTHING: block lists, rules, schedules, exceptions,
+    /// statistics, blocked events, settings. Full reset.
+    pub fn delete_all_data(&self) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        for table in [
+            "statistics",
+            "blocked_events",
+            "active_blocks",
+            "block_lists",
+            "settings",
+        ] {
+            let _ = conn.execute(&format!("DELETE FROM {table}"), []);
+        }
+        Ok(())
+    }
+
+    /// Get blocked attempt count for a specific domain/app today.
+    pub fn get_blocked_count_today(&self, domain_or_app: &str) -> Result<u64> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let today = chrono::Utc::now().date_naive().to_string();
+        let count: u64 = conn
+            .query_row(
+                "SELECT COALESCE(blocked_attempts, 0) FROM statistics
+                 WHERE domain_or_app = ?1 AND date = ?2",
+                rusqlite::params![domain_or_app, today],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        Ok(count)
+    }
 }
 
 #[cfg(test)]

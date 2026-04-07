@@ -66,13 +66,15 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
         if let Ok(mut eng) = state.engine.lock() {
             let _ = eng.refresh();
 
-            // Schedule enforcement: enable/disable lists based on their schedule
-            enforce_schedules(&mut eng);
+            // Note: schedule enforcement is handled at rule compile time via
+            // BlockList::is_effectively_active(), which checks both the user's
+            // enabled flag AND the schedule. We no longer mutate `enabled` based
+            // on the schedule — that would conflict with the user's manual toggle.
 
             // Sync hosts file — but skip if any browser extension is connected,
             // because the extension provides a better experience (custom block page)
             // while the hosts file just shows a connection error.
-            let any_extension_connected = !crate::api::get_connected_browsers(10).is_empty();
+            let any_extension_connected = !crate::api::get_connected_browsers(120).is_empty();
             if any_extension_connected {
                 // Extension handles blocking — clear hosts file so extension can show block page
                 if was_using_hosts {
@@ -104,36 +106,6 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
     }
 }
 
-/// Check schedules and enable/disable block lists accordingly.
-/// Only applies to lists with a non-empty schedule. Lists without a schedule
-/// (or with an empty time_slots) are "always active" and managed by the user toggle.
-fn enforce_schedules(eng: &mut focuser_core::BlockEngine) {
-    let lists = eng.block_lists().to_vec();
-    for list in &lists {
-        if let Some(ref schedule) = list.schedule {
-            // Skip if schedule has no time slots (= "always active", user controls toggle)
-            if schedule.time_slots.is_empty() {
-                continue;
-            }
-            let should_be_active = schedule.is_active_now();
-            if should_be_active != list.enabled {
-                let mut updated = list.clone();
-                updated.enabled = should_be_active;
-                updated.updated_at = chrono::Utc::now();
-                if let Err(e) = eng.db().update_block_list(&updated) {
-                    warn!(error = %e, list = %list.name, "Failed to update schedule state");
-                } else {
-                    info!(
-                        list = %list.name,
-                        enabled = should_be_active,
-                        "Schedule toggled block list"
-                    );
-                    let _ = eng.refresh();
-                }
-            }
-        }
-    }
-}
 
 /// Apply blocks to the system hosts file.
 pub fn apply_hosts_blocks(domains: &[String]) -> Result<(), String> {
@@ -317,8 +289,11 @@ fn enforce_browser_extension_windows(
         let _ = CloseHandle(snapshot);
     }
 
-    // Check which browsers have a connected extension (polled API within last 10 seconds)
-    let connected_extensions = crate::api::get_connected_browsers(10);
+    // Check which browsers have a connected extension.
+    // Generous 2-minute window: extensions use chrome.alarms which fires
+    // every 30s when the service worker is asleep. We need at least 2x the
+    // alarm period plus margin for slow startup, suspended SW, or hiccups.
+    let connected_extensions = crate::api::get_connected_browsers(120);
 
     // Check each running browser
     for (browser_type, pids) in &running_browsers {
@@ -339,9 +314,10 @@ fn enforce_browser_extension_windows(
             }
             Some(started_at) => {
                 if now.duration_since(*started_at) >= grace_duration {
-                    // Grace expired — but double-check the extension one more time
-                    // (it might have connected during the grace period)
-                    let fresh_check = crate::api::get_connected_browsers(15);
+                    // Grace expired — final safety net with an even wider 3-minute window.
+                    // This accounts for the case where the extension was just installed
+                    // mid-grace and is still warming up its alarms.
+                    let fresh_check = crate::api::get_connected_browsers(180);
                     if fresh_check.contains(browser_type) {
                         // Extension connected just in time — cancel kill
                         info!(

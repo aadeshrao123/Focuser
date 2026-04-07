@@ -49,7 +49,10 @@
         <div class="dashboard-panels">
           <div class="panel">
             <div class="panel-header">
-              <h3><i data-lucide="list"></i> Active Block Lists</h3>
+              <h3><i data-lucide="shield-check"></i> Active Block Lists</h3>
+              <button class="btn btn-sm btn-ghost" data-page="blocklists" style="font-size:11px;padding:5px 12px;">
+                View all <i data-lucide="arrow-right" style="width:12px;height:12px;"></i>
+              </button>
             </div>
             <div class="panel-body" id="dashboard-active-lists">
               <div class="empty-state">No active blocks</div>
@@ -62,36 +65,61 @@
             </div>
             <div class="panel-body">
               <div class="quick-actions-grid">
-                <button class="quick-action-btn accent-border" data-page="blocklists">
-                  <i data-lucide="shield-check"></i>
-                  <span>Manage Block Lists</span>
+                <button class="quick-action-card qa-accent" data-page="blocklists">
+                  <div class="qa-icon"><i data-lucide="shield-check"></i></div>
+                  <div class="qa-text">
+                    <span class="qa-title">Manage Block Lists</span>
+                    <span class="qa-sub">Create and edit profiles</span>
+                  </div>
+                  <i data-lucide="chevron-right" class="qa-arrow"></i>
                 </button>
-                <button class="quick-action-btn success-border" data-page="websites">
-                  <i data-lucide="globe"></i>
-                  <span>Add Website Rule</span>
+                <button class="quick-action-card qa-success" data-page="websites">
+                  <div class="qa-icon"><i data-lucide="globe"></i></div>
+                  <div class="qa-text">
+                    <span class="qa-title">Add Website Rule</span>
+                    <span class="qa-sub">Block a domain or keyword</span>
+                  </div>
+                  <i data-lucide="chevron-right" class="qa-arrow"></i>
                 </button>
-                <button class="quick-action-btn warning-border" data-page="apps">
-                  <i data-lucide="monitor"></i>
-                  <span>Block Application</span>
+                <button class="quick-action-card qa-warning" data-page="apps">
+                  <div class="qa-icon"><i data-lucide="monitor"></i></div>
+                  <div class="qa-text">
+                    <span class="qa-title">Block Application</span>
+                    <span class="qa-sub">Prevent apps from running</span>
+                  </div>
+                  <i data-lucide="chevron-right" class="qa-arrow"></i>
                 </button>
-                <button class="quick-action-btn error-border" data-page="schedule">
-                  <i data-lucide="calendar-clock"></i>
-                  <span>Edit Schedule</span>
+                <button class="quick-action-card qa-error" data-page="schedule">
+                  <div class="qa-icon"><i data-lucide="calendar-clock"></i></div>
+                  <div class="qa-text">
+                    <span class="qa-title">Edit Schedule</span>
+                    <span class="qa-sub">Set blocking hours</span>
+                  </div>
+                  <i data-lucide="chevron-right" class="qa-arrow"></i>
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="panel recent-activity-panel">
-          <div class="panel-header">
-            <h3><i data-lucide="activity"></i> Recent Activity</h3>
+        <div class="dashboard-panels">
+          <div class="panel">
+            <div class="panel-header">
+              <h3><i data-lucide="globe-2"></i> Browser Extensions</h3>
+              <span class="panel-header-hint">Live status</span>
+            </div>
+            <div class="panel-body" id="dashboard-browser-status">
+              <div class="empty-state">Checking browsers...</div>
+            </div>
           </div>
-          <div class="panel-body">
-            <div class="activity-item">
-              <span class="activity-dot"></span>
-              <span class="activity-text">Blocked attempts and configuration changes will appear here</span>
-              <span class="activity-time">--</span>
+
+          <div class="panel recent-activity-panel" style="margin-bottom:0;">
+            <div class="panel-header">
+              <h3><i data-lucide="activity"></i> Recent Activity</h3>
+              <span class="panel-header-hint">Last 24 hours</span>
+            </div>
+            <div class="panel-body" id="dashboard-recent-activity">
+              <div class="empty-state">No activity yet — blocked attempts will appear here</div>
             </div>
           </div>
         </div>
@@ -165,7 +193,7 @@
 
         <!-- Exceptions Tab -->
         <div id="websites-tab-exceptions" class="tab-content">
-          <div class="panel" style="margin-bottom:14px;">
+          <div class="panel overflow-visible" style="margin-bottom:14px;">
             <div class="panel-header"><h3><i data-lucide="shield-off"></i> Add Exception</h3></div>
             <div class="panel-body">
               <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Excepted domains will NOT be blocked even if they match a blocking rule.</p>
@@ -189,7 +217,7 @@
           <h1>Applications</h1>
           <p class="page-subtitle">Manage blocked applications and executables</p>
         </header>
-        <div class="panel" style="margin-bottom:14px;">
+        <div class="panel overflow-visible" style="margin-bottom:14px;">
           <div class="panel-header"><h3><i data-lucide="plus-circle"></i> Add Application</h3></div>
           <div class="panel-body">
             <div class="add-website-row">
@@ -220,27 +248,95 @@
       <section id="page-schedule" class="page">
         <header class="page-header">
           <h1>Schedule</h1>
-          <p class="page-subtitle">Click or drag to set when blocking is active. Changes save automatically.</p>
+          <p class="page-subtitle">Set when your block lists are active. Changes save automatically.</p>
         </header>
-        <div class="panel" style="flex:1;min-width:0;overflow:hidden;">
+
+        <!-- Top controls: list selector + mode toggle -->
+        <div class="panel overflow-visible" style="margin-bottom:14px;">
+          <div class="panel-body" style="padding:16px 20px;">
+            <div class="schedule-controls">
+              <div class="schedule-control-group">
+                <label class="schedule-control-label">Block list</label>
+                <select id="schedule-list-select" class="input" style="width:220px;"><option value="">Select list...</option></select>
+              </div>
+              <div class="schedule-control-group">
+                <label class="schedule-control-label">Mode</label>
+                <div class="schedule-mode-toggle">
+                  <button type="button" class="schedule-mode-btn active" id="mode-always">
+                    <i data-lucide="infinity"></i> Always Active
+                  </button>
+                  <button type="button" class="schedule-mode-btn" id="mode-scheduled">
+                    <i data-lucide="calendar-clock"></i> Scheduled
+                  </button>
+                </div>
+              </div>
+              <div class="schedule-summary" id="schedule-summary">
+                <div class="schedule-summary-value" id="schedule-summary-value">—</div>
+                <div class="schedule-summary-label" id="schedule-summary-label">Select a block list</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Always Active hero card (shown when mode is Always) -->
+        <div class="panel schedule-hero" id="schedule-hero" style="margin-bottom:14px;display:none;">
+          <div class="schedule-hero-content">
+            <div class="schedule-hero-icon">
+              <i data-lucide="infinity"></i>
+            </div>
+            <div class="schedule-hero-text">
+              <div class="schedule-hero-title">24/7 Blocking Active</div>
+              <div class="schedule-hero-sub">This block list is enforced at all times. Switch to <strong>Scheduled</strong> mode to set specific hours.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schedule grid panel (shown when mode is Scheduled) -->
+        <div class="panel" id="schedule-grid-panel" style="min-width:0;overflow:hidden;display:none;">
           <div class="panel-header">
             <h3><i data-lucide="calendar-clock"></i> Weekly Schedule</h3>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <select id="schedule-list-select" class="input" style="width:200px;"><option value="">Select list...</option></select>
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;margin-left:8px;">
-                <input type="checkbox" id="schedule-always-active" style="accent-color:var(--accent);">
-                <span>Always Active</span>
-              </label>
-              <button id="btn-clear-schedule" class="btn btn-sm" style="font-size:11px;">Clear Schedule</button>
+            <div class="schedule-presets">
+              <button type="button" class="schedule-preset-btn" data-preset="weekdays-work">Weekdays 9–5</button>
+              <button type="button" class="schedule-preset-btn" data-preset="evenings">Evenings 6–11</button>
+              <button type="button" class="schedule-preset-btn" data-preset="weekends">Weekends</button>
+              <button type="button" class="schedule-preset-btn" data-preset="all">All hours</button>
+              <button type="button" class="schedule-preset-btn btn-clear-preset" id="btn-clear-schedule">
+                <i data-lucide="eraser"></i> Clear
+              </button>
             </div>
           </div>
           <div class="panel-body" style="overflow-x:auto;">
-            <div id="schedule-status" style="padding:8px 0 12px;font-size:13px;color:var(--text-secondary);display:none;"></div>
-            <div class="schedule-grid" id="schedule-grid"></div>
-            <div class="schedule-legend" style="margin-top:12px;">
-              <span class="legend-item"><span class="legend-dot active"></span> Blocking active</span>
-              <span class="legend-item"><span class="legend-dot"></span> Not blocking</span>
-              <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">Tip: Click and drag to select multiple hours</span>
+            <div class="schedule-grid-wrap">
+              <div class="schedule-time-markers">
+                <div></div>
+                <div class="time-marker-group"><span>12 AM</span></div>
+                <div class="time-marker-group"><span>6 AM</span></div>
+                <div class="time-marker-group"><span>12 PM</span></div>
+                <div class="time-marker-group"><span>6 PM</span></div>
+              </div>
+              <div class="schedule-grid" id="schedule-grid"></div>
+            </div>
+            <div class="schedule-footer">
+              <div class="schedule-legend">
+                <span class="legend-item"><span class="legend-dot active"></span> Blocking active</span>
+                <span class="legend-item"><span class="legend-dot"></span> Not blocking</span>
+              </div>
+              <div class="schedule-tip">
+                <i data-lucide="mouse-pointer-click"></i> Click and drag to select multiple hours
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state when no list selected -->
+        <div class="panel" id="schedule-empty" style="margin-bottom:14px;">
+          <div class="panel-body">
+            <div class="dashboard-empty">
+              <div class="dashboard-empty-icon">
+                <i data-lucide="calendar-clock"></i>
+              </div>
+              <div class="dashboard-empty-title">Select a block list</div>
+              <div class="dashboard-empty-sub">Choose a block list above to configure its schedule</div>
             </div>
           </div>
         </div>
@@ -313,11 +409,11 @@
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Export configuration</span><span class="setting-desc">Save your block lists, rules, and schedules to a file</span></div>
-              <button class="btn btn-secondary btn-sm"><i data-lucide="upload"></i> Export</button>
+              <button class="btn btn-secondary btn-sm" id="btn-export-config"><i data-lucide="upload"></i> Export</button>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Import configuration</span><span class="setting-desc">Load block lists and rules from a previously exported file</span></div>
-              <button class="btn btn-secondary btn-sm"><i data-lucide="download"></i> Import</button>
+              <button class="btn btn-secondary btn-sm" id="btn-import-config"><i data-lucide="download"></i> Import</button>
             </div>
           </div>
         </div>
@@ -326,12 +422,16 @@
           <div class="panel-header"><h3><i data-lucide="database"></i> Data</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Statistics retention</span><span class="setting-desc">How long to keep blocking statistics before auto-cleanup</span></div>
-              <span class="setting-badge">30 days</span>
+              <div class="setting-info"><span class="setting-name">Statistics retention</span><span class="setting-desc">How long to keep blocking statistics before auto-cleanup. Older entries are deleted when you change this value.</span></div>
+              <div class="retention-control">
+                <input type="number" id="setting-retention-input" class="input retention-input" min="1" max="36500" value="30">
+                <span class="retention-unit">days</span>
+                <button class="btn btn-primary btn-sm" id="btn-apply-retention">Apply</button>
+              </div>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Clear statistics</span><span class="setting-desc">Remove all stored blocking statistics and activity data</span></div>
-              <button class="btn btn-secondary btn-sm"><i data-lucide="eraser"></i> Clear</button>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-stats"><i data-lucide="eraser"></i> Clear</button>
             </div>
           </div>
         </div>
@@ -341,11 +441,11 @@
           <div class="panel-body settings-list">
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Reset all settings</span><span class="setting-desc">Restore all settings to their default values</span></div>
-              <button class="btn btn-danger btn-sm"><i data-lucide="rotate-ccw"></i> Reset</button>
+              <button class="btn btn-danger btn-sm" id="btn-reset-settings"><i data-lucide="rotate-ccw"></i> Reset</button>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Delete all data</span><span class="setting-desc">Permanently remove all block lists, rules, schedules, and statistics</span></div>
-              <button class="btn btn-danger btn-sm"><i data-lucide="trash-2"></i> Delete All</button>
+              <button class="btn btn-danger btn-sm" id="btn-delete-all"><i data-lucide="trash-2"></i> Delete All</button>
             </div>
           </div>
         </div>

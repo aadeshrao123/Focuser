@@ -1,0 +1,503 @@
+{
+  "categories": {
+    "adult": {
+      "label": "Adult Content",
+      "icon": "shield-alert",
+      "color": "#f87171",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "Hey, you made a choice to block this for a reason. That reason still matters.",
+            "Your future self will thank you for closing this tab right now.",
+            "This is your brain saying: let's do something better with our time.",
+            "You set this boundary. That takes real strength. Honor it."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back again? Remember why you started. You're stronger than a habit.",
+            "Two visits in a row — that's the urge talking, not you. Let it pass.",
+            "The craving lasts about 15 minutes. Go for a walk. Seriously.",
+            "You've already proven you can resist once. Do it again."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Okay, visit number {count}. At this point you're basically arm-wrestling yourself. Spoiler: the better you wins.",
+            "Your willpower is being tested. Plot twist: it's also getting stronger.",
+            "Fun fact: every time you close this tab, a neuron somewhere throws a party.",
+            "You keep coming back, and I keep blocking. I have infinite patience. Do you?"
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Visit #{count}. Let's be real — this pattern isn't making you happy. You know that.",
+            "You've tried {count} times today. Imagine putting that energy into literally anything else.",
+            "I'm not judging. But your screen time report will. Close the tab.",
+            "At this point we're old friends. And as your friend: go drink some water and touch grass."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "Attempt #{count}. You blocked this for a reason. That reason hasn't changed, even if your impulse has.",
+            "{count} times. You're fighting hard today. That means something — it means you haven't given up.",
+            "Still here? Good. That means the block is working. The urge will pass. It always does.",
+            "I will never get tired of blocking this. Will you get tired of trying? I hope so."
+          ]
+        }
+      ]
+    },
+
+    "social_media": {
+      "label": "Social Media",
+      "icon": "message-circle",
+      "color": "#60a5fa",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "No scrolling right now. Your real life is more interesting than their highlight reel.",
+            "Plot twist: nothing happened on {domain} in the last 5 minutes.",
+            "The feed will still be there later. Your focus window won't.",
+            "You chose focus over FOMO. That's literally a superpower."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back for more? {domain} doesn't miss you. Your goals do.",
+            "You just checked 2 minutes ago. Nothing changed. Except you lost 2 minutes.",
+            "Your fingers autopiloted here. Your brain is smarter than your fingers.",
+            "Does {domain} really deserve more of your day?"
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count} to {domain}. At this rate, you should ask for a salary.",
+            "Imagine explaining to your future self that you tried to open {domain} {count} times today.",
+            "Your thumb has muscle memory. Your brain has better things to do.",
+            "{domain} engagement team would be thrilled. Don't give them the satisfaction."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "{count} attempts at {domain}. This is no longer a habit — this is a hostage situation. Free yourself.",
+            "At this point, {domain} owes you rent for living in your head.",
+            "You vs. {domain}: Score is {count}-0 in their favor. Time to flip the scoreboard.",
+            "Breaking news from {domain}: still the same memes, still the same drama. You're not missing anything."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "Attempt #{count}. Listen, {domain} is algorithmically designed to be addictive. You're not weak — you're fighting a billion-dollar machine. Keep fighting.",
+            "{count} times today. That's not failure — that's {count} times you were stopped from wasting your time. The system is working.",
+            "Still trying? That's okay. Each block saved you about 20 minutes of mindless scrolling. You're welcome.",
+            "The average person spends 2.5 hours daily on social media. Today, you're not average."
+          ]
+        }
+      ]
+    },
+
+    "video": {
+      "label": "Video & Streaming",
+      "icon": "play-circle",
+      "color": "#f87171",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "No videos right now. That 'one episode' always becomes five.",
+            "Your watch history can wait. Your to-do list can't.",
+            "The algorithm wants your attention. Don't give it away for free.",
+            "Whatever you were about to watch — it'll still exist after your work is done."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back again? The autoplay rabbit hole is deeper than you think.",
+            "You already resisted once. That trailer or video will survive without your view.",
+            "Netflix didn't pause for you. But you can pause Netflix for yourself.",
+            "One video = 10 minutes. 'One more' = 3 hours. Math checks out."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. You're not bored — you're avoiding something. Go do that thing instead.",
+            "Your brain wants dopamine. Try a 5-minute walk instead of a 5-hour binge.",
+            "If productivity had a final boss, it would be {domain}. You're winning this fight.",
+            "The content creators will still be there tomorrow. Your deadline won't."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count} at {domain}. That's dedication. Now redirect it toward something useful.",
+            "You've tried {count} times. Each time I blocked you, I saved you about 45 minutes. You're welcome.",
+            "At this rate, you would have watched an entire season by now. Instead, you're being productive.",
+            "The recommended section isn't going to recommend you a better life. You have to build that yourself."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "{count} attempts. You're in a tug-of-war with one of the most addictive platforms ever built. And you're still standing.",
+            "Still here? Good news: every blocked attempt means the system is doing exactly what you asked it to do.",
+            "Attempt #{count}. The craving peaks and fades. Ride the wave. It always passes.",
+            "You blocked this for a reason. {count} attempts later, that reason is {count} times more valid."
+          ]
+        }
+      ]
+    },
+
+    "dating": {
+      "label": "Dating Apps",
+      "icon": "heart",
+      "color": "#f472b6",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "No swiping right now. The right person won't mind if you check later.",
+            "Focus on becoming the person someone would swipe right on.",
+            "The matches will still be there. Your self-improvement window is now.",
+            "Real connections happen offline too. Go make one."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back to check for matches? Your inbox is the same as 5 minutes ago.",
+            "Nobody fell in love in the time between your last two visits. Promise.",
+            "Swipe right on your goals today. They'll love you back.",
+            "The butterflies in your stomach are just anxiety about checking. Let them settle."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. Your love life won't improve by refreshing the app 6 times an hour.",
+            "Plot twist: the most attractive thing is someone who doesn't need validation from an app.",
+            "You know what's more attractive than a dating profile? Someone who's focused and productive.",
+            "The algorithm serves you options. Self-improvement serves you results."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count}. At this point, the app is dating you, not the other way around.",
+            "{count} visits to a dating app today. The app is getting more of your attention than any actual person would.",
+            "If you spent this energy on a hobby, you'd have way better stories for a first date.",
+            "The app wants you addicted. Your blocked list wants you free. Choose wisely."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "{count} attempts. The dopamine hit of a new match is real — and temporary. Build something lasting instead.",
+            "Still here? Here's a truth: confidence built through real achievements is more attractive than any profile photo.",
+            "Attempt #{count}. The most important relationship today is the one with your goals.",
+            "{count} tries. Each one blocked = time you invested in yourself instead. That compounds."
+          ]
+        }
+      ]
+    },
+
+    "gaming": {
+      "label": "Gaming",
+      "icon": "gamepad-2",
+      "color": "#34d399",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "No gaming right now. Your real-life XP needs grinding too.",
+            "Save your progress in real life first, then you can game later.",
+            "The lobby will still be there. Your productive hours won't.",
+            "Side quests in real life actually pay off. Just saying."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back for round 2? Your work has a respawn timer of zero. Get to it.",
+            "The rank reset isn't going anywhere. Your deadline is.",
+            "You vs. Your Goals: Don't let this be a rage quit.",
+            "The game doesn't need you right now. But your responsibilities do."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. You're speedrunning procrastination at this point.",
+            "Achievement unlocked: Tried to game {count} times and got blocked every time.",
+            "If focus was a game, you'd be on the hardest difficulty right now. Keep going.",
+            "Your K/D ratio in real life: {count} blocked attempts, 0 hours wasted. That's a perfect score."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count}. The final boss of productivity is the urge to game. You're almost through.",
+            "{count} tries? That's more attempts than most boss fights. Channel that persistence into your work.",
+            "Leaderboard update: You're #{count} on the 'Most Persistent Gamer' list. Impressive. Now go be productive.",
+            "The patch notes for your life don't include 'unlimited gaming.' Feature working as intended."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "{count} attempts. Your dedication to gaming is honestly impressive. Now imagine that dedication applied to your goals.",
+            "GG on attempt #{count}. But the real play is closing this tab and doing what matters.",
+            "You've hit the attempt cap for today. There's no microtransaction to unlock more. Go be productive.",
+            "Attempt #{count}. Legendary persistence. Wrong target. Redirect that energy and you'll be unstoppable."
+          ]
+        }
+      ]
+    },
+
+    "news": {
+      "label": "News & Forums",
+      "icon": "newspaper",
+      "color": "#fbbf24",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "The news will still be there later. Your focus is needed now.",
+            "If something truly important happens, you'll hear about it. Trust me.",
+            "Doomscrolling disguised as 'staying informed' is still doomscrolling.",
+            "Breaking: Local person decides to be productive instead of reading news. More at 11."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back again? The headlines haven't changed in the last 3 minutes.",
+            "You already know what's happening in the world. Now make something happen in yours.",
+            "The comment section will survive without your contribution today.",
+            "Refreshing the news won't change it. Working on yourself will change you."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. You're not staying informed — you're staying distracted.",
+            "If the world ends, someone will literally knock on your door. You don't need {domain} for that.",
+            "The outrage cycle wants your attention. Your work deserves it more.",
+            "Hot take: the most productive people don't check the news {count} times before lunch."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count}. At this point, the news is reading you more than you're reading it.",
+            "{count} visits to {domain}. The algorithm now knows your political views, your anxieties, and your lunch break. Maybe take a break from it.",
+            "BREAKING: Person blocked from news site {count} times becomes more productive. Shocking development.",
+            "The 24-hour news cycle will keep cycling without you. Your goals need you now."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "Attempt #{count}. You're doom-scrolling on hard mode. The block is your friend today.",
+            "{count} tries. Most of today's news will be irrelevant by next week. Your work today won't be.",
+            "Still checking? Here's your news update: You're being incredibly persistent. Channel that somewhere useful.",
+            "The news feeds on your attention. Starve it. Feed your ambitions instead."
+          ]
+        }
+      ]
+    },
+
+    "shopping": {
+      "label": "Shopping",
+      "icon": "shopping-cart",
+      "color": "#fb923c",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "Your wallet says thanks. Whatever it is, you don't need it right now.",
+            "Sleep on it. If you still want it tomorrow, it'll still be there.",
+            "Window shopping online is still shopping. Your bank account knows the difference.",
+            "The sale isn't going anywhere. But your money might if you open that tab."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back again? That 'add to cart' dopamine hit isn't worth it.",
+            "You've saved money twice now by not opening this site. Keep the streak alive.",
+            "The deal of the day is: not spending money. Take it.",
+            "Your cart can wait. Your goals can't."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. {domain} has very smart people whose entire job is making you buy things. Don't let them win.",
+            "Retail therapy is temporary. The credit card statement is forever.",
+            "Plot twist: the thing you want to buy won't make you as happy as finishing your work will.",
+            "{count} shopping attempts blocked = approximately $200 saved. You're welcome."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count}. If you need it that badly, write it down and buy it this weekend. If you forget, you didn't need it.",
+            "{count} visits to {domain}. That's not shopping — that's a compulsion. The block is helping you.",
+            "Your cart has been abandoned {count} times today. In marketing terms, you're a lost cause. In life terms, you're winning.",
+            "Money saved today: priceless. Focus maintained: also priceless. Times blocked: {count}."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "{count} attempts to shop. Imagine if those were {count} minutes of deep work instead. The math works out in your favor.",
+            "Still here? The best purchase you can make today is investing time in yourself. That's free.",
+            "Attempt #{count}. You are more than your consumption habits. Go create something.",
+            "{count} times. The things you own end up owning you. Today, you own your focus."
+          ]
+        }
+      ]
+    },
+
+    "gambling": {
+      "label": "Gambling & Betting",
+      "icon": "dice-5",
+      "color": "#ef4444",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "The house always wins. Today, so do you — by not playing.",
+            "You blocked this for a reason. Trust the version of you who made that decision.",
+            "The only guaranteed win is not gambling. Take it.",
+            "Your money is safer in your pocket than on any bet."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back again? The odds haven't changed. They're still against you.",
+            "Two attempts. The urge is strong, but your decision to block was stronger.",
+            "No bet today is going to change your life. But staying focused might.",
+            "The 'one more bet' mindset is exactly why you blocked this. Stay strong."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. The gambling site isn't going to give you what you're really looking for.",
+            "You've resisted {count} times today. That's not weakness — that's a winning streak.",
+            "The only thing you're losing by staying here is the urge. Let it go.",
+            "Every blocked attempt is money you kept. Count that as your win today."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count}. This is a fight worth fighting. The urge passes. It always passes.",
+            "{count} tries. If you need support, please reach out to the National Problem Gambling Helpline: 1-800-522-4700.",
+            "You blocked this because you care about your future. {count} attempts later, that future still matters.",
+            "The thrill of a bet lasts seconds. Financial stability lasts a lifetime. Choose wisely."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "Attempt #{count}. You're going through something hard today. That's okay. The block is protecting you.",
+            "{count} attempts. Please consider talking to someone you trust. You don't have to fight this alone.",
+            "Still here at attempt #{count}. That means the blocker is doing exactly what you asked. Trust past-you.",
+            "{count} times. You are more than this urge. It will pass. If you need help: 1-800-522-4700."
+          ]
+        }
+      ]
+    },
+
+    "default": {
+      "label": "Blocked Site",
+      "icon": "shield",
+      "color": "#8b5cf6",
+      "tiers": [
+        {
+          "min": 1, "max": 1,
+          "messages": [
+            "This site is blocked. You set this boundary — that takes real discipline.",
+            "Not today. You've got better things to do.",
+            "Blocked. Your focus mode is active and working.",
+            "You decided this site wasn't worth your time. Good call."
+          ]
+        },
+        {
+          "min": 2, "max": 3,
+          "messages": [
+            "Back again? Your autopilot brought you here. Your brain knows better.",
+            "Second attempt. The habit loop is trying to run. Don't let it.",
+            "You already said no once. Say it again. It gets easier.",
+            "Blocked again. The system is working exactly as designed."
+          ]
+        },
+        {
+          "min": 4, "max": 6,
+          "messages": [
+            "Visit #{count}. Persistence is great — just point it at the right target.",
+            "You vs. Distraction: {count} rounds in. You're still winning.",
+            "If stubbornness was a skill, you'd be maxed out. Now go be stubborn about your goals.",
+            "Blocked {count} times. Each one is a small victory for your focus."
+          ]
+        },
+        {
+          "min": 7, "max": 10,
+          "messages": [
+            "Attempt #{count}. The urge is real. So is your decision to block this. Trust the decision.",
+            "{count} times today. That's {count} moments where you chose long-term over short-term.",
+            "Still here? That's okay. The block is doing its job. Go do yours.",
+            "{count} blocked visits. You're building discipline in real-time. Keep going."
+          ]
+        },
+        {
+          "min": 11, "max": 999,
+          "messages": [
+            "Attempt #{count}. You haven't given up on blocking it, and I haven't given up on blocking you. Deal?",
+            "{count} attempts. Every single one was caught. The system works. Now go work on something that matters.",
+            "We're at #{count} now. At this point, checking this site is the real distraction from the distraction.",
+            "Still fighting at #{count}? Good. That means you still care about your goals. Don't stop."
+          ]
+        }
+      ]
+    }
+  },
+
+  "category_aliases": {
+    "porn": "adult",
+    "adult content": "adult",
+    "nsfw": "adult",
+    "social": "social_media",
+    "social media": "social_media",
+    "video": "video",
+    "streaming": "video",
+    "video & streaming": "video",
+    "entertainment": "video",
+    "dating": "dating",
+    "dating apps": "dating",
+    "gaming": "gaming",
+    "games": "gaming",
+    "news": "news",
+    "news & forums": "news",
+    "forums": "news",
+    "shopping": "shopping",
+    "gambling": "gambling",
+    "gambling & betting": "gambling",
+    "betting": "gambling"
+  }
+}

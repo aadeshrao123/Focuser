@@ -579,3 +579,274 @@ pub fn export_block_list(
     let list = eng.db().get_block_list(uuid).map_err(|e| e.to_string())?;
     serde_json::to_string_pretty(&list).map_err(|e| e.to_string())
 }
+
+// ─── Settings: Export/Import/Clear/Reset ─────────────────────────
+
+/// Export the full Focuser configuration: all block lists, rules, schedules,
+/// exceptions, and settings. Statistics are NOT exported.
+/// Opens a save dialog so the user can choose where to write the file.
+/// Returns the chosen path on success, or None if cancelled.
+#[tauri::command]
+pub fn export_configuration(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<AppState>>,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let json = {
+        let eng = state.engine.lock().map_err(|e| e.to_string())?;
+        let block_lists = eng.block_lists();
+        let export = serde_json::json!({
+            "version": 1,
+            "exported_at": chrono::Utc::now().to_rfc3339(),
+            "app": "Focuser",
+            "block_lists": block_lists,
+        });
+        serde_json::to_string_pretty(&export).map_err(|e| e.to_string())?
+    };
+
+    let default_name = format!(
+        "focuser-config-{}.json",
+        chrono::Local::now().format("%Y-%m-%d")
+    );
+
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Export Focuser Configuration")
+        .add_filter("JSON", &["json"])
+        .set_file_name(&default_name)
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+
+    let chosen = rx.recv().map_err(|e| format!("Dialog error: {e}"))?;
+
+    match chosen {
+        Some(path) => {
+            let path_str = path.to_string();
+            std::fs::write(&path_str, &json).map_err(|e| format!("Write failed: {e}"))?;
+            Ok(Some(path_str))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Open a file picker to choose a config file to import, and return its contents.
+/// Returns None if the user cancelled.
+#[tauri::command]
+pub fn pick_import_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Import Focuser Configuration")
+        .add_filter("JSON", &["json"])
+        .pick_file(move |path| {
+            let _ = tx.send(path);
+        });
+
+    let chosen = rx.recv().map_err(|e| format!("Dialog error: {e}"))?;
+
+    match chosen {
+        Some(path) => {
+            let path_str = path.to_string();
+            let contents =
+                std::fs::read_to_string(&path_str).map_err(|e| format!("Read failed: {e}"))?;
+            Ok(Some(contents))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Import a Focuser configuration. REPLACES all existing block lists,
+/// rules, and schedules with the imported data. Statistics are preserved.
+#[tauri::command]
+pub fn import_configuration(
+    state: State<'_, Arc<AppState>>,
+    json: String,
+) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+
+    let block_lists_val = data
+        .get("block_lists")
+        .ok_or_else(|| "Invalid file: missing 'block_lists'".to_string())?;
+
+    let imported_lists: Vec<BlockList> =
+        serde_json::from_value(block_lists_val.clone()).map_err(|e| e.to_string())?;
+
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+
+    // Refuse import if any existing list is protected (Focus Locked)
+    for list in eng.block_lists() {
+        if eng.is_block_list_protected(list.id) {
+            return Err(format!(
+                "Cannot import — '{}' is Focus Locked. Wait for the lock to expire.",
+                list.name
+            ));
+        }
+    }
+
+    // Delete all existing block lists
+    let existing_ids: Vec<uuid::Uuid> = eng.block_lists().iter().map(|l| l.id).collect();
+    for id in existing_ids {
+        let _ = eng.db().delete_block_list(id);
+    }
+
+    // Insert imported lists
+    let count = imported_lists.len();
+    for list in &imported_lists {
+        eng.db().create_block_list(list).map_err(|e| e.to_string())?;
+    }
+
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+
+    Ok(serde_json::json!({ "imported": count }))
+}
+
+/// Clear all statistics and blocked events. Block lists are preserved.
+#[tauri::command]
+pub fn clear_statistics(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db().clear_all_statistics().map_err(|e| e.to_string())
+}
+
+/// Get the current statistics retention period in days.
+/// Default is 30 days if not set.
+#[tauri::command]
+pub fn get_stats_retention(state: State<'_, Arc<AppState>>) -> Result<u32, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let value = eng
+        .db()
+        .get_setting_or_default("stats_retention_days", "30")
+        .map_err(|e| e.to_string())?;
+    value.parse::<u32>().map_err(|e| e.to_string())
+}
+
+/// Set the statistics retention period in days and immediately cleanup
+/// any statistics older than the new limit. Returns the number of
+/// old stat rows that were deleted.
+#[tauri::command]
+pub fn set_stats_retention(
+    state: State<'_, Arc<AppState>>,
+    days: u32,
+) -> Result<u64, String> {
+    if days == 0 {
+        return Err("Retention period must be at least 1 day".to_string());
+    }
+    if days > 36500 {
+        return Err("Retention period too large (max 36500 days)".to_string());
+    }
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db()
+        .set_setting("stats_retention_days", &days.to_string())
+        .map_err(|e| e.to_string())?;
+    let deleted = eng
+        .db()
+        .cleanup_old_statistics(days)
+        .map_err(|e| e.to_string())?;
+    Ok(deleted)
+}
+
+/// Reset all settings to defaults. Block lists and statistics are preserved.
+/// This only affects things like autostart preference, notification settings, etc.
+#[tauri::command]
+pub fn reset_settings(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db().clear_settings().map_err(|e| e.to_string())
+}
+
+/// Get the connection status of all known browsers. For each browser:
+/// - `running`: whether the browser process is currently running
+/// - `extension_connected`: whether the Focuser extension has heartbeated recently
+///
+/// Used by the dashboard to show the user which browsers are protected.
+#[tauri::command]
+pub fn get_browser_status() -> Result<Value, String> {
+    let connected = crate::api::get_connected_browsers(120);
+    let running = detect_running_browsers();
+
+    let statuses: Vec<Value> = focuser_common::browser::KNOWN_BROWSERS
+        .iter()
+        .map(|info| {
+            let is_running = running.contains(&info.browser_type);
+            let has_extension = connected.contains(&info.browser_type);
+            serde_json::json!({
+                "browser_type": format!("{:?}", info.browser_type),
+                "display_name": info.display_name,
+                "running": is_running,
+                "extension_connected": has_extension,
+            })
+        })
+        .collect();
+
+    Ok(serde_json::json!({ "browsers": statuses }))
+}
+
+#[cfg(windows)]
+fn detect_running_browsers() -> std::collections::HashSet<focuser_common::extension::BrowserType> {
+    use std::collections::HashSet;
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::*;
+
+    let mut found = HashSet::new();
+    unsafe {
+        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            Ok(h) => h,
+            Err(_) => return found,
+        };
+        let mut entry = PROCESSENTRY32 {
+            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
+            ..Default::default()
+        };
+        if Process32First(snapshot, &mut entry).is_ok() {
+            loop {
+                let name: String = entry
+                    .szExeFile
+                    .iter()
+                    .take_while(|&&c| c != 0)
+                    .map(|&c| c as u8 as char)
+                    .collect();
+                if let Some(info) = focuser_common::browser::identify_browser(&name) {
+                    found.insert(info.browser_type.clone());
+                }
+                if Process32Next(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = CloseHandle(snapshot);
+    }
+    found
+}
+
+#[cfg(not(windows))]
+fn detect_running_browsers() -> std::collections::HashSet<focuser_common::extension::BrowserType> {
+    std::collections::HashSet::new()
+}
+
+/// Delete EVERYTHING: block lists, rules, schedules, exceptions, statistics,
+/// blocked events, and settings. This is irreversible.
+#[tauri::command]
+pub fn delete_all_data(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+
+    // Refuse if any block list is Focus Locked
+    for list in eng.block_lists() {
+        if eng.is_block_list_protected(list.id) {
+            return Err(format!(
+                "Cannot delete all data — '{}' is Focus Locked. Wait for the lock to expire.",
+                list.name
+            ));
+        }
+    }
+
+    eng.db().delete_all_data().map_err(|e| e.to_string())?;
+    eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(())
+}

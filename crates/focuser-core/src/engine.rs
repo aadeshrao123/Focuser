@@ -79,7 +79,7 @@ impl BlockEngine {
     pub fn collect_blocked_domains(&self) -> Vec<String> {
         let mut domains = Vec::new();
         for list in &self.cached_lists {
-            if !list.enabled {
+            if !list.is_effectively_active() {
                 continue;
             }
             for rule in &list.websites {
@@ -118,10 +118,9 @@ impl BlockEngine {
     /// while keywords/wildcards/URL paths are extension-only.
     pub fn compile_extension_rules(&self) -> ExtensionRuleSet {
         let mut rules = ExtensionRuleSet::empty();
-        rules.version = chrono::Utc::now().timestamp() as u64;
 
         for list in &self.cached_lists {
-            if !list.enabled {
+            if !list.is_effectively_active() {
                 continue;
             }
 
@@ -173,8 +172,31 @@ impl BlockEngine {
 
         rules.blocked_domains.sort();
         rules.blocked_domains.dedup();
+        rules.blocked_keywords.sort();
+        rules.blocked_keywords.dedup();
+        rules.blocked_wildcards.sort();
+        rules.blocked_wildcards.dedup();
+        rules.blocked_url_paths.sort();
+        rules.blocked_url_paths.dedup();
         rules.allowed_domains.sort();
         rules.allowed_domains.dedup();
+        rules.allowed_wildcards.sort();
+        rules.allowed_wildcards.dedup();
+
+        // Stable content-based version hash. Only changes when rules actually
+        // change — NOT on every call. This prevents the extension from treating
+        // every poll response as a rules update and re-running enforcement.
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        rules.blocked_domains.hash(&mut hasher);
+        rules.blocked_keywords.hash(&mut hasher);
+        rules.blocked_wildcards.hash(&mut hasher);
+        rules.blocked_url_paths.hash(&mut hasher);
+        rules.block_entire_internet.hash(&mut hasher);
+        rules.allowed_domains.hash(&mut hasher);
+        rules.allowed_wildcards.hash(&mut hasher);
+        rules.version = hasher.finish();
 
         rules
     }
