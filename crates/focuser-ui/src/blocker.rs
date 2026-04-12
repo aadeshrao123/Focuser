@@ -106,7 +106,6 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
     }
 }
 
-
 /// Apply blocks to the system hosts file.
 pub fn apply_hosts_blocks(domains: &[String]) -> Result<(), String> {
     let path = hosts_path();

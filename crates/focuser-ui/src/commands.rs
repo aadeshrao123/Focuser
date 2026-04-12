@@ -699,7 +699,9 @@ pub fn import_configuration(
     // Insert imported lists
     let count = imported_lists.len();
     for list in &imported_lists {
-        eng.db().create_block_list(list).map_err(|e| e.to_string())?;
+        eng.db()
+            .create_block_list(list)
+            .map_err(|e| e.to_string())?;
     }
 
     eng.refresh().map_err(|e| e.to_string())?;
@@ -731,10 +733,7 @@ pub fn get_stats_retention(state: State<'_, Arc<AppState>>) -> Result<u32, Strin
 /// any statistics older than the new limit. Returns the number of
 /// old stat rows that were deleted.
 #[tauri::command]
-pub fn set_stats_retention(
-    state: State<'_, Arc<AppState>>,
-    days: u32,
-) -> Result<u64, String> {
+pub fn set_stats_retention(state: State<'_, Arc<AppState>>, days: u32) -> Result<u64, String> {
     if days == 0 {
         return Err("Retention period must be at least 1 day".to_string());
     }
