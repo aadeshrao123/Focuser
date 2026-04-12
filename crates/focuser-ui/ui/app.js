@@ -287,6 +287,7 @@ var ui = {
           '</div>' +
         '</div>' +
         '<div class="blocklist-card-actions">' +
+          '<button class="btn btn-sm btn-ghost" data-action="edit-list" data-list-id="' + l.id + '">' + ico('pencil', 13) + ' Edit</button>' +
           protBtn +
           '<button class="btn btn-sm btn-ghost" data-action="edit-schedule" data-list-id="' + l.id + '">' + ico('calendar-clock', 13) + ' Schedule</button>' +
           (isProtected ? '' : '<button class="btn btn-sm btn-ghost btn-danger-ghost" data-action="delete-list" data-list-id="' + l.id + '" data-list-name="' + esc(l.name) + '">' + ico('trash-2', 13) + ' Delete</button>') +
@@ -1726,6 +1727,14 @@ function doAction(a, el) {
       setTimeout(function() {
         var sel = document.getElementById('schedule-list-select');
         if (sel) { sel.value = schedListId; ui.refreshSchedule(); }
+      }, 100);
+      break;
+    case 'edit-list':
+      var editListId = el.getAttribute('data-list-id');
+      ui.navigateTo('websites');
+      setTimeout(function() {
+        var sel = document.getElementById('website-list-select');
+        if (sel) { sel.value = editListId; ui.refreshWebsites(); }
       }, 100);
       break;
     case 'focus-lock': ui.showFocusLockModal(el.getAttribute('data-list-id'), el.getAttribute('data-list-name')); break;
