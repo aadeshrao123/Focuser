@@ -15,6 +15,11 @@ var NATIVE_HOST_NAME = 'com.focuser.native';
 var API_BASE = 'http://127.0.0.1:17549';
 var POLL_INTERVAL_MS = 2000;
 var RECONNECT_DELAY_MS = 5000;
+var MAX_RECONNECT_DELAY_MS = 300000;
+var NATIVE_RETRY_LIMIT = 3;
+var nativeReconnectDelay = RECONNECT_DELAY_MS;
+var nativeConnectedAt = 0;
+var nativeFailCount = 0;
 
 var currentRules = null;
 var blockedDomains = new Set();
@@ -36,10 +41,13 @@ function connectNative() {
     nativePort = chrome.runtime.connectNative(NATIVE_HOST_NAME);
 
     nativePort.onMessage.addListener(function(msg) {
+      if (nativeFailCount > 0) {
+        nativeFailCount = 0;
+        nativeReconnectDelay = RECONNECT_DELAY_MS;
+      }
+      console.log('Focuser: Native messaging active');
       if (msg.msg_type === 'RuleUpdate' && msg.payload) {
         applyRules(msg.payload);
-      } else if (msg.msg_type === 'Pong') {
-        // Heartbeat response
       }
     });
 
@@ -50,18 +58,31 @@ function connectNative() {
       }
       nativePort = null;
 
-      // If native messaging fails, fall back to HTTP polling
+      var wasStable = (Date.now() - nativeConnectedAt) > 10000;
+
       if (useNativeMessaging) {
         useNativeMessaging = false;
-        console.log('Focuser: Falling back to HTTP polling');
         startHttpPolling();
       }
 
-      // Try to reconnect after delay
+      if (wasStable) {
+        nativeFailCount = 0;
+        nativeReconnectDelay = RECONNECT_DELAY_MS;
+      } else {
+        nativeFailCount++;
+        nativeReconnectDelay = Math.min(nativeReconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
+      }
+
+      if (nativeFailCount >= NATIVE_RETRY_LIMIT) {
+        console.log('Focuser: Native messaging unavailable, using HTTP polling');
+        return;
+      }
+
+      console.log('Focuser: Native host disconnected, retry in ' + Math.round(nativeReconnectDelay / 1000) + 's');
       setTimeout(function() {
         useNativeMessaging = true;
         connectNative();
-      }, RECONNECT_DELAY_MS);
+      }, nativeReconnectDelay);
     });
 
     // Request current rules
@@ -82,8 +103,8 @@ function connectNative() {
     });
 
     useNativeMessaging = true;
+    nativeConnectedAt = Date.now();
     updateBadge(true);
-    console.log('Focuser: Connected to native messaging host');
 
   } catch (e) {
     console.log('Focuser: Native messaging not available:', e.message);
@@ -538,8 +559,8 @@ if (chrome.windows && chrome.windows.onFocusChanged) {
   chrome.windows.onFocusChanged.addListener(function() { sendHeartbeat(); });
 }
 
-// Try native messaging first, fall back to HTTP polling
-connectNative();
+// Start HTTP polling (native messaging requires focuser-service running separately)
+startHttpPolling();
 
 
 // ─── Message Handler ────────────────────────────────────────────────

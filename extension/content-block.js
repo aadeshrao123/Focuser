@@ -143,19 +143,9 @@
         '<div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Protected by Focuser</div>' +
       '</div>';
 
-    var fullDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Blocked by Focuser</title>' +
-      '<style>' + css + '</style></head><body>' + html + '</body></html>';
-    var parsed = new DOMParser().parseFromString(fullDoc, 'text/html');
-
-    while (document.head.firstChild) document.head.firstChild.remove();
-    while (document.body.firstChild) document.body.firstChild.remove();
-
-    Array.from(parsed.head.childNodes).forEach(function(n) {
-      document.head.appendChild(document.adoptNode(n));
-    });
-    Array.from(parsed.body.childNodes).forEach(function(n) {
-      document.body.appendChild(document.adoptNode(n));
-    });
+    document.documentElement.innerHTML =
+      '<head><meta charset="UTF-8"><title>Blocked by Focuser</title><style>' + css + '</style></head>' +
+      '<body>' + html + '</body>';
 
     document.addEventListener('mousemove', function(e) {
       var g = document.getElementById('glow');
