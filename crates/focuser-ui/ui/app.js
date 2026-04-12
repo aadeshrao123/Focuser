@@ -1517,15 +1517,30 @@ var ui = {
   _downloadedBytes: 0,
   _totalBytes: 0,
 
+  _setCheckBtnSpinning: function(spinning) {
+    var btn = document.getElementById('btn-check-update');
+    if (!btn) return;
+    var icon = btn.querySelector('svg, i');
+    if (spinning) {
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Checking';
+      lucide.createIcons();
+    } else {
+      btn.disabled = false;
+    }
+  },
+
   async checkForUpdates() {
     var btn = document.getElementById('btn-check-update');
     var statusText = document.getElementById('update-status-text');
-    if (btn) btn.disabled = true;
-    if (statusText) statusText.textContent = 'Checking...';
+
+    ui._setCheckBtnSpinning(true);
+    if (statusText) statusText.textContent = 'Checking for updates...';
 
     try {
       if (!window.__TAURI__ || !window.__TAURI__.updater) {
         if (statusText) statusText.textContent = 'Updater not available in dev mode';
+        if (btn) { btn.innerHTML = '<i data-lucide="refresh-cw"></i> Check'; btn.disabled = false; lucide.createIcons(); }
         return;
       }
       var update = await window.__TAURI__.updater.check();
@@ -1533,25 +1548,29 @@ var ui = {
         ui._pendingUpdate = update;
         ui._updateState = 'available';
         if (statusText) statusText.textContent = 'Version ' + update.version + ' is available';
-        if (btn) { btn.innerHTML = '<i data-lucide="download"></i> Update'; btn.onclick = function() { ui.handleUpdateClick(); }; }
+        if (btn) { btn.innerHTML = '<i data-lucide="download"></i> Download & Install'; btn.disabled = false; btn.onclick = function() { ui.handleUpdateClick(); }; }
         ui._showUpdateBanner('Update available (v' + update.version + ')');
+        toast('New version ' + update.version + ' available', 'success');
         lucide.createIcons();
       } else {
         if (statusText) statusText.textContent = 'You have the latest version';
+        if (btn) { btn.innerHTML = '<i data-lucide="check-circle"></i> Up to date'; btn.disabled = false; }
         toast('You have the latest version', 'success');
+        lucide.createIcons();
+        setTimeout(function() {
+          if (btn) { btn.innerHTML = '<i data-lucide="refresh-cw"></i> Check'; lucide.createIcons(); }
+        }, 3000);
       }
     } catch (e) {
       if (statusText) statusText.textContent = 'Check failed: ' + (e.message || e);
-    } finally {
-      if (btn) btn.disabled = false;
+      if (btn) { btn.innerHTML = '<i data-lucide="refresh-cw"></i> Retry'; btn.disabled = false; lucide.createIcons(); }
+      toast('Update check failed', 'error');
     }
   },
 
   handleUpdateClick: function() {
     if (ui._updateState === 'available') {
       ui._startDownload();
-    } else if (ui._updateState === 'downloaded') {
-      ui._startInstall();
     }
   },
 
@@ -1561,12 +1580,14 @@ var ui = {
     ui._downloadedBytes = 0;
     ui._totalBytes = 0;
 
+    var btn = document.getElementById('btn-check-update');
     var bannerText = document.getElementById('update-banner-text');
     var progressWrap = document.getElementById('update-progress-wrap');
     var progressFill = document.getElementById('update-progress-fill');
     var progressPct = document.getElementById('update-progress-pct');
     var statusText = document.getElementById('update-status-text');
 
+    if (btn) { btn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Downloading'; btn.disabled = true; lucide.createIcons(); }
     if (bannerText) bannerText.textContent = 'Downloading...';
     if (progressWrap) progressWrap.style.display = 'flex';
     if (progressFill) progressFill.style.width = '0%';
@@ -1583,14 +1604,15 @@ var ui = {
           var pct = ui._totalBytes > 0 ? Math.min(100, Math.round((ui._downloadedBytes / ui._totalBytes) * 100)) : 0;
           if (progressFill) progressFill.style.width = pct + '%';
           if (progressPct) progressPct.textContent = pct + '%';
-          if (bannerText) bannerText.textContent = 'Downloading... ' + pct + '%';
-          if (statusText) statusText.textContent = 'Downloading... ' + pct + '%';
+          if (bannerText) bannerText.textContent = 'Downloading ' + pct + '%';
+          if (statusText) statusText.textContent = 'Downloading ' + pct + '%';
         }
         if (event.event === 'Finished') {
           if (bannerText) bannerText.textContent = 'Installing...';
           if (progressFill) progressFill.style.width = '100%';
           if (progressPct) progressPct.textContent = '100%';
           if (statusText) statusText.textContent = 'Installing update...';
+          if (btn) { btn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Installing'; lucide.createIcons(); }
         }
       });
     } catch (e) {
@@ -1598,6 +1620,7 @@ var ui = {
       if (bannerText) bannerText.textContent = 'Download failed, click to retry';
       if (progressWrap) progressWrap.style.display = 'none';
       if (statusText) statusText.textContent = 'Download failed: ' + (e.message || e);
+      if (btn) { btn.innerHTML = '<i data-lucide="download"></i> Retry'; btn.disabled = false; btn.onclick = function() { ui.handleUpdateClick(); }; lucide.createIcons(); }
       toast('Update failed: ' + (e.message || e), 'error');
     }
   },

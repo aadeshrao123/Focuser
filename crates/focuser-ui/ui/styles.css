@@ -253,6 +253,8 @@ body {
   0%, 100% { border-color: rgba(139,92,246,0.3); }
   50% { border-color: rgba(139,92,246,0.6); }
 }
+.spin-icon { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ─── Main Content ──────────────────────────────────────────────── */
 
