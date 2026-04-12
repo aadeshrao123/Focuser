@@ -98,6 +98,7 @@ fn main() {
             commands::reset_settings,
             commands::delete_all_data,
             commands::get_browser_status,
+            commands::open_browser_url,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run
@@ -217,24 +218,53 @@ fn main() {
         .expect("error while running Focuser");
 }
 
+/// Get the extension store URL for a given browser.
+fn extension_store_url(browser_name: &str) -> (&'static str, &'static str) {
+    match browser_name {
+        "Mozilla Firefox" => (
+            "https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/",
+            "firefox",
+        ),
+        _ => (
+            "https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj",
+            "chrome",
+        ),
+    }
+}
+
+/// Get the browser executable for launching with a URL.
+fn browser_launch_cmd(browser_name: &str) -> &'static str {
+    match browser_name {
+        "Mozilla Firefox" => "firefox",
+        "Microsoft Edge" => "msedge",
+        "Brave Browser" => "brave",
+        "Opera" => "opera",
+        _ => "chrome",
+    }
+}
+
 /// Build JavaScript to inject a themed modal into the Focuser UI.
 fn build_extension_modal_js(browser_name: &str) -> String {
+    let (store_url, store_type) = extension_store_url(browser_name);
+    let browser_exe = browser_launch_cmd(browser_name);
+    let store_label = if store_type == "firefox" {
+        "Firefox Add-ons"
+    } else {
+        "Chrome Web Store"
+    };
+
     format!(
         r##"(function() {{
-  // Remove existing modal if any
   var old = document.getElementById('focuser-ext-modal-overlay');
   if (old) old.remove();
 
-  // Create overlay
   var overlay = document.createElement('div');
   overlay.id = 'focuser-ext-modal-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;animation:focuserFadeIn 0.2s ease';
 
-  // Create modal
   var modal = document.createElement('div');
   modal.style.cssText = 'background:#1e1e24;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:32px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.6);font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#f0f0f3;animation:focuserSlideIn 0.25s ease';
 
-  // Icon + Title row
   var header = document.createElement('div');
   header.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:20px';
 
@@ -249,61 +279,58 @@ fn build_extension_modal_js(browser_name: &str) -> String {
   header.appendChild(icon);
   header.appendChild(title);
 
-  // Message
   var msg = document.createElement('p');
   msg.style.cssText = 'font-size:14px;line-height:1.6;color:#b0b0bc;margin-bottom:24px';
-  msg.innerHTML = 'Focuser closed <strong style="color:#f0f0f3">{browser_name}</strong> because the Focuser browser extension is not installed.<br><br>To continue using {browser_name} while blocks are active, please install the extension.';
+  msg.innerHTML = 'Focuser closed <strong style="color:#f0f0f3">{browser_name}</strong> because the Focuser browser extension is not installed.<br><br>Install the extension from the <strong style="color:#f0f0f3">{store_label}</strong> to continue using {browser_name} while blocks are active.';
 
-  // Steps
-  var steps = document.createElement('div');
-  steps.style.cssText = 'background:#141418;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:16px;margin-bottom:28px';
+  var btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:12px;flex-direction:column';
 
-  var stepsTitle = document.createElement('div');
-  stepsTitle.style.cssText = 'font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#6e6e7a;margin-bottom:12px';
-  stepsTitle.textContent = 'How to install';
+  var installBtn = document.createElement('button');
+  installBtn.style.cssText = 'width:100%;padding:12px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px';
+  installBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install Extension for {browser_name}';
+  installBtn.onmouseenter = function() {{ installBtn.style.background = '#9d74fa'; installBtn.style.transform = 'translateY(-1px)'; }};
+  installBtn.onmouseleave = function() {{ installBtn.style.background = '#8b5cf6'; installBtn.style.transform = 'translateY(0)'; }};
+  installBtn.onclick = function() {{
+    var cmd = '{browser_exe}';
+    var url = '{store_url}';
+    try {{
+      window.__TAURI__.core.invoke('open_browser_url', {{ browser: cmd, url: url }})
+        .catch(function(err) {{ console.error('Focuser: invoke failed:', err); }});
+    }} catch(e) {{ console.error('Focuser: catch:', e); }}
+    overlay.remove();
+  }};
 
-  var stepsList = document.createElement('div');
-  stepsList.style.cssText = 'font-size:13px;color:#b0b0bc;line-height:1.8';
-  stepsList.innerHTML = ''
-    + '<div style="display:flex;gap:10px;align-items:baseline"><span style="color:#8b5cf6;font-weight:600;font-size:12px">1.</span> Open <strong style="color:#f0f0f3">{browser_name}</strong></div>'
-    + '<div style="display:flex;gap:10px;align-items:baseline"><span style="color:#8b5cf6;font-weight:600;font-size:12px">2.</span> Go to the <strong style="color:#f0f0f3">Extensions</strong> page</div>'
-    + '<div style="display:flex;gap:10px;align-items:baseline"><span style="color:#8b5cf6;font-weight:600;font-size:12px">3.</span> Enable <strong style="color:#f0f0f3">Developer Mode</strong></div>'
-    + '<div style="display:flex;gap:10px;align-items:baseline"><span style="color:#8b5cf6;font-weight:600;font-size:12px">4.</span> Click <strong style="color:#f0f0f3">Load unpacked</strong> and select the extension folder</div>';
+  var dismissBtn = document.createElement('button');
+  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.style.cssText = 'width:100%;padding:10px 20px;background:transparent;color:#6e6e7a;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s ease;font-family:inherit';
+  dismissBtn.onmouseenter = function() {{ dismissBtn.style.color = '#b0b0bc'; dismissBtn.style.borderColor = 'rgba(255,255,255,0.15)'; }};
+  dismissBtn.onmouseleave = function() {{ dismissBtn.style.color = '#6e6e7a'; dismissBtn.style.borderColor = 'rgba(255,255,255,0.08)'; }};
+  dismissBtn.onclick = function() {{ overlay.remove(); }};
 
-  steps.appendChild(stepsTitle);
-  steps.appendChild(stepsList);
+  btnRow.appendChild(installBtn);
+  btnRow.appendChild(dismissBtn);
 
-  // Button
-  var btn = document.createElement('button');
-  btn.textContent = 'Got it';
-  btn.style.cssText = 'width:100%;padding:10px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.15s ease;font-family:inherit';
-  btn.onmouseenter = function() {{ btn.style.background = '#9d74fa'; }};
-  btn.onmouseleave = function() {{ btn.style.background = '#8b5cf6'; }};
-  btn.onclick = function() {{ overlay.remove(); }};
-
-  // Assemble
   modal.appendChild(header);
   modal.appendChild(msg);
-  modal.appendChild(steps);
-  modal.appendChild(btn);
+  modal.appendChild(btnRow);
   overlay.appendChild(modal);
 
-  // Add animation keyframes
   var style = document.createElement('style');
   style.textContent = '@keyframes focuserFadeIn {{from{{opacity:0}}to{{opacity:1}}}} @keyframes focuserSlideIn {{from{{opacity:0;transform:scale(0.95) translateY(10px)}}to{{opacity:1;transform:scale(1) translateY(0)}}}}';
   document.head.appendChild(style);
 
-  // Close on overlay click (not modal click)
   overlay.onclick = function(e) {{ if (e.target === overlay) overlay.remove(); }};
-
-  // Close on Escape
   var escHandler = function(e) {{ if (e.key === 'Escape') {{ overlay.remove(); document.removeEventListener('keydown', escHandler); }} }};
   document.addEventListener('keydown', escHandler);
 
   document.body.appendChild(overlay);
-  btn.focus();
+  installBtn.focus();
 }})();"##,
-        browser_name = browser_name
+        browser_name = browser_name,
+        store_label = store_label,
+        store_url = store_url,
+        browser_exe = browser_exe,
     )
 }
 
