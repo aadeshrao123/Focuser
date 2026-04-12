@@ -130,10 +130,10 @@ body {
 }
 
 .brand-icon {
-  width: 26px;
-  height: 26px;
-  color: var(--accent);
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
+  border-radius: 6px;
   filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.6));
 }
 

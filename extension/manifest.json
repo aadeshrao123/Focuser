@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Focuser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Website blocker — blocks distracting sites to help you stay focused",
   "permissions": [
     "activeTab",
@@ -22,21 +22,24 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "focuser@focuser-app",
-      "strict_min_version": "109.0"
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "content_scripts": [
     {
