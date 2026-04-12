@@ -66,7 +66,6 @@ jobs:
         shell: bash
         run: |
           cargo build --release --target ${{ matrix.target }} -p focuser-service -p focuser-cli -p focuser-native
-          # Tauri externalBin expects binaries with target-triple suffix in the binaries/ dir
           mkdir -p crates/focuser-ui/binaries
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp "target/${{ matrix.target }}/release/focuser-service.exe" "crates/focuser-ui/binaries/focuser-service-${{ matrix.target }}.exe"
@@ -82,6 +81,9 @@ jobs:
       - name: Build Tauri installer
         run: cargo tauri build --target ${{ matrix.target }}
         working-directory: crates/focuser-ui
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Collect Windows artifacts
         if: matrix.platform == 'windows'
@@ -89,6 +91,8 @@ jobs:
         run: |
           mkdir -p dist
           cp target/${{ matrix.target }}/release/bundle/nsis/*.exe dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/nsis/*.nsis.zip dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/nsis/*.nsis.zip.sig dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/focuser-ui.exe dist/Focuser-Portable.exe 2>/dev/null || true
           ls -la dist/
 
@@ -98,6 +102,7 @@ jobs:
           mkdir -p dist
           cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz.sig dist/ 2>/dev/null || true
           ls -la dist/
 
       - name: Collect Linux artifacts
@@ -106,6 +111,9 @@ jobs:
           mkdir -p dist
           cp target/${{ matrix.target }}/release/bundle/deb/*.deb dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.sig dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz.sig dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/focuser-ui dist/Focuser-Linux-x86_64 2>/dev/null || true
           chmod +x dist/* 2>/dev/null || true
           ls -la dist/
@@ -137,6 +145,74 @@ jobs:
           done
           ls -la release/
 
+      - name: Generate updater latest.json
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          REPO="aadeshrao123/Focuser"
+          BASE="https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}"
+
+          # Read signatures
+          WIN_SIG=""
+          MAC_INTEL_SIG=""
+          MAC_ARM_SIG=""
+          LINUX_SIG=""
+
+          for f in release/*.nsis.zip.sig; do
+            [ -f "$f" ] && WIN_SIG=$(cat "$f")
+          done
+          for f in release/*x86_64-apple-darwin*.app.tar.gz.sig; do
+            [ -f "$f" ] && MAC_INTEL_SIG=$(cat "$f")
+          done
+          for f in release/*aarch64-apple-darwin*.app.tar.gz.sig; do
+            [ -f "$f" ] && MAC_ARM_SIG=$(cat "$f")
+          done
+          for f in release/*.AppImage.tar.gz.sig; do
+            [ -f "$f" ] && LINUX_SIG=$(cat "$f")
+          done
+
+          # Build platform entries
+          PLATFORMS="{"
+
+          if [ -n "$WIN_SIG" ]; then
+            WIN_FILE=$(ls release/*.nsis.zip 2>/dev/null | head -1 | xargs basename)
+            PLATFORMS="$PLATFORMS\"windows-x86_64\":{\"signature\":\"$WIN_SIG\",\"url\":\"$BASE/$WIN_FILE\"}"
+          fi
+
+          if [ -n "$MAC_INTEL_SIG" ]; then
+            MAC_INTEL_FILE=$(ls release/*x86_64-apple-darwin*.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1 | xargs basename)
+            [ -n "$(echo $PLATFORMS | grep url)" ] && PLATFORMS="$PLATFORMS,"
+            PLATFORMS="$PLATFORMS\"darwin-x86_64\":{\"signature\":\"$MAC_INTEL_SIG\",\"url\":\"$BASE/$MAC_INTEL_FILE\"}"
+          fi
+
+          if [ -n "$MAC_ARM_SIG" ]; then
+            MAC_ARM_FILE=$(ls release/*aarch64-apple-darwin*.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1 | xargs basename)
+            [ -n "$(echo $PLATFORMS | grep url)" ] && PLATFORMS="$PLATFORMS,"
+            PLATFORMS="$PLATFORMS\"darwin-aarch64\":{\"signature\":\"$MAC_ARM_SIG\",\"url\":\"$BASE/$MAC_ARM_FILE\"}"
+          fi
+
+          if [ -n "$LINUX_SIG" ]; then
+            LINUX_FILE=$(ls release/*.AppImage.tar.gz 2>/dev/null | grep -v '.sig' | head -1 | xargs basename)
+            [ -n "$(echo $PLATFORMS | grep url)" ] && PLATFORMS="$PLATFORMS,"
+            PLATFORMS="$PLATFORMS\"linux-x86_64\":{\"signature\":\"$LINUX_SIG\",\"url\":\"$BASE/$LINUX_FILE\"}"
+          fi
+
+          PLATFORMS="$PLATFORMS}"
+
+          cat > release/latest.json << ENDJSON
+          {
+            "version": "$VERSION",
+            "notes": "Focuser $GITHUB_REF_NAME",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": $PLATFORMS
+          }
+          ENDJSON
+
+          # Clean up indentation
+          python3 -c "import json,sys; d=json.load(open('release/latest.json')); json.dump(d,open('release/latest.json','w'),indent=2)"
+          echo "Generated latest.json:"
+          cat release/latest.json
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -158,19 +234,11 @@ jobs:
             - **macOS**: Download the `.dmg`, open it, drag Focuser to Applications.
             - **Linux**: Use the `.deb` for Debian/Ubuntu (`sudo dpkg -i Focuser_*.deb`) or the `.AppImage` for any distro.
 
-            ### What's included
-            - Desktop app with embedded blocking engine
-            - Auto-starts on system boot
-            - Website blocking (hosts file + browser extension)
-            - Application blocking (process termination)
-            - Pre-made block lists (1,089 domains, 13 categories)
-            - Bulk import from text/JSON files
-            - Exceptions (whitelist) support
-
             ### Browser extension
-            Load the `extension/` folder as an unpacked extension in Chrome, Firefox, or Edge for custom block pages and instant URL blocking.
+            - **Chrome / Edge / Brave / Opera**: [Chrome Web Store](https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj)
+            - **Firefox**: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/)
 
-            See the [README](https://github.com/aadeshrao123/Focuser#readme) for full setup.
+            See the [README](https://github.com/aadeshrao123/Focuser#readme) for full details.
           draft: false
           prerelease: false
           files: release/*

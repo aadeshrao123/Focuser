@@ -24,6 +24,10 @@
         <button class="nav-item" data-page="settings"><i data-lucide="settings"></i><span>Settings</span></button>
       </div>
       <div class="sidebar-footer">
+        <div id="update-banner" class="update-banner" style="display:none" onclick="ui.installUpdate()">
+          <i data-lucide="download"></i>
+          <span id="update-banner-text">Update available</span>
+        </div>
         <div id="service-status" class="status-indicator online">
           <span class="status-dot"></span>
           <span class="status-text">Active</span>
@@ -454,7 +458,11 @@
           <div class="panel-header"><h3><i data-lucide="info"></i> About</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name">Focuser v0.1.0</span><span class="setting-desc">Open-source website and application blocker</span></div>
+              <div class="setting-info"><span class="setting-name" id="about-version">Focuser v0.0.5</span><span class="setting-desc">Open-source website and application blocker</span></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Check for updates</span><span class="setting-desc" id="update-status-text">See if a newer version is available</span></div>
+              <button class="btn btn-secondary" id="btn-check-update" onclick="ui.checkForUpdates()"><i data-lucide="refresh-cw"></i> Check</button>
             </div>
           </div>
         </div>

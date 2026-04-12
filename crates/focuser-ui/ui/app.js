@@ -1509,6 +1509,74 @@ var ui = {
       toast('Failed: ' + e, 'error');
     }
   },
+
+  // ─── Updater ───────────────────────────────────────────────────
+  _pendingUpdate: null,
+  _updateDownloaded: false,
+
+  async checkForUpdates() {
+    var btn = document.getElementById('btn-check-update');
+    var statusText = document.getElementById('update-status-text');
+    if (btn) btn.disabled = true;
+    if (statusText) statusText.textContent = 'Checking...';
+
+    try {
+      if (!window.__TAURI__ || !window.__TAURI__.updater) {
+        if (statusText) statusText.textContent = 'Updater not available in dev mode';
+        return;
+      }
+      var update = await window.__TAURI__.updater.check();
+      if (update && update.available) {
+        ui._pendingUpdate = update;
+        if (statusText) statusText.textContent = 'Version ' + update.version + ' is available';
+        if (btn) { btn.textContent = ''; btn.innerHTML = '<i data-lucide="download"></i> Download & Install'; }
+        if (btn) btn.onclick = function() { ui.installUpdate(); };
+        ui._showUpdateBanner('Update available (v' + update.version + ')');
+        lucide.createIcons();
+      } else {
+        if (statusText) statusText.textContent = 'You have the latest version';
+      }
+    } catch (e) {
+      if (statusText) statusText.textContent = 'Check failed: ' + (e.message || e);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  },
+
+  async installUpdate() {
+    if (ui._updateDownloaded && ui._pendingUpdate) {
+      try { await ui._pendingUpdate.install(); } catch (e) { toast('Install failed: ' + e, 'error'); }
+      return;
+    }
+    if (!ui._pendingUpdate) {
+      await ui.checkForUpdates();
+      if (!ui._pendingUpdate) return;
+    }
+    var banner = document.getElementById('update-banner-text');
+    if (banner) banner.textContent = 'Downloading...';
+    var statusText = document.getElementById('update-status-text');
+    if (statusText) statusText.textContent = 'Downloading update...';
+
+    try {
+      await ui._pendingUpdate.downloadAndInstall(function(event) {
+        if (event.event === 'Progress' && banner) {
+          var pct = Math.round((event.data.chunkLength / event.data.contentLength) * 100);
+          banner.textContent = 'Downloading... ' + pct + '%';
+        }
+      });
+    } catch (e) {
+      if (banner) banner.textContent = 'Download failed';
+      if (statusText) statusText.textContent = 'Download failed: ' + (e.message || e);
+      toast('Update failed: ' + (e.message || e), 'error');
+    }
+  },
+
+  _showUpdateBanner: function(text) {
+    var banner = document.getElementById('update-banner');
+    var bannerText = document.getElementById('update-banner-text');
+    if (banner) banner.style.display = 'flex';
+    if (bannerText) bannerText.textContent = text;
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -1793,6 +1861,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   refreshIcons();
   ui.navigateTo('dashboard');
   setInterval(function() { if (state.currentPage === 'dashboard') ui.refreshDashboard(); }, 5000);
+
+  setTimeout(function() { ui.checkForUpdates(); }, 3000);
 
   // ── Cursor spotlight glow on cards/panels ───────────────────────
   setupSpotlightGlow();

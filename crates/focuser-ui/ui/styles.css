@@ -224,6 +224,21 @@ body {
 .status-indicator.online .status-text { color: var(--success); font-weight: 600; }
 .status-indicator.offline .status-text { color: var(--text-muted); }
 
+.update-banner {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  margin-bottom: 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08));
+  border: 1px solid rgba(139,92,246,0.3); color: var(--accent);
+  cursor: pointer; transition: all 0.15s ease;
+  animation: updatePulse 2s ease-in-out infinite;
+}
+.update-banner:hover { background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(139,92,246,0.15)); }
+.update-banner svg { width: 14px; height: 14px; flex-shrink: 0; }
+@keyframes updatePulse {
+  0%, 100% { border-color: rgba(139,92,246,0.3); }
+  50% { border-color: rgba(139,92,246,0.6); }
+}
+
 /* ─── Main Content ──────────────────────────────────────────────── */
 
 #content {
