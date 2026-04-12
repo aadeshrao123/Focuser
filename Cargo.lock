@@ -981,7 +981,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "focuser-cli"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-common"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "chrono",
  "glob-match",
@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-core"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "chrono",
  "focuser-common",
@@ -1027,7 +1027,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-native"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "anyhow",
  "clap",
@@ -1042,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-service"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1062,7 +1062,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-ui"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "anyhow",
  "chrono",

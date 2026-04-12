@@ -225,15 +225,30 @@ body {
 .status-indicator.offline .status-text { color: var(--text-muted); }
 
 .update-banner {
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-  margin-bottom: 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  padding: 8px 12px; margin-bottom: 10px; border-radius: 8px;
   background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08));
   border: 1px solid rgba(139,92,246,0.3); color: var(--accent);
-  cursor: pointer; transition: all 0.15s ease;
+  transition: all 0.15s ease;
   animation: updatePulse 2s ease-in-out infinite;
 }
-.update-banner:hover { background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(139,92,246,0.15)); }
+.update-banner-top {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.update-banner-top:hover { opacity: 0.8; }
 .update-banner svg { width: 14px; height: 14px; flex-shrink: 0; }
+.update-progress-wrap {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+}
+.update-progress-bar {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.update-progress-fill {
+  height: 100%; width: 0%; border-radius: 2px;
+  background: var(--accent); transition: width 0.2s ease;
+}
+.update-progress-pct { font-size: 10px; font-weight: 600; min-width: 28px; }
 @keyframes updatePulse {
   0%, 100% { border-color: rgba(139,92,246,0.3); }
   50% { border-color: rgba(139,92,246,0.6); }

@@ -1512,7 +1512,9 @@ var ui = {
 
   // ─── Updater ───────────────────────────────────────────────────
   _pendingUpdate: null,
-  _updateDownloaded: false,
+  _updateState: 'idle',
+  _downloadedBytes: 0,
+  _totalBytes: 0,
 
   async checkForUpdates() {
     var btn = document.getElementById('btn-check-update');
@@ -1528,13 +1530,14 @@ var ui = {
       var update = await window.__TAURI__.updater.check();
       if (update && update.available) {
         ui._pendingUpdate = update;
+        ui._updateState = 'available';
         if (statusText) statusText.textContent = 'Version ' + update.version + ' is available';
-        if (btn) { btn.textContent = ''; btn.innerHTML = '<i data-lucide="download"></i> Download & Install'; }
-        if (btn) btn.onclick = function() { ui.installUpdate(); };
+        if (btn) { btn.innerHTML = '<i data-lucide="download"></i> Update'; btn.onclick = function() { ui.handleUpdateClick(); }; }
         ui._showUpdateBanner('Update available (v' + update.version + ')');
         lucide.createIcons();
       } else {
         if (statusText) statusText.textContent = 'You have the latest version';
+        toast('You have the latest version', 'success');
       }
     } catch (e) {
       if (statusText) statusText.textContent = 'Check failed: ' + (e.message || e);
@@ -1543,29 +1546,56 @@ var ui = {
     }
   },
 
-  async installUpdate() {
-    if (ui._updateDownloaded && ui._pendingUpdate) {
-      try { await ui._pendingUpdate.install(); } catch (e) { toast('Install failed: ' + e, 'error'); }
-      return;
+  handleUpdateClick: function() {
+    if (ui._updateState === 'available') {
+      ui._startDownload();
+    } else if (ui._updateState === 'downloaded') {
+      ui._startInstall();
     }
-    if (!ui._pendingUpdate) {
-      await ui.checkForUpdates();
-      if (!ui._pendingUpdate) return;
-    }
-    var banner = document.getElementById('update-banner-text');
-    if (banner) banner.textContent = 'Downloading...';
+  },
+
+  async _startDownload() {
+    if (!ui._pendingUpdate) return;
+    ui._updateState = 'downloading';
+    ui._downloadedBytes = 0;
+    ui._totalBytes = 0;
+
+    var bannerText = document.getElementById('update-banner-text');
+    var progressWrap = document.getElementById('update-progress-wrap');
+    var progressFill = document.getElementById('update-progress-fill');
+    var progressPct = document.getElementById('update-progress-pct');
     var statusText = document.getElementById('update-status-text');
+
+    if (bannerText) bannerText.textContent = 'Downloading...';
+    if (progressWrap) progressWrap.style.display = 'flex';
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressPct) progressPct.textContent = '0%';
     if (statusText) statusText.textContent = 'Downloading update...';
 
     try {
       await ui._pendingUpdate.downloadAndInstall(function(event) {
-        if (event.event === 'Progress' && banner) {
-          var pct = Math.round((event.data.chunkLength / event.data.contentLength) * 100);
-          banner.textContent = 'Downloading... ' + pct + '%';
+        if (event.event === 'Started' && event.data && event.data.contentLength) {
+          ui._totalBytes = event.data.contentLength;
+        }
+        if (event.event === 'Progress' && event.data) {
+          ui._downloadedBytes += event.data.chunkLength || 0;
+          var pct = ui._totalBytes > 0 ? Math.min(100, Math.round((ui._downloadedBytes / ui._totalBytes) * 100)) : 0;
+          if (progressFill) progressFill.style.width = pct + '%';
+          if (progressPct) progressPct.textContent = pct + '%';
+          if (bannerText) bannerText.textContent = 'Downloading... ' + pct + '%';
+          if (statusText) statusText.textContent = 'Downloading... ' + pct + '%';
+        }
+        if (event.event === 'Finished') {
+          if (bannerText) bannerText.textContent = 'Installing...';
+          if (progressFill) progressFill.style.width = '100%';
+          if (progressPct) progressPct.textContent = '100%';
+          if (statusText) statusText.textContent = 'Installing update...';
         }
       });
     } catch (e) {
-      if (banner) banner.textContent = 'Download failed';
+      ui._updateState = 'available';
+      if (bannerText) bannerText.textContent = 'Download failed, click to retry';
+      if (progressWrap) progressWrap.style.display = 'none';
       if (statusText) statusText.textContent = 'Download failed: ' + (e.message || e);
       toast('Update failed: ' + (e.message || e), 'error');
     }
@@ -1574,7 +1604,7 @@ var ui = {
   _showUpdateBanner: function(text) {
     var banner = document.getElementById('update-banner');
     var bannerText = document.getElementById('update-banner-text');
-    if (banner) banner.style.display = 'flex';
+    if (banner) banner.style.display = 'block';
     if (bannerText) bannerText.textContent = text;
   },
 };
