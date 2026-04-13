@@ -727,11 +727,11 @@ var ui = {
       }
     });
 
-    // Single click also saves (mousedown already toggled + updated summary)
+    // Single click: mouseup handler above already saves after drag ends.
+    // Only save here if mouseup didn't fire (edge case: click without drag state).
     grid.addEventListener('click', function(e) {
       var cell = e.target.closest('.schedule-cell');
       if (!cell) return;
-      ui._saveSchedule();
       ui._updateScheduleSummary();
     });
   },
@@ -1512,124 +1512,69 @@ var ui = {
   },
 
   // ─── Updater ───────────────────────────────────────────────────
-  _pendingUpdate: null,
-  _updateState: 'idle',
-  _downloadedBytes: 0,
-  _totalBytes: 0,
+  _updateAvailable: false,
+  _updating: false,
 
-  _setCheckBtnSpinning: function(spinning) {
-    var btn = document.getElementById('btn-check-update');
-    if (!btn) return;
-    var icon = btn.querySelector('svg, i');
-    if (spinning) {
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Checking';
-      lucide.createIcons();
-    } else {
-      btn.disabled = false;
+  handleSettingsUpdateBtn: function() {
+    if (ui._updating) return;
+    if (ui._updateAvailable) {
+      ui._doUpdate();
+      return;
     }
-  },
-
-  async checkForUpdates() {
+    // Always re-check when clicked
     var btn = document.getElementById('btn-check-update');
-    var statusText = document.getElementById('update-status-text');
-
-    ui._setCheckBtnSpinning(true);
-    if (statusText) statusText.textContent = 'Checking for updates...';
-
-    try {
-      if (!window.__TAURI__ || !window.__TAURI__.updater) {
-        if (statusText) statusText.textContent = 'Updater not available in dev mode';
-        if (btn) { btn.innerHTML = '<i data-lucide="refresh-cw"></i> Check'; btn.disabled = false; lucide.createIcons(); }
-        return;
-      }
-      var update = await window.__TAURI__.updater.check();
-      if (update && update.available) {
-        ui._pendingUpdate = update;
-        ui._updateState = 'available';
-        if (statusText) statusText.textContent = 'Version ' + update.version + ' is available';
-        if (btn) { btn.innerHTML = '<i data-lucide="download"></i> Download & Install'; btn.disabled = false; btn.onclick = function() { ui.handleUpdateClick(); }; }
-        ui._showUpdateBanner('Update available (v' + update.version + ')');
-        toast('New version ' + update.version + ' available', 'success');
-        lucide.createIcons();
+    var desc = document.getElementById('update-status-text');
+    if (btn) btn.textContent = 'Checking...';
+    if (desc) desc.textContent = 'Checking for updates...';
+    invoke('check_for_update').then(function(result) {
+      if (result && result.available) {
+        ui._updateAvailable = true;
+        if (desc) desc.textContent = 'Version ' + result.version + ' is available';
+        if (btn) btn.textContent = 'Download & Install';
+        var b = document.getElementById('update-banner');
+        var bt = document.getElementById('update-banner-text');
+        if (b) b.style.display = 'block';
+        if (bt) bt.textContent = 'Update available (v' + result.version + ')';
+        toast('New version ' + result.version + ' available', 'success');
       } else {
-        if (statusText) statusText.textContent = 'You have the latest version';
-        if (btn) { btn.innerHTML = '<i data-lucide="check-circle"></i> Up to date'; btn.disabled = false; }
-        toast('You have the latest version', 'success');
-        lucide.createIcons();
-        setTimeout(function() {
-          if (btn) { btn.innerHTML = '<i data-lucide="refresh-cw"></i> Check'; lucide.createIcons(); }
-        }, 3000);
+        if (desc) desc.textContent = 'You have the latest version';
+        if (btn) btn.textContent = 'Check';
+        toast('Already up to date', 'success');
       }
-    } catch (e) {
-      if (statusText) statusText.textContent = 'Check failed: ' + (e.message || e);
-      if (btn) { btn.innerHTML = '<i data-lucide="refresh-cw"></i> Retry'; btn.disabled = false; lucide.createIcons(); }
-      toast('Update check failed', 'error');
-    }
+    }).catch(function(e) {
+      if (desc) desc.textContent = 'Check failed';
+      if (btn) btn.textContent = 'Check';
+      toast('Check failed: ' + (e || ''), 'error');
+    });
   },
 
-  handleUpdateClick: function() {
-    if (ui._updateState === 'available') {
-      ui._startDownload();
-    }
-  },
-
-  async _startDownload() {
-    if (!ui._pendingUpdate) return;
-    ui._updateState = 'downloading';
-    ui._downloadedBytes = 0;
-    ui._totalBytes = 0;
-
+  _doUpdate: function() {
+    if (ui._updating) return;
+    ui._updating = true;
     var btn = document.getElementById('btn-check-update');
-    var bannerText = document.getElementById('update-banner-text');
-    var progressWrap = document.getElementById('update-progress-wrap');
-    var progressFill = document.getElementById('update-progress-fill');
-    var progressPct = document.getElementById('update-progress-pct');
-    var statusText = document.getElementById('update-status-text');
-
-    if (btn) { btn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Downloading'; btn.disabled = true; lucide.createIcons(); }
-    if (bannerText) bannerText.textContent = 'Downloading...';
-    if (progressWrap) progressWrap.style.display = 'flex';
-    if (progressFill) progressFill.style.width = '0%';
-    if (progressPct) progressPct.textContent = '0%';
-    if (statusText) statusText.textContent = 'Downloading update...';
-
-    try {
-      await ui._pendingUpdate.downloadAndInstall(function(event) {
-        if (event.event === 'Started' && event.data && event.data.contentLength) {
-          ui._totalBytes = event.data.contentLength;
-        }
-        if (event.event === 'Progress' && event.data) {
-          ui._downloadedBytes += event.data.chunkLength || 0;
-          var pct = ui._totalBytes > 0 ? Math.min(100, Math.round((ui._downloadedBytes / ui._totalBytes) * 100)) : 0;
-          if (progressFill) progressFill.style.width = pct + '%';
-          if (progressPct) progressPct.textContent = pct + '%';
-          if (bannerText) bannerText.textContent = 'Downloading ' + pct + '%';
-          if (statusText) statusText.textContent = 'Downloading ' + pct + '%';
-        }
-        if (event.event === 'Finished') {
-          if (bannerText) bannerText.textContent = 'Installing...';
-          if (progressFill) progressFill.style.width = '100%';
-          if (progressPct) progressPct.textContent = '100%';
-          if (statusText) statusText.textContent = 'Installing update...';
-          if (btn) { btn.innerHTML = '<i data-lucide="loader-2" class="spin-icon"></i> Installing'; lucide.createIcons(); }
-        }
-      });
-    } catch (e) {
-      ui._updateState = 'available';
-      if (bannerText) bannerText.textContent = 'Download failed, click to retry';
-      if (progressWrap) progressWrap.style.display = 'none';
-      if (statusText) statusText.textContent = 'Download failed: ' + (e.message || e);
-      if (btn) { btn.innerHTML = '<i data-lucide="download"></i> Retry'; btn.disabled = false; btn.onclick = function() { ui.handleUpdateClick(); }; lucide.createIcons(); }
-      toast('Update failed: ' + (e.message || e), 'error');
-    }
-  },
-
-  _showUpdateBanner: function(text) {
-    var banner = document.getElementById('update-banner');
-    var bannerText = document.getElementById('update-banner-text');
-    if (banner) banner.style.display = 'block';
-    if (bannerText) bannerText.textContent = text;
+    var desc = document.getElementById('update-status-text');
+    var btext = document.getElementById('update-banner-text');
+    var pw = document.getElementById('update-progress-wrap');
+    var pf = document.getElementById('update-progress-fill');
+    if (btn) btn.textContent = 'Updating...';
+    if (desc) desc.textContent = 'Downloading and installing...';
+    if (btext) btext.textContent = 'Downloading & installing...';
+    if (pw) pw.style.display = 'flex';
+    if (pf) { pf.style.width = '100%'; pf.style.animation = 'progressPulse 1.5s ease-in-out infinite'; }
+    invoke('do_update').then(function() {
+      if (desc) desc.textContent = 'Restarting...';
+      if (btext) btext.textContent = 'Restarting...';
+      toast('Update installed, restarting...', 'success');
+    }).catch(function(e) {
+      ui._updating = false;
+      ui._updateAvailable = false;
+      if (pw) pw.style.display = 'none';
+      if (pf) pf.style.animation = '';
+      if (desc) desc.textContent = 'Update failed';
+      if (btext) btext.textContent = 'Failed, click to retry';
+      if (btn) btn.textContent = 'Check';
+      toast('Update failed: ' + (e || ''), 'error');
+    });
   },
 };
 
@@ -1789,6 +1734,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (bDeleteAll) bDeleteAll.addEventListener('click', function() { ui.deleteAllData(); });
   var bApplyRetention = document.getElementById('btn-apply-retention');
   if (bApplyRetention) bApplyRetention.addEventListener('click', function() { ui.applyRetention(); });
+  var bCheckUpdate = document.getElementById('btn-check-update');
+  if (bCheckUpdate) bCheckUpdate.addEventListener('click', function() { ui.handleSettingsUpdateBtn(); });
   var rInput = document.getElementById('setting-retention-input');
   if (rInput) {
     rInput.addEventListener('keydown', function(e) {
@@ -1924,7 +1871,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   ui.navigateTo('dashboard');
   setInterval(function() { if (state.currentPage === 'dashboard') ui.refreshDashboard(); }, 5000);
 
-  setTimeout(function() { ui.checkForUpdates(); }, 3000);
+  setTimeout(function() { ui.handleSettingsUpdateBtn(); }, 3000);
 
   // ── Cursor spotlight glow on cards/panels ───────────────────────
   setupSpotlightGlow();

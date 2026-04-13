@@ -245,25 +245,6 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
             }
             ("200 OK", r#"{"ok":true}"#.into())
         }
-        _ if path.starts_with("/api/open-browser?") => {
-            let query = path.split('?').nth(1).unwrap_or("");
-            let mut browser = String::new();
-            let mut url = String::new();
-            for pair in query.split('&') {
-                if let Some((k, v)) = pair.split_once('=') {
-                    let decoded = percent_decode(v);
-                    match k {
-                        "browser" => browser = decoded,
-                        "url" => url = decoded,
-                        _ => {}
-                    }
-                }
-            }
-            if !browser.is_empty() && !url.is_empty() {
-                let _ = std::process::Command::new(&browser).arg(&url).spawn();
-            }
-            ("200 OK", r#"{"ok":true}"#.into())
-        }
         _ => ("404 Not Found", r#"{"error":"not found"}"#.into()),
     }
 }

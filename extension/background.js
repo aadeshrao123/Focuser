@@ -212,7 +212,17 @@ function isDomainBlocked(hostname, url) {
     if (url.indexOf(blockedUrlPaths[p]) !== -1) return true;
   }
 
+  for (var w = 0; w < blockedWildcards.length; w++) {
+    if (matchWildcard(blockedWildcards[w].toLowerCase(), hostname) ||
+        matchWildcard(blockedWildcards[w].toLowerCase(), url)) return true;
+  }
+
   return false;
+}
+
+function matchWildcard(pattern, str) {
+  var regex = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+  try { return new RegExp('^' + regex + '$').test(str); } catch (e) { return false; }
 }
 
 function isAllowed(hostname) {

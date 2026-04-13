@@ -99,7 +99,7 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 
             // Browser extension enforcement
             if enforce_enabled {
-                let has_active_blocks = eng.block_lists().iter().any(|l| l.enabled);
+                let has_active_blocks = eng.block_lists().iter().any(|l| l.is_effectively_active());
                 enforce_browser_extension(has_active_blocks, grace_duration, &mut grace_periods);
             }
         }

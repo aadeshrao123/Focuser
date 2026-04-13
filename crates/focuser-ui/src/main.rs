@@ -108,6 +108,8 @@ fn main() {
             commands::delete_all_data,
             commands::get_browser_status,
             commands::open_browser_url,
+            commands::check_for_update,
+            commands::do_update,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run

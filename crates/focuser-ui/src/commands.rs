@@ -5,6 +5,7 @@ use focuser_common::types::*;
 use serde_json::Value;
 use std::sync::Arc;
 use tauri::State;
+use tauri_plugin_updater::UpdaterExt;
 
 use crate::AppState;
 
@@ -198,6 +199,7 @@ pub fn add_app_rule(
         .update_block_list(&list)
         .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(serde_json::json!({ "id": rule_id }))
 }
 
@@ -217,6 +219,7 @@ pub fn remove_app_rule(
         .update_block_list(&list)
         .map_err(|e| e.to_string())?;
     eng.refresh().map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
     Ok(())
 }
 
@@ -826,6 +829,35 @@ fn detect_running_browsers() -> std::collections::HashSet<focuser_common::extens
 #[cfg(not(windows))]
 fn detect_running_browsers() -> std::collections::HashSet<focuser_common::extension::BrowserType> {
     std::collections::HashSet::new()
+}
+
+#[tauri::command]
+pub async fn check_for_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(serde_json::json!({
+            "available": true,
+            "version": update.version,
+            "body": update.body.unwrap_or_default(),
+        })),
+        Ok(None) => Ok(serde_json::json!({ "available": false })),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn do_update(app: tauri::AppHandle) -> Result<(), String> {
+    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("No update available")?;
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

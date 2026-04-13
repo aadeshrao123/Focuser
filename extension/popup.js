@@ -91,23 +91,21 @@ async function addOrRemoveSite() {
   var mode = btn.dataset.mode;
 
   if (mode === 'unblock') {
-    // Find and remove the rule for this domain from all lists
-    var rules = await apiGet('/api/rules');
-    if (!rules) return;
+    if (!confirm('Remove "' + currentDomain + '" from your block lists?')) return;
 
-    // We need to find which list contains this domain and remove it
-    // For simplicity, fetch full lists and find the matching rule
-    var fullLists = await apiGet('/api/lists');
-    // The API doesn't return full rules in /api/lists, so we use the compiled rules
-    // For unblock, we need to try removing from each list
+    var removed = 0;
     for (var i = 0; i < lists.length; i++) {
-      await apiPost('/api/remove-site', {
-        list_id: lists[i].id,
-        domain: currentDomain,
-      });
+      var sites = lists[i].websites || [];
+      for (var j = 0; j < sites.length; j++) {
+        var val = sites[j].match_type.Domain || sites[j].match_type.Wildcard || '';
+        if (val.toLowerCase() === currentDomain.toLowerCase()) {
+          await apiPost('/api/remove-site', { list_id: lists[i].id, domain: currentDomain });
+          removed++;
+          break;
+        }
+      }
     }
 
-    // Refresh background rules
     chrome.runtime.sendMessage({ type: 'refresh' });
     await loadData();
     return;
