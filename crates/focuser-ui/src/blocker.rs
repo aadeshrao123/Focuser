@@ -124,13 +124,31 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
                 let mut domains = eng.collect_blocked_domains();
                 // Add allowance-exhausted domains to the hosts set.
                 domains.extend(state.allowance_tracker.blocked_domains());
+                // Remove domains that currently have an active (non-exhausted)
+                // allowance — they should be reachable until the daily quota
+                // runs out. Matches any subdomain too.
+                let exceptions: Vec<String> = state
+                    .allowance_tracker
+                    .active_allowance_domains(eng.db())
+                    .into_iter()
+                    .map(|d| d.to_ascii_lowercase())
+                    .collect();
+                if !exceptions.is_empty() {
+                    domains.retain(|d| {
+                        let lc = d.to_ascii_lowercase();
+                        let stripped = lc.strip_prefix("www.").unwrap_or(&lc).to_string();
+                        !exceptions
+                            .iter()
+                            .any(|ex| stripped == *ex || stripped.ends_with(&format!(".{ex}")))
+                    });
+                }
                 domains.sort();
                 domains.dedup();
                 sync_hosts_file(&domains);
             }
 
             // Kill blocked processes
-            kill_blocked_processes(&eng);
+            kill_blocked_processes(&eng, &state.allowance_tracker);
             // Also kill apps whose allowance is exhausted today.
             kill_allowance_blocked_apps(&state.allowance_tracker);
 
@@ -184,10 +202,13 @@ fn sync_hosts_file(domains: &[String]) {
     }
 }
 
-fn kill_blocked_processes(_eng: &focuser_core::BlockEngine) {
+fn kill_blocked_processes(
+    _eng: &focuser_core::BlockEngine,
+    _tracker: &focuser_core::allowance::AllowanceTracker,
+) {
     #[cfg(windows)]
     {
-        kill_blocked_processes_windows(_eng);
+        kill_blocked_processes_windows(_eng, _tracker);
     }
 }
 
@@ -254,7 +275,17 @@ fn kill_allowance_blocked_apps_windows(tracker: &focuser_core::allowance::Allowa
 }
 
 #[cfg(windows)]
-fn kill_blocked_processes_windows(eng: &focuser_core::BlockEngine) {
+fn kill_blocked_processes_windows(
+    eng: &focuser_core::BlockEngine,
+    tracker: &focuser_core::allowance::AllowanceTracker,
+) {
+    // Apps with an active, non-exhausted allowance should NOT be killed.
+    let allowance_exempt: std::collections::HashSet<String> = tracker
+        .active_allowance_apps(eng.db())
+        .into_iter()
+        .map(|s| s.to_ascii_lowercase())
+        .collect();
+
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Diagnostics::ToolHelp::*;
     use windows::Win32::System::Threading::*;
@@ -279,7 +310,12 @@ fn kill_blocked_processes_windows(eng: &focuser_core::BlockEngine) {
                     .map(|&c| c as u8 as char)
                     .collect();
 
-                if let Some(list_name) = eng.check_app(&name, None, None) {
+                // Skip if this app has an active (non-exhausted) allowance —
+                // user is still within their daily quota.
+                let name_lc = name.to_ascii_lowercase();
+                if !allowance_exempt.contains(&name_lc)
+                    && let Some(list_name) = eng.check_app(&name, None, None)
+                {
                     let pid = entry.th32ProcessID;
                     // Don't kill ourselves or system processes
                     #[allow(clippy::collapsible_if)]

@@ -559,20 +559,43 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 setInterval(sendHeartbeat, 3000);
 
 // ─── Allowance Ticker ─────────────────────────────────────────────
-// Every 5 seconds, report the active tab's hostname to the Focuser app.
-// The app's tracker increments today's usage for any matching allowance.
+// Reports the active tab's hostname so the Focuser app can increment
+// today's usage for any matching allowance.
+//
+// Two timers to handle Manifest V3 service-worker suspension:
+//   (a) fast setInterval: 5s ticks while the SW is awake (normal use)
+//   (b) chrome.alarms:    30s ticks that wake the SW if it's suspended
+// Each tick sends `increment_secs` so the server knows how much time
+// elapsed since the last tick. This way usage stays accurate whether
+// the SW is awake or asleep.
 
 var ALLOWANCE_TICK_MS = 5000;
+var _lastAllowanceTickAt = 0;
 
-function sendAllowanceTick() {
+function sendAllowanceTick(source) {
+  var now = Date.now();
+  // Debounce: if we fire twice in quick succession (alarm + interval both
+  // went off), coalesce. Minimum gap = 3s.
+  if (now - _lastAllowanceTickAt < 3000) return;
+  var elapsedMs = _lastAllowanceTickAt === 0 ? ALLOWANCE_TICK_MS : (now - _lastAllowanceTickAt);
+  _lastAllowanceTickAt = now;
+
+  // Cap at 60s per tick so a long SW sleep doesn't retroactively credit
+  // hours of usage. The cap is chosen to comfortably cover the 30s alarm.
+  var incrementSecs = Math.min(60, Math.max(5, Math.round(elapsedMs / 1000)));
+
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, function(tabs) {
     var active = tabs && tabs[0];
-    if (!active || !active.url) return;
+    if (!active || !active.url) {
+      // Window not focused — skip (strict mode wouldn't count anyway)
+      return;
+    }
     try {
       var u = new URL(active.url);
       if (isInternalUrl(u.protocol)) return;
       var hostname = u.hostname.toLowerCase();
       if (hostname.indexOf('www.') === 0) hostname = hostname.substring(4);
+
       fetch(API_BASE + '/api/allowance-tick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -580,14 +603,41 @@ function sendAllowanceTick() {
           hostname: hostname,
           app_exe: null,
           active: true,
-          source: 'browser-extension'
+          source: source || 'extension-tick',
+          increment_secs: incrementSecs
         })
-      }).catch(function() {});
+      })
+        .then(function(r) {
+          if (!r.ok) console.log('Focuser allowance tick failed:', r.status);
+        })
+        .catch(function(e) {
+          console.log('Focuser allowance tick error:', e && e.message);
+        });
     } catch (e) {}
   });
 }
 
-setInterval(sendAllowanceTick, ALLOWANCE_TICK_MS);
+// Fast path while the SW is awake.
+setInterval(function() { sendAllowanceTick('interval'); }, ALLOWANCE_TICK_MS);
+
+// Reliable wake-up via alarms (30s is Chrome's minimum period).
+chrome.alarms.create('focuser-allowance-tick', { periodInMinutes: 0.5 });
+chrome.alarms.onAlarm.addListener(function(alarm) {
+  if (alarm.name === 'focuser-allowance-tick') {
+    sendAllowanceTick('alarm');
+  }
+});
+
+// Also fire a tick when the user switches tabs / windows (immediate
+// feedback instead of waiting for the next interval).
+if (chrome.tabs && chrome.tabs.onActivated) {
+  chrome.tabs.onActivated.addListener(function() { sendAllowanceTick('tab-switch'); });
+}
+if (chrome.windows && chrome.windows.onFocusChanged) {
+  chrome.windows.onFocusChanged.addListener(function(windowId) {
+    if (windowId !== chrome.windows.WINDOW_ID_NONE) sendAllowanceTick('window-focus');
+  });
+}
 
 // Belt-and-suspenders: fire heartbeat on common browser events too,
 // so even if alarms misbehave we still get caught.

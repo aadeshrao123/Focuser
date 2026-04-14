@@ -1705,6 +1705,12 @@ var ui = {
     }, 2000);
   },
 
+  _pomodoroPresets: {
+    classic: { name: 'Classic', work: 25, short: 5, long: 15, cycles: 4, desc: 'Balanced focus with regular breaks — the original technique.' },
+    long:    { name: 'Long',    work: 50, short: 10, long: 30, cycles: 3, desc: 'Deep-work mode. Longer runs, longer recovery.' },
+    sprint:  { name: 'Sprint',  work: 15, short: 3,  long: 10, cycles: 4, desc: 'Fast bursts for admin tasks or warming up.' },
+  },
+
   openPomodoroStartModal: async function() {
     var lists = [];
     try { lists = await invoke('list_block_lists'); } catch (e) {}
@@ -1720,61 +1726,220 @@ var ui = {
     overlay.id = 'pomodoro-modal-overlay';
     overlay.className = 'pomodoro-modal-overlay';
 
-    var defaultListId = lists[0].id;
-    var optHtml = lists.map(function(l) {
-      return '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>';
+    var listMeta = function(l) {
+      var extra = [];
+      if (l.websites && l.websites.length) extra.push(l.websites.length + ' site' + (l.websites.length === 1 ? '' : 's'));
+      if (l.applications && l.applications.length) extra.push(l.applications.length + ' app' + (l.applications.length === 1 ? '' : 's'));
+      return extra.length ? extra.join(' · ') : 'empty list';
+    };
+    var optionsHtml = lists.map(function(l, i) {
+      return '<button type="button" class="pomo-dropdown-option' + (i === 0 ? ' selected' : '') + '" data-list-id="' + l.id + '" data-list-name="' + escapeHtml(l.name) + '" data-list-meta="' + escapeHtml(listMeta(l)) + '">' +
+        '<span class="pomo-dd-option-main">' + escapeHtml(l.name) + '</span>' +
+        '<span class="pomo-dd-option-meta">' + escapeHtml(listMeta(l)) + '</span>' +
+        '<svg class="pomo-dd-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '</button>';
     }).join('');
+    var firstList = lists[0];
+
+    var presetCardHtml = function(key, recommended) {
+      var p = ui._pomodoroPresets[key];
+      var rec = recommended ? '<span class="pomo-recommended">Recommended</span>' : '';
+      return '<button class="pomo-preset-card-v2" data-preset="' + key + '">' +
+        rec +
+        '<div class="pomo-preset-name">' + p.name + '</div>' +
+        '<div class="pomo-preset-ratio">' + p.work + '<span class="slash">/</span>' + p.short + '</div>' +
+        '<div class="pomo-preset-desc">' + p.desc + '</div>' +
+      '</button>';
+    };
 
     overlay.innerHTML =
-      '<div class="pomodoro-modal">' +
-        '<h3>Start Focus Session</h3>' +
-        '<p class="modal-sub">Choose a block list and a work/break rhythm. Blocks toggle automatically at each phase.</p>' +
-        '<div class="form-group">' +
-          '<label>Block list</label>' +
-          '<select id="pomo-list" class="input">' + optHtml + '</select>' +
+      '<div class="pomodoro-modal v2">' +
+        '<div class="pomo-modal-head">' +
+          '<h3>' +
+            '<span class="pomo-icon-ring"><i data-lucide="timer"></i></span>' +
+            'Start a Focus Session' +
+          '</h3>' +
+          '<p>Pomodoro alternates <strong style="color:#c4b5fd;">focus</strong> and <strong style="color:#67e8f9;">break</strong> phases automatically. After a set of work cycles, you earn a <strong style="color:#fde047;">longer break</strong>. Your chosen block list toggles on during work, off during breaks.</p>' +
         '</div>' +
-        '<div class="form-group">' +
-          '<label>Preset</label>' +
-          '<div class="pomodoro-preset-row">' +
-            '<button class="pomodoro-preset-chip active" data-preset="classic"><span class="chip-label">Classic</span><span class="chip-desc">25 / 5</span></button>' +
-            '<button class="pomodoro-preset-chip" data-preset="long"><span class="chip-label">Long</span><span class="chip-desc">50 / 10</span></button>' +
-            '<button class="pomodoro-preset-chip" data-preset="sprint"><span class="chip-label">Sprint</span><span class="chip-desc">15 / 3</span></button>' +
+
+        '<div class="pomo-modal-body">' +
+          '<div class="pomo-section">' +
+            '<div class="pomo-section-label">Which blocks apply during work?</div>' +
+            '<div class="pomo-dropdown" id="pomo-list-dropdown" data-value="' + firstList.id + '">' +
+              '<button type="button" class="pomo-dropdown-trigger" id="pomo-list-trigger">' +
+                '<span class="pomo-dd-main" id="pomo-list-main">' + escapeHtml(firstList.name) + '</span>' +
+                '<span class="pomo-dd-meta" id="pomo-list-meta">' + escapeHtml(listMeta(firstList)) + '</span>' +
+                '<svg class="pomo-dd-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+              '</button>' +
+              '<div class="pomo-dropdown-panel" id="pomo-list-panel" style="display:none;">' + optionsHtml + '</div>' +
+            '</div>' +
           '</div>' +
-          '<button class="pomodoro-preset-chip" data-preset="custom" style="width:100%;margin-top:8px;"><span class="chip-label">Custom</span><span class="chip-desc">Configure manually</span></button>' +
+
+          '<div class="pomo-section">' +
+            '<div class="pomo-section-label">Pick a rhythm</div>' +
+            '<div class="pomo-preset-grid">' +
+              presetCardHtml('classic', true) +
+              presetCardHtml('long', false) +
+              presetCardHtml('sprint', false) +
+            '</div>' +
+            '<button class="pomo-custom-card" data-preset="custom">' +
+              '<span class="pomo-custom-left"><i data-lucide="sliders-horizontal"></i> Custom rhythm</span>' +
+              '<i data-lucide="chevron-down" class="pomo-custom-chevron"></i>' +
+            '</button>' +
+            '<div class="pomo-custom-body" id="pomo-custom-body">' +
+              '<div class="pomo-custom-grid">' +
+                '<div class="pomo-field">' +
+                  '<label>Work (minutes)</label>' +
+                  '<input type="number" id="pomo-work" min="1" max="480" value="25">' +
+                  '<span class="pomo-field-hint">How long each focus block lasts.</span>' +
+                '</div>' +
+                '<div class="pomo-field">' +
+                  '<label>Short break (minutes)</label>' +
+                  '<input type="number" id="pomo-short" min="1" max="120" value="5">' +
+                  '<span class="pomo-field-hint">Rest between each work cycle.</span>' +
+                '</div>' +
+                '<div class="pomo-field">' +
+                  '<label>Long break (minutes)</label>' +
+                  '<input type="number" id="pomo-long" min="1" max="120" value="15">' +
+                  '<span class="pomo-field-hint">Bigger rest after every set of cycles.</span>' +
+                '</div>' +
+                '<div class="pomo-field">' +
+                  '<label>Work cycles per set</label>' +
+                  '<input type="number" id="pomo-cycles" min="1" max="20" value="4">' +
+                  '<span class="pomo-field-hint">How many work cycles before the long break.</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="pomo-section">' +
+            '<div class="pomo-preview">' +
+              '<div class="pomo-preview-header">' +
+                '<div class="pomo-preview-title">Your session rhythm</div>' +
+                '<div class="pomo-preview-total" id="pomo-preview-total">—</div>' +
+              '</div>' +
+              '<div class="pomo-preview-strip" id="pomo-preview-strip"></div>' +
+              '<div class="pomo-preview-legend">' +
+                '<div class="pomo-preview-legend-item"><span class="pomo-preview-legend-dot work"></span> Work</div>' +
+                '<div class="pomo-preview-legend-item"><span class="pomo-preview-legend-dot short"></span> Short break</div>' +
+                '<div class="pomo-preview-legend-item"><span class="pomo-preview-legend-dot long"></span> Long break</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="pomo-section">' +
+            '<div class="pomo-summary" id="pomo-summary">' +
+              '<i data-lucide="sparkles"></i><span id="pomo-summary-text">—</span>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
-        '<div id="pomo-custom" style="display:none;">' +
-          '<div class="form-group"><label>Work (minutes)</label><input type="number" id="pomo-work" class="input" min="1" max="480" value="25"></div>' +
-          '<div class="form-group"><label>Short break (minutes)</label><input type="number" id="pomo-short" class="input" min="1" max="120" value="5"></div>' +
-          '<div class="form-group"><label>Long break (minutes)</label><input type="number" id="pomo-long" class="input" min="1" max="120" value="15"></div>' +
-          '<div class="form-group"><label>Cycles until long break</label><input type="number" id="pomo-cycles" class="input" min="1" max="20" value="4"></div>' +
-        '</div>' +
-        '<div class="form-actions">' +
+
+        '<div class="pomo-modal-footer">' +
           '<button class="btn btn-secondary" id="pomo-cancel">Cancel</button>' +
-          '<button class="btn btn-primary" id="pomo-start"><i data-lucide="play"></i> Start</button>' +
+          '<button class="btn btn-primary" id="pomo-start"><i data-lucide="play"></i> Start session</button>' +
         '</div>' +
       '</div>';
 
     document.body.appendChild(overlay);
-    refreshIcons();
 
-    var chips = overlay.querySelectorAll('.pomodoro-preset-chip');
-    chips.forEach(function(chip) {
-      chip.addEventListener('click', function() {
-        chips.forEach(function(c) { c.classList.remove('active'); });
-        chip.classList.add('active');
-        ui._pomodoroPreset = chip.getAttribute('data-preset');
-        document.getElementById('pomo-custom').style.display =
-          ui._pomodoroPreset === 'custom' ? 'block' : 'none';
+    // Wire the custom dropdown
+    var ddRoot = document.getElementById('pomo-list-dropdown');
+    var ddTrigger = document.getElementById('pomo-list-trigger');
+    var ddPanel = document.getElementById('pomo-list-panel');
+    var ddMain = document.getElementById('pomo-list-main');
+    var ddMeta = document.getElementById('pomo-list-meta');
+
+    function closeDropdown() {
+      ddPanel.style.display = 'none';
+      ddTrigger.classList.remove('open');
+    }
+    function openDropdown() {
+      ddPanel.style.display = 'block';
+      ddTrigger.classList.add('open');
+    }
+    ddTrigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (ddTrigger.classList.contains('open')) closeDropdown();
+      else openDropdown();
+    });
+    ddPanel.querySelectorAll('.pomo-dropdown-option').forEach(function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        ddPanel.querySelectorAll('.pomo-dropdown-option').forEach(function(o) {
+          o.classList.remove('selected');
+        });
+        opt.classList.add('selected');
+        ddRoot.setAttribute('data-value', opt.getAttribute('data-list-id'));
+        ddMain.textContent = opt.getAttribute('data-list-name');
+        ddMeta.textContent = opt.getAttribute('data-list-meta');
+        closeDropdown();
       });
     });
+    // Close when clicking anywhere else
+    overlay.addEventListener('click', function(e) {
+      if (!ddRoot.contains(e.target)) closeDropdown();
+    });
+
+    // Mark default preset active (Classic — or whichever is in settings)
+    var initialPreset = ui._pomodoroPreset && ui._pomodoroPresets[ui._pomodoroPreset]
+      ? ui._pomodoroPreset
+      : 'classic';
+    ui._pomodoroPreset = initialPreset;
+    var presetCards = overlay.querySelectorAll('.pomo-preset-card-v2');
+    var customCard = overlay.querySelector('.pomo-custom-card');
+    var customBody = overlay.querySelector('#pomo-custom-body');
+
+    function setActivePreset(key) {
+      ui._pomodoroPreset = key;
+      presetCards.forEach(function(c) {
+        c.classList.toggle('active', c.getAttribute('data-preset') === key);
+      });
+      if (key === 'custom') {
+        customCard.classList.add('active');
+        customBody.classList.add('open');
+      } else {
+        customCard.classList.remove('active');
+        customBody.classList.remove('open');
+        // Sync custom inputs to the preset so custom starts from current values
+        var p = ui._pomodoroPresets[key];
+        if (p) {
+          document.getElementById('pomo-work').value = p.work;
+          document.getElementById('pomo-short').value = p.short;
+          document.getElementById('pomo-long').value = p.long;
+          document.getElementById('pomo-cycles').value = p.cycles;
+        }
+      }
+      ui._updatePomodoroPreview();
+    }
+
+    presetCards.forEach(function(card) {
+      card.addEventListener('click', function() {
+        setActivePreset(card.getAttribute('data-preset'));
+      });
+    });
+    customCard.addEventListener('click', function() {
+      setActivePreset(customCard.classList.contains('active') ? initialPreset : 'custom');
+    });
+
+    ['pomo-work', 'pomo-short', 'pomo-long', 'pomo-cycles'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', function() {
+        // Editing custom fields implicitly selects Custom
+        if (!customCard.classList.contains('active')) setActivePreset('custom');
+        else ui._updatePomodoroPreview();
+      });
+    });
+
+    setActivePreset(initialPreset);
+    refreshIcons();
 
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) overlay.remove();
     });
     document.getElementById('pomo-cancel').addEventListener('click', function() { overlay.remove(); });
     document.getElementById('pomo-start').addEventListener('click', async function() {
-      var listId = document.getElementById('pomo-list').value;
-      var config = ui._resolvePomodoroConfig();
+      var listId = ddRoot.getAttribute('data-value');
+      var config = ui._pomodoroResolveFromInputs();
       try {
         await invoke('pomodoro_start', {
           blockListId: listId,
@@ -1792,19 +1957,63 @@ var ui = {
     });
   },
 
-  _resolvePomodoroConfig: function() {
+  _updatePomodoroPreview: function() {
+    var cfg = ui._pomodoroResolveFromInputs();
+    var strip = document.getElementById('pomo-preview-strip');
+    var total = document.getElementById('pomo-preview-total');
+    var summary = document.getElementById('pomo-summary-text');
+    if (!strip || !cfg) return;
+
+    var cycles = cfg.cycles;
+    var workMin = Math.round(cfg.work / 60);
+    var shortMin = Math.round(cfg.short / 60);
+    var longMin = Math.round(cfg.long / 60);
+
+    // Build segments: cycles × (work + short), with the last short replaced by long
+    var segs = [];
+    for (var i = 1; i <= cycles; i++) {
+      segs.push({ kind: 'work', mins: workMin });
+      if (i < cycles) segs.push({ kind: 'short', mins: shortMin });
+      else segs.push({ kind: 'long', mins: longMin });
+    }
+
+    // Compute widths proportional to minutes
+    var totalMins = segs.reduce(function(s, x) { return s + x.mins; }, 0);
+    strip.innerHTML = segs.map(function(seg) {
+      var pct = Math.max(3, (seg.mins / totalMins) * 100);
+      var label = seg.mins >= 5 ? seg.mins + 'm' : '';
+      return '<div class="pomo-preview-seg ' + seg.kind + '" style="flex:' + seg.mins + ' 0 0;min-width:0;" title="' +
+        (seg.kind === 'work' ? 'Work' : seg.kind === 'short' ? 'Short break' : 'Long break') +
+        ' — ' + seg.mins + ' min">' + label + '</div>';
+    }).join('');
+
+    var hours = Math.floor(totalMins / 60);
+    var mins = totalMins % 60;
+    var totalStr = (hours > 0 ? hours + 'h ' : '') + mins + 'm';
+    total.innerHTML = 'Round trip: <strong>' + totalStr + '</strong>';
+
+    if (summary) {
+      summary.innerHTML =
+        '<strong>' + cycles + '×</strong> ' + workMin + 'm focus + ' + shortMin + 'm break, then a <strong>' + longMin + 'm long break</strong>. ' +
+        'Then the rhythm repeats until you stop it.';
+    }
+  },
+
+  _pomodoroResolveFromInputs: function() {
     var preset = ui._pomodoroPreset;
-    if (preset === 'custom') {
+    if (preset && ui._pomodoroPresets[preset]) {
+      var p = ui._pomodoroPresets[preset];
       return {
-        work: Math.max(60, parseInt(document.getElementById('pomo-work').value || '25', 10) * 60),
-        short: Math.max(30, parseInt(document.getElementById('pomo-short').value || '5', 10) * 60),
-        long: Math.max(30, parseInt(document.getElementById('pomo-long').value || '15', 10) * 60),
-        cycles: Math.max(1, parseInt(document.getElementById('pomo-cycles').value || '4', 10)),
+        work: p.work * 60, short: p.short * 60, long: p.long * 60, cycles: p.cycles,
       };
     }
-    if (preset === 'long') return { work: 50 * 60, short: 10 * 60, long: 30 * 60, cycles: 3 };
-    if (preset === 'sprint') return { work: 15 * 60, short: 3 * 60, long: 10 * 60, cycles: 4 };
-    return { work: 25 * 60, short: 5 * 60, long: 15 * 60, cycles: 4 }; // classic
+    // custom
+    return {
+      work: Math.max(60, parseInt(document.getElementById('pomo-work').value || '25', 10) * 60),
+      short: Math.max(30, parseInt(document.getElementById('pomo-short').value || '5', 10) * 60),
+      long: Math.max(30, parseInt(document.getElementById('pomo-long').value || '15', 10) * 60),
+      cycles: Math.max(1, parseInt(document.getElementById('pomo-cycles').value || '4', 10)),
+    };
   },
 
   pomodoroPause: async function() {
@@ -1853,7 +2062,8 @@ var ui = {
     var limit = a.daily_limit_secs;
     var pct = Math.min(100, (used / limit) * 100);
     var fillClass = item.exhausted ? 'exhausted' : (pct >= 80 ? 'warn' : '');
-    var kindLabel = a.target.kind === 'domain' ? 'Domain' : 'App';
+    var kind = String(a.target.kind || '').toLowerCase();
+    var kindLabel = kind === 'domain' ? 'Domain' : 'App';
     var target = a.target.value;
     var exhaustedCls = item.exhausted ? 'exhausted' : '';
 
@@ -1936,6 +2146,7 @@ var ui = {
   },
 
   startAllowanceNotificationPolling: function() {
+    // Drain notifications every 3s
     setInterval(function() {
       invoke('allowance_drain_notifications').then(function(events) {
         if (!events || !events.length) return;
@@ -1946,10 +2157,22 @@ var ui = {
             toast(n.target + ' blocked for today (quota reached)', 'error');
           }
         });
-        if (state.currentPage === 'dashboard') ui._renderAllowanceDashboard();
-        if (state.currentPage === 'websites') ui.refreshAllowancesTab();
       }).catch(function() {});
     }, 3000);
+
+    // Continuously refresh whichever allowance view is visible so the
+    // user sees usage tick up in real time.
+    setInterval(function() {
+      var tab = document.getElementById('websites-tab-allowances');
+      var onAllowancesTab = tab && tab.classList.contains('active');
+      if (state.currentPage === 'websites' && onAllowancesTab) {
+        ui.refreshAllowancesTab();
+      } else if (state.currentPage === 'dashboard') {
+        ui._renderAllowanceDashboard();
+      } else if (state.currentPage === 'statistics') {
+        ui._renderAllowanceSummary();
+      }
+    }, 5000);
   },
 
   // ─── Updater ───────────────────────────────────────────────────

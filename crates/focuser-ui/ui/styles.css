@@ -3024,3 +3024,581 @@ select.input {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
+
+/* ─── Pomodoro Modal v2 (polished) ──────────────────────────────── */
+
+.pomodoro-modal.v2 {
+  max-width: 620px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pomo-modal-head {
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.08), transparent);
+}
+
+.pomo-modal-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.pomo-modal-head h3 .pomo-icon-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.pomo-modal-head h3 .pomo-icon-ring svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pomo-modal-head p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 520px;
+}
+
+.pomo-modal-body {
+  padding: 20px 28px 24px;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+}
+
+.pomo-section {
+  margin-bottom: 18px;
+}
+
+.pomo-section:last-child {
+  margin-bottom: 0;
+}
+
+.pomo-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pomo-block-select {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pomo-block-select:hover,
+.pomo-block-select:focus {
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.pomo-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pomo-preset-card-v2 {
+  position: relative;
+  padding: 14px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text-muted);
+}
+
+.pomo-preset-card-v2:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.04);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.pomo-preset-card-v2.active {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--text);
+  box-shadow: 0 0 0 1px #8b5cf6;
+}
+
+.pomo-preset-card-v2 .pomo-recommended {
+  position: absolute;
+  top: -7px;
+  right: 10px;
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.pomo-preset-card-v2 .pomo-preset-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pomo-preset-card-v2 .pomo-preset-ratio {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.pomo-preset-card-v2 .pomo-preset-ratio .slash {
+  color: var(--text-muted);
+  opacity: 0.5;
+  margin: 0 3px;
+  font-weight: 400;
+}
+
+.pomo-preset-card-v2 .pomo-preset-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.pomo-custom-card {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: inherit;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.pomo-custom-card:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  color: var(--text);
+}
+
+.pomo-custom-card.active {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--text);
+}
+
+.pomo-custom-card .pomo-custom-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.pomo-custom-card .pomo-custom-left svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pomo-custom-card .pomo-custom-chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.6;
+}
+
+.pomo-custom-card.active .pomo-custom-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.pomo-custom-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.pomo-custom-body.open {
+  max-height: 500px;
+}
+
+.pomo-custom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.pomo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pomo-field label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.pomo-field input {
+  width: 100%;
+  padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease;
+}
+
+.pomo-field input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pomo-field .pomo-field-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.pomo-preview {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.pomo-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pomo-preview-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.pomo-preview-total {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pomo-preview-total strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pomo-preview-strip {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pomo-preview-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.pomo-preview-seg.work {
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+}
+
+.pomo-preview-seg.short {
+  background: linear-gradient(180deg, #22d3ee, #0ea5e9);
+  color: #0c1922;
+}
+
+.pomo-preview-seg.long {
+  background: linear-gradient(180deg, #fbbf24, #f59e0b);
+  color: #3a2404;
+}
+
+.pomo-preview-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.pomo-preview-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pomo-preview-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pomo-preview-legend-dot.work { background: #8b5cf6; }
+.pomo-preview-legend-dot.short { background: #22d3ee; }
+.pomo-preview-legend-dot.long { background: #fbbf24; }
+
+.pomo-summary {
+  padding: 12px 14px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.pomo-summary strong {
+  color: #c4b5fd;
+  font-weight: 600;
+}
+
+.pomo-summary svg {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 5px;
+  color: #c4b5fd;
+  width: 13px;
+  height: 13px;
+}
+
+.pomo-modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 28px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.pomo-modal-footer .btn {
+  min-width: 100px;
+}
+
+@media (max-width: 560px) {
+  .pomo-preset-grid { grid-template-columns: 1fr; }
+  .pomo-custom-grid { grid-template-columns: 1fr; }
+}
+
+/* Custom dropdown (replaces native select in Pomodoro modal) */
+
+.pomo-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.pomo-dropdown-trigger {
+  width: 100%;
+  padding: 11px 40px 11px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.pomo-dropdown-trigger:hover,
+.pomo-dropdown-trigger.open {
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.pomo-dropdown-trigger.open {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 1px #8b5cf6;
+}
+
+.pomo-dropdown-trigger .pomo-dd-main {
+  font-weight: 600;
+  color: var(--text);
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pomo-dropdown-trigger .pomo-dd-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+.pomo-dropdown-trigger .pomo-dd-chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  transition: transform 0.2s ease, color 0.15s ease;
+  pointer-events: none;
+  width: 16px;
+  height: 16px;
+}
+
+.pomo-dropdown-trigger.open .pomo-dd-chevron {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--text);
+}
+
+.pomo-dropdown-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #26262e;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  max-height: 240px;
+  overflow-y: auto;
+  animation: pomoDdFade 0.12s ease;
+}
+
+@keyframes pomoDdFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pomo-dropdown-option {
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.pomo-dropdown-option:hover {
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--text);
+}
+
+.pomo-dropdown-option.selected {
+  background: rgba(139, 92, 246, 0.18);
+  color: var(--text);
+}
+
+.pomo-dropdown-option .pomo-dd-option-main {
+  font-weight: 500;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pomo-dropdown-option .pomo-dd-option-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.pomo-dropdown-option .pomo-dd-check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #8b5cf6;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pomo-dropdown-option.selected .pomo-dd-check {
+  opacity: 1;
+}
+
+/* Scrollbar tint to match theme */
+.pomo-dropdown-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.pomo-dropdown-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.pomo-dropdown-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+.pomo-dropdown-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}

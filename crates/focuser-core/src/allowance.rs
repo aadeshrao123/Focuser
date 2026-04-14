@@ -114,6 +114,14 @@ impl AllowanceTracker {
         self.reset_if_new_day(&mut inner);
         drop(inner);
 
+        // Use the client-provided increment (capped to [1, 120]) so that
+        // alarm-driven ticks (30s) credit correctly while interval ticks (5s)
+        // stay fine-grained. Default to TICK_INCREMENT_SECS for old clients.
+        let inc = tick
+            .increment_secs
+            .unwrap_or(TICK_INCREMENT_SECS)
+            .clamp(1, 120);
+
         let matches = find_matching_allowances(db, tick)?;
         for a in matches {
             if !a.enabled {
@@ -123,7 +131,7 @@ impl AllowanceTracker {
             if a.strict_mode && !tick.active {
                 continue;
             }
-            let used = db.increment_allowance_usage(a.id, TICK_INCREMENT_SECS)?;
+            let used = db.increment_allowance_usage(a.id, inc)?;
             self.check_thresholds(&a, used);
         }
         Ok(())
@@ -215,6 +223,82 @@ impl AllowanceTracker {
         inner.blocked_domains.iter().cloned().collect()
     }
 
+    /// Domains with an *active, non-exhausted* allowance — these should be
+    /// treated as exceptions to block list rules so the user can access
+    /// them until their daily quota runs out.
+    ///
+    /// Allowance exceptions are **suspended during a Pomodoro work phase**:
+    /// the user explicitly committed to focus, so the back door is closed.
+    /// During break phases, or with no Pomodoro running, exceptions apply.
+    pub fn active_allowance_domains(&self, db: &Database) -> Vec<String> {
+        if is_pomodoro_work_phase(db) {
+            return Vec::new();
+        }
+        let mut inner = self.inner.lock().expect("tracker mutex poisoned");
+        self.reset_if_new_day(&mut inner);
+        let blocked = inner.blocked_domains.clone();
+        drop(inner);
+
+        let mut out = Vec::new();
+        let Ok(list) = db.list_allowances() else {
+            return out;
+        };
+        for a in list {
+            if !a.enabled {
+                continue;
+            }
+            if let AllowanceMatch::Domain(d) = &a.target {
+                let lc = d.to_ascii_lowercase();
+                // Already exhausted → not an exception, it's blocked.
+                if blocked.contains(&lc) {
+                    continue;
+                }
+                let Ok(used) = db.get_allowance_used_today(a.id) else {
+                    continue;
+                };
+                if used < a.daily_limit_secs {
+                    out.push(lc);
+                }
+            }
+        }
+        out
+    }
+
+    /// App executables with an active, non-exhausted allowance.
+    /// Also suspended during a Pomodoro work phase (see note above).
+    pub fn active_allowance_apps(&self, db: &Database) -> Vec<String> {
+        if is_pomodoro_work_phase(db) {
+            return Vec::new();
+        }
+        let mut inner = self.inner.lock().expect("tracker mutex poisoned");
+        self.reset_if_new_day(&mut inner);
+        let blocked = inner.blocked_apps.clone();
+        drop(inner);
+
+        let mut out = Vec::new();
+        let Ok(list) = db.list_allowances() else {
+            return out;
+        };
+        for a in list {
+            if !a.enabled {
+                continue;
+            }
+            if let AllowanceMatch::AppExecutable(e) = &a.target {
+                let lc = e.to_ascii_lowercase();
+                if blocked.contains(&lc) {
+                    continue;
+                }
+                let Ok(used) = db.get_allowance_used_today(a.id) else {
+                    continue;
+                };
+                if used < a.daily_limit_secs {
+                    out.push(lc);
+                }
+            }
+        }
+        out
+    }
+
     pub fn blocked_apps(&self) -> Vec<String> {
         let mut inner = self.inner.lock().expect("tracker mutex poisoned");
         self.reset_if_new_day(&mut inner);
@@ -251,6 +335,16 @@ fn find_matching_allowances(db: &Database, tick: &AllowanceTick) -> Result<Vec<A
     Ok(out)
 }
 
+/// True iff an active Pomodoro session is currently in an *unpaused*
+/// Work phase. Pausing suspends the focus contract → allowance
+/// exceptions re-apply. Resuming reinstates the suspension.
+fn is_pomodoro_work_phase(db: &Database) -> bool {
+    matches!(
+        db.get_active_pomodoro_session(),
+        Ok(Some(s)) if s.current_phase.is_work() && !s.is_paused()
+    )
+}
+
 /// Build a map of {allowance_id → used_today_secs} for debug/UI.
 #[allow(dead_code)]
 pub fn usage_map(db: &Database) -> Result<HashMap<EntityId, u32>> {
@@ -282,6 +376,7 @@ mod tests {
             app_exe: None,
             active: true,
             source: "test".into(),
+            increment_secs: None,
         };
         tracker.ingest_tick(&db, &tick).unwrap();
         assert_eq!(
@@ -302,6 +397,7 @@ mod tests {
             app_exe: None,
             active: false,
             source: "test".into(),
+            increment_secs: None,
         };
         tracker.ingest_tick(&db, &tick).unwrap();
         assert_eq!(db.get_allowance_used_today(a.id).unwrap(), 0);
@@ -319,6 +415,7 @@ mod tests {
             app_exe: None,
             active: true,
             source: "test".into(),
+            increment_secs: None,
         };
         // 3 ticks of 5s = 15s > 10s limit
         for _ in 0..3 {

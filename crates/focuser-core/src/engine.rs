@@ -117,6 +117,16 @@ impl BlockEngine {
     /// This separates rules by type: domains go to both hosts file AND extension,
     /// while keywords/wildcards/URL paths are extension-only.
     pub fn compile_extension_rules(&self) -> ExtensionRuleSet {
+        self.compile_extension_rules_with_exceptions(&[])
+    }
+
+    /// Same as `compile_extension_rules` but adds extra domains to the
+    /// `allowed_domains` set. Used to inject allowance-active domains so
+    /// they act as temporary exceptions until the daily quota is hit.
+    pub fn compile_extension_rules_with_exceptions(
+        &self,
+        extra_allowed_domains: &[String],
+    ) -> ExtensionRuleSet {
         let mut rules = ExtensionRuleSet::empty();
 
         for list in &self.cached_lists {
@@ -167,6 +177,16 @@ impl BlockEngine {
                         // Extension handles this natively via URL scheme check
                     }
                 }
+            }
+        }
+
+        // Inject allowance-exempt domains as exceptions — the domain is
+        // accessible until today's quota runs out.
+        for d in extra_allowed_domains {
+            let lc = d.to_ascii_lowercase();
+            rules.allowed_domains.push(lc.clone());
+            if !lc.starts_with("www.") {
+                rules.allowed_domains.push(format!("www.{lc}"));
             }
         }
 

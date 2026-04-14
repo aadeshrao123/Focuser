@@ -226,6 +226,16 @@ pub fn remove_app_rule(
 #[tauri::command]
 pub fn check_domain(state: State<'_, Arc<AppState>>, domain: String) -> Result<bool, String> {
     let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    // A domain with a still-available allowance is effectively allowed,
+    // even if it appears in a block list.
+    let exemptions = state.allowance_tracker.active_allowance_domains(eng.db());
+    let lc = domain.to_ascii_lowercase();
+    let stripped = lc.strip_prefix("www.").unwrap_or(&lc);
+    for ex in &exemptions {
+        if ex == stripped || stripped.ends_with(&format!(".{ex}")) {
+            return Ok(false);
+        }
+    }
     Ok(eng.check_domain(&domain).is_some())
 }
 

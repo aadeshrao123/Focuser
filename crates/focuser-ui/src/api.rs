@@ -299,7 +299,8 @@ fn api_lists(state: &AppState) -> (&'static str, String) {
 
 fn api_rules(state: &AppState) -> (&'static str, String) {
     let eng = state.engine.lock().unwrap();
-    let rules = eng.compile_extension_rules();
+    let allowance_exceptions = state.allowance_tracker.active_allowance_domains(eng.db());
+    let rules = eng.compile_extension_rules_with_exceptions(&allowance_exceptions);
 
     let mut domain_categories: HashMap<String, String> = HashMap::new();
     for list in eng.block_lists().iter().filter(|l| l.enabled) {
@@ -372,7 +373,17 @@ fn api_check_domain(path: &str, state: &AppState) -> (&'static str, String) {
         .unwrap_or("");
 
     let eng = state.engine.lock().unwrap();
-    let blocked = eng.check_domain(domain).is_some();
+    let exemptions = state.allowance_tracker.active_allowance_domains(eng.db());
+    let lc = domain.to_ascii_lowercase();
+    let stripped = lc.strip_prefix("www.").unwrap_or(&lc);
+    let blocked = if exemptions
+        .iter()
+        .any(|ex| ex == stripped || stripped.ends_with(&format!(".{ex}")))
+    {
+        false
+    } else {
+        eng.check_domain(domain).is_some()
+    };
     let json = serde_json::json!({ "domain": domain, "blocked": blocked });
     ("200 OK", json.to_string())
 }
@@ -595,15 +606,26 @@ fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {
 fn api_allowance_tick(body: &str, state: &AppState) -> (&'static str, String) {
     let tick: focuser_common::allowance::AllowanceTick = match serde_json::from_str(body) {
         Ok(t) => t,
-        Err(e) => return ("400 Bad Request", format!(r#"{{"error":"{e}"}}"#)),
+        Err(e) => {
+            tracing::debug!(error = %e, body = %body, "bad allowance-tick payload");
+            return ("400 Bad Request", format!(r#"{{"error":"{e}"}}"#));
+        }
     };
     let eng = match state.engine.lock() {
         Ok(e) => e,
         Err(_) => return ("500 Internal Server Error", r#"{"error":"lock"}"#.into()),
     };
     if let Err(e) = state.allowance_tracker.ingest_tick(eng.db(), &tick) {
+        tracing::warn!(error = %e, "allowance-tick ingest failed");
         return ("500 Internal Server Error", format!(r#"{{"error":"{e}"}}"#));
     }
+    tracing::debug!(
+        host = ?tick.hostname,
+        app = ?tick.app_exe,
+        active = tick.active,
+        inc = ?tick.increment_secs,
+        "allowance tick ingested"
+    );
     ("200 OK", r#"{"ok":true}"#.into())
 }
 

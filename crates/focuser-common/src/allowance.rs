@@ -121,4 +121,8 @@ pub struct AllowanceTick {
     pub active: bool,
     /// Tick source identifier (e.g., "chrome-extension", "windows-app-watcher").
     pub source: String,
+    /// Seconds elapsed since the last tick (defaults to 5 if missing).
+    /// Clamped to [1, 120] server-side.
+    #[serde(default)]
+    pub increment_secs: Option<u32>,
 }
