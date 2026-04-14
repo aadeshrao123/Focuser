@@ -47,6 +47,12 @@ It sits quietly in your system tray, blocks the sites you told it to block, and 
 </details>
 
 <details>
+<summary><strong>Focus Sessions</strong> - Pomodoro work/break cycles and per-site daily allowance quotas, both right on the dashboard</summary>
+<br>
+<em>Screenshot coming in the next release. For now: think a circular timer counting down on the left, your live allowance bars on the right.</em>
+</details>
+
+<details>
 <summary><strong>Statistics</strong> - See what you tried to access and how many times you got stopped</summary>
 <br>
 <img src="assets/screenshots/statistics.png" alt="Statistics" width="100%">
@@ -67,6 +73,9 @@ It sits quietly in your system tray, blocks the sites you told it to block, and 
 - **Exceptions (whitelist)** - Block all of reddit.com but keep r/programming? Add exceptions for specific domains that bypass your block rules.
 - **Keyword blocking** - Block any URL containing "game" or "shorts" or whatever your specific weakness is. We don't judge.
 - **Focus Lock** - Lock a block list for a set duration. Once locked, you can't disable it, delete it, or edit it until the timer runs out. For when you genuinely don't trust yourself.
+- **Pomodoro focus sessions** - Work for 25 minutes, break for 5, repeat — blocks toggle on and off automatically with each phase. After 4 work cycles you earn a longer break. Pick a preset (Classic, Long, Sprint) or set your own rhythm. The dashboard shows a live ring counting down with pause / skip / stop controls. The original productivity technique, finally not living in a separate app.
+- **Daily allowance quotas** - Cap a site at N minutes per day. YouTube = 30 min/day. Reddit = 15. Whatever. The site stays accessible until you've burned through your quota, then it gets blocked until midnight. For sites you actually use but don't want to live on. Strict mode counts only the focused tab; loose mode counts any open tab.
+- **Smart focus interaction** - Pomodoro and allowances are aware of each other. During a work phase, allowance back doors close — no sneaking off to YouTube even if you have minutes left. Hit pause and your allowances kick back in. Resume and they suspend again. Outside a session, allowances behave normally.
 - **Browser extension** - Available on [Chrome Web Store](https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj) and [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/). Also works on Edge, Brave, and Opera. Shows a clean "Site Blocked" page instead of a connection error.
 - **Browser enforcement** - If a browser is running without the extension installed, Focuser will close it and show you an install prompt with a direct link to the store page. No more loopholes.
 - **Instant enforcement** - Block a site in the app, it's blocked in your browser within 2 seconds. Unblock it, same deal. No restart required.
@@ -157,6 +166,7 @@ Focuser/
 3. **Browser extension** - Catches navigation to blocked URLs and replaces the page with a block screen. Handles keyword, wildcard, and URL-path rules that the hosts file can't.
 4. **Browser enforcement** - Detects browsers running without the Focuser extension. After a 60-second grace period, it closes the browser and prompts you to install the extension from the store.
 5. **Local API** - The app runs an HTTP API on `127.0.0.1:17549` that the browser extension polls for rule updates. Everything stays local.
+6. **Pomodoro + Allowance overlay** - Pomodoro sessions toggle a chosen block list's enabled flag at each work/break boundary. Allowances track per-domain time via tab activity reported by the extension (5s ticks while awake, 30s alarm-driven ticks when the service worker sleeps), and inject themselves as exceptions into the rule set until the daily quota runs out — at which point the domain flips back into the blocked set until midnight local time.
 
 ## Privacy
 
