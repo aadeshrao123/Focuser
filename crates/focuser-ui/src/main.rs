@@ -153,6 +153,8 @@ fn main() {
                         }
                     }
                     "quit" => {
+                        // Clean up hosts file before exiting
+                        let _ = crate::blocker::remove_hosts_blocks();
                         std::process::exit(0);
                     }
                     _ => {}
@@ -225,8 +227,14 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Focuser");
+        .build(tauri::generate_context!())
+        .expect("error while building Focuser")
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Always clean up hosts file when the app exits
+                let _ = blocker::remove_hosts_blocks();
+            }
+        });
 }
 
 /// Get the extension store URL for a given browser.
