@@ -1,4 +1,6 @@
+mod allowance;
 mod migrations;
+mod pomodoro;
 
 use focuser_common::error::{FocuserError, Result};
 use focuser_common::types::{BlockList, BlockedEvent, EntityId, UsageStat};

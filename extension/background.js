@@ -558,6 +558,37 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 // chrome.alarms above guarantees we wake up at least every 30s.
 setInterval(sendHeartbeat, 3000);
 
+// ─── Allowance Ticker ─────────────────────────────────────────────
+// Every 5 seconds, report the active tab's hostname to the Focuser app.
+// The app's tracker increments today's usage for any matching allowance.
+
+var ALLOWANCE_TICK_MS = 5000;
+
+function sendAllowanceTick() {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, function(tabs) {
+    var active = tabs && tabs[0];
+    if (!active || !active.url) return;
+    try {
+      var u = new URL(active.url);
+      if (isInternalUrl(u.protocol)) return;
+      var hostname = u.hostname.toLowerCase();
+      if (hostname.indexOf('www.') === 0) hostname = hostname.substring(4);
+      fetch(API_BASE + '/api/allowance-tick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostname: hostname,
+          app_exe: null,
+          active: true,
+          source: 'browser-extension'
+        })
+      }).catch(function() {});
+    } catch (e) {}
+  });
+}
+
+setInterval(sendAllowanceTick, ALLOWANCE_TICK_MS);
+
 // Belt-and-suspenders: fire heartbeat on common browser events too,
 // so even if alarms misbehave we still get caught.
 chrome.runtime.onStartup.addListener(function() { sendHeartbeat(); });

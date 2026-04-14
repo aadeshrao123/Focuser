@@ -68,6 +68,12 @@ enum Commands {
 
     /// Stop the service.
     Shutdown,
+
+    /// Show current Pomodoro focus session status (queries the desktop app).
+    PomodoroStatus,
+
+    /// List today's allowances with remaining time (queries the desktop app).
+    Allowances,
 }
 
 #[derive(Subcommand)]
@@ -426,9 +432,86 @@ async fn main() -> Result<()> {
             Ok(_) => println!("Service shutting down."),
             Err(e) => eprintln!("Error: {e}"),
         },
+
+        Commands::PomodoroStatus => match http_get("/api/pomodoro") {
+            Ok(body) if body.trim() == "null" => println!("No active Pomodoro session."),
+            Ok(body) => {
+                let v: serde_json::Value =
+                    serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
+                let phase = v["current_phase"].as_str().unwrap_or("?");
+                let remaining = v["remaining_secs"].as_u64().unwrap_or(0);
+                let cycle = v["current_cycle"].as_u64().unwrap_or(0);
+                let completed = v["completed_cycles"].as_u64().unwrap_or(0);
+                let block_list = v["block_list_name"].as_str().unwrap_or("?");
+                let paused = v["paused"].as_bool().unwrap_or(false);
+                let mins = remaining / 60;
+                let secs = remaining % 60;
+                println!("Pomodoro Status");
+                println!("══════════════════════════════════════");
+                println!(
+                    "Phase:       {phase}{}",
+                    if paused { " (paused)" } else { "" }
+                );
+                println!("Remaining:   {mins:02}:{secs:02}");
+                println!("Cycle:       {cycle} · {completed} completed");
+                println!("Block list:  {block_list}");
+            }
+            Err(e) => eprintln!("Could not reach Focuser desktop app (is it running?): {e}"),
+        },
+
+        Commands::Allowances => match http_get("/api/allowances") {
+            Ok(body) => {
+                let list: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap_or_default();
+                if list.is_empty() {
+                    println!("No allowances configured.");
+                } else {
+                    println!("Today's Allowances");
+                    println!("══════════════════════════════════════════════════════");
+                    for item in &list {
+                        let a = &item["allowance"];
+                        let target = a["target"]["value"].as_str().unwrap_or("?");
+                        let kind = a["target"]["kind"].as_str().unwrap_or("?");
+                        let limit = a["daily_limit_secs"].as_u64().unwrap_or(0);
+                        let used = item["used_today_secs"].as_u64().unwrap_or(0);
+                        let remaining = item["remaining_secs"].as_u64().unwrap_or(0);
+                        let exhausted = item["exhausted"].as_bool().unwrap_or(false);
+                        let pct = if limit > 0 { used * 100 / limit } else { 0 };
+                        let status = if exhausted { "[BLOCKED]" } else { "          " };
+                        println!(
+                            "  {status} {kind:<6} {target:<30} {:>3}m/{:>3}m  ({pct}%, {rem}m left)",
+                            used / 60,
+                            limit / 60,
+                            rem = remaining / 60,
+                        );
+                    }
+                }
+            }
+            Err(e) => eprintln!("Could not reach Focuser desktop app (is it running?): {e}"),
+        },
     }
 
     Ok(())
+}
+
+/// Minimal HTTP GET that returns the response body. No external HTTP crate.
+fn http_get(path: &str) -> std::io::Result<String> {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    let mut stream = TcpStream::connect_timeout(
+        &"127.0.0.1:17549".parse().unwrap(),
+        Duration::from_millis(1500),
+    )?;
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+
+    let req = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+    stream.write_all(req.as_bytes())?;
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw)?;
+    let body = raw.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
+    Ok(body)
 }
 
 fn parse_id(s: &str) -> Result<uuid::Uuid> {

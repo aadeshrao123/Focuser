@@ -5,6 +5,7 @@ mod blocker;
 mod commands;
 
 use directories::ProjectDirs;
+use focuser_core::allowance::AllowanceTracker;
 use focuser_core::{BlockEngine, Database};
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -15,9 +16,42 @@ use tauri::{
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
+/// Events from the blocker loop that the UI thread should react to
+/// (e.g., OS notifications on Pomodoro phase change).
+#[derive(Debug, Clone)]
+pub enum PomodoroEvent {
+    PhaseAdvanced { to: String, cycle: u32 },
+    TamperDetected,
+}
+
 /// Shared application state accessible from all Tauri commands.
 pub struct AppState {
     pub engine: Mutex<BlockEngine>,
+    pub allowance_tracker: AllowanceTracker,
+    pomodoro_events: Mutex<Vec<PomodoroEvent>>,
+}
+
+impl AppState {
+    pub fn new(engine: BlockEngine) -> Self {
+        Self {
+            engine: Mutex::new(engine),
+            allowance_tracker: AllowanceTracker::new(),
+            pomodoro_events: Mutex::new(Vec::new()),
+        }
+    }
+
+    pub fn push_pomodoro_event(&self, event: PomodoroEvent) {
+        if let Ok(mut buf) = self.pomodoro_events.lock() {
+            buf.push(event);
+        }
+    }
+
+    pub fn drain_pomodoro_events(&self) -> Vec<PomodoroEvent> {
+        self.pomodoro_events
+            .lock()
+            .map(|mut b| std::mem::take(&mut *b))
+            .unwrap_or_default()
+    }
 }
 
 fn main() {
@@ -49,9 +83,7 @@ fn main() {
     let db = Database::open(&db_path).expect("Could not open database");
     let engine = BlockEngine::new(db).expect("Could not initialize engine");
 
-    let state = Arc::new(AppState {
-        engine: Mutex::new(engine),
-    });
+    let state = Arc::new(AppState::new(engine));
 
     let state_for_blocker = Arc::clone(&state);
 
@@ -110,6 +142,23 @@ fn main() {
             commands::open_browser_url,
             commands::check_for_update,
             commands::do_update,
+            commands::pomodoro_get_status,
+            commands::pomodoro_start,
+            commands::pomodoro_pause,
+            commands::pomodoro_resume,
+            commands::pomodoro_skip,
+            commands::pomodoro_stop,
+            commands::pomodoro_drain_events,
+            commands::allowance_list,
+            commands::allowance_create,
+            commands::allowance_update,
+            commands::allowance_delete,
+            commands::allowance_reset_today,
+            commands::allowance_drain_notifications,
+            commands::get_setting,
+            commands::set_setting,
+            commands::pomodoro_history,
+            commands::allowance_history,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run

@@ -225,6 +225,10 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
         ("POST", "/api/remove-site") => api_remove_site(body, state),
         ("POST", "/api/toggle-list") => api_toggle_list(body, state),
         ("POST", "/api/blocked") => api_report_blocked(body, state),
+        ("POST", "/api/allowance-tick") => api_allowance_tick(body, state),
+        ("GET", "/api/allowance-blocked") => api_allowance_blocked(state),
+        ("GET", "/api/pomodoro") => api_pomodoro_status(state),
+        ("GET", "/api/allowances") => api_allowances_list(state),
         ("POST", "/api/show") | ("GET", "/api/show") => {
             SHOW_WINDOW_REQUESTED.store(true, Ordering::Relaxed);
             ("200 OK", r#"{"ok":true}"#.into())
@@ -586,4 +590,55 @@ fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {
     crate::commands::sync_hosts_now_static(&eng);
 
     ("200 OK", r#"{"ok":true}"#.into())
+}
+
+fn api_allowance_tick(body: &str, state: &AppState) -> (&'static str, String) {
+    let tick: focuser_common::allowance::AllowanceTick = match serde_json::from_str(body) {
+        Ok(t) => t,
+        Err(e) => return ("400 Bad Request", format!(r#"{{"error":"{e}"}}"#)),
+    };
+    let eng = match state.engine.lock() {
+        Ok(e) => e,
+        Err(_) => return ("500 Internal Server Error", r#"{"error":"lock"}"#.into()),
+    };
+    if let Err(e) = state.allowance_tracker.ingest_tick(eng.db(), &tick) {
+        return ("500 Internal Server Error", format!(r#"{{"error":"{e}"}}"#));
+    }
+    ("200 OK", r#"{"ok":true}"#.into())
+}
+
+fn api_allowance_blocked(state: &AppState) -> (&'static str, String) {
+    let domains = state.allowance_tracker.blocked_domains();
+    let apps = state.allowance_tracker.blocked_apps();
+    let json = serde_json::json!({ "domains": domains, "apps": apps });
+    ("200 OK", json.to_string())
+}
+
+fn api_pomodoro_status(state: &AppState) -> (&'static str, String) {
+    let eng = match state.engine.lock() {
+        Ok(e) => e,
+        Err(_) => return ("500 Internal Server Error", r#"{"error":"lock"}"#.into()),
+    };
+    match focuser_core::pomodoro::build_status(eng.db()) {
+        Ok(Some(s)) => (
+            "200 OK",
+            serde_json::to_string(&s).unwrap_or_else(|_| "null".into()),
+        ),
+        Ok(None) => ("200 OK", "null".into()),
+        Err(e) => ("500 Internal Server Error", format!(r#"{{"error":"{e}"}}"#)),
+    }
+}
+
+fn api_allowances_list(state: &AppState) -> (&'static str, String) {
+    let eng = match state.engine.lock() {
+        Ok(e) => e,
+        Err(_) => return ("500 Internal Server Error", r#"{"error":"lock"}"#.into()),
+    };
+    match eng.db().list_allowance_statuses() {
+        Ok(list) => (
+            "200 OK",
+            serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()),
+        ),
+        Err(e) => ("500 Internal Server Error", format!(r#"{{"error":"{e}"}}"#)),
+    }
 }

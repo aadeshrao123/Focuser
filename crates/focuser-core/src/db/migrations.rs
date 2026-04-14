@@ -66,6 +66,65 @@ pub fn run_all(conn: &Connection) -> Result<()> {
             CREATE INDEX IF NOT EXISTS idx_blocked_events_domain
                 ON blocked_events(domain_or_app);",
         ),
+        (
+            "v3: pomodoro sessions and phase log",
+            "CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+                id TEXT PRIMARY KEY,
+                block_list_id TEXT NOT NULL,
+                work_secs INTEGER NOT NULL,
+                short_break_secs INTEGER NOT NULL,
+                long_break_secs INTEGER NOT NULL,
+                cycles_until_long_break INTEGER NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                completed_cycles INTEGER NOT NULL DEFAULT 0,
+                current_phase TEXT NOT NULL,
+                current_cycle INTEGER NOT NULL DEFAULT 1,
+                phase_started_at TEXT NOT NULL,
+                paused_remaining_secs INTEGER,
+                prev_enabled INTEGER NOT NULL DEFAULT 1
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_pomodoro_active
+                ON pomodoro_sessions(ended_at);
+
+            CREATE TABLE IF NOT EXISTS pomodoro_phases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                phase_type TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                cycle_number INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_pomodoro_phases_session
+                ON pomodoro_phases(session_id);",
+        ),
+        (
+            "v4: allowances and daily usage",
+            "CREATE TABLE IF NOT EXISTS allowances (
+                id TEXT PRIMARY KEY,
+                match_type TEXT NOT NULL,
+                match_value TEXT NOT NULL,
+                daily_limit_secs INTEGER NOT NULL,
+                strict_mode INTEGER NOT NULL DEFAULT 1,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_allowances_value
+                ON allowances(match_value);
+
+            CREATE TABLE IF NOT EXISTS allowance_usage (
+                allowance_id TEXT NOT NULL,
+                usage_date TEXT NOT NULL,
+                used_secs INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (allowance_id, usage_date)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_allowance_usage_date
+                ON allowance_usage(usage_date);",
+        ),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

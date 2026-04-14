@@ -59,10 +59,41 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
         }
     }
 
-    loop {
-        thread::sleep(Duration::from_secs(3));
+    // Bootstrap allowance tracker from DB on startup
+    if let Ok(eng) = state.engine.lock() {
+        let _ = state.allowance_tracker.rebuild_from_db(eng.db());
+    }
 
-        // Refresh engine cache
+    let mut pomodoro_runtime = focuser_core::pomodoro::PomodoroRuntime::new();
+    let mut heavy_tick_counter: u8 = 0;
+
+    loop {
+        thread::sleep(Duration::from_secs(1));
+        heavy_tick_counter = heavy_tick_counter.wrapping_add(1);
+        let run_heavy = heavy_tick_counter.is_multiple_of(3);
+
+        // Pomodoro tick — advances phase and toggles block list enabled.
+        // Evaluated every 1s so phase changes feel responsive.
+        if let Ok(mut eng) = state.engine.lock() {
+            match focuser_core::pomodoro::tick(&mut eng, &mut pomodoro_runtime) {
+                Ok(focuser_core::pomodoro::TickOutcome::PhaseAdvanced { to, cycle, .. }) => {
+                    state.push_pomodoro_event(crate::PomodoroEvent::PhaseAdvanced {
+                        to: to.as_str().to_string(),
+                        cycle,
+                    });
+                }
+                Ok(focuser_core::pomodoro::TickOutcome::TamperDetected) => {
+                    state.push_pomodoro_event(crate::PomodoroEvent::TamperDetected);
+                }
+                _ => {}
+            }
+        }
+
+        if !run_heavy {
+            continue;
+        }
+
+        // Refresh engine cache (every ~3s)
         if let Ok(mut eng) = state.engine.lock() {
             let _ = eng.refresh();
 
@@ -90,12 +121,18 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
             } else {
                 // No extension — use hosts file as fallback
                 was_using_hosts = true;
-                let domains = eng.collect_blocked_domains();
+                let mut domains = eng.collect_blocked_domains();
+                // Add allowance-exhausted domains to the hosts set.
+                domains.extend(state.allowance_tracker.blocked_domains());
+                domains.sort();
+                domains.dedup();
                 sync_hosts_file(&domains);
             }
 
             // Kill blocked processes
             kill_blocked_processes(&eng);
+            // Also kill apps whose allowance is exhausted today.
+            kill_allowance_blocked_apps(&state.allowance_tracker);
 
             // Browser extension enforcement
             if enforce_enabled {
@@ -151,6 +188,68 @@ fn kill_blocked_processes(_eng: &focuser_core::BlockEngine) {
     #[cfg(windows)]
     {
         kill_blocked_processes_windows(_eng);
+    }
+}
+
+/// Kill processes whose executable name matches an allowance that is
+/// exhausted for today.
+fn kill_allowance_blocked_apps(_tracker: &focuser_core::allowance::AllowanceTracker) {
+    #[cfg(windows)]
+    {
+        kill_allowance_blocked_apps_windows(_tracker);
+    }
+}
+
+#[cfg(windows)]
+fn kill_allowance_blocked_apps_windows(tracker: &focuser_core::allowance::AllowanceTracker) {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::*;
+    use windows::Win32::System::Threading::*;
+
+    let blocked: std::collections::HashSet<String> = tracker
+        .blocked_apps()
+        .into_iter()
+        .map(|s| s.to_ascii_lowercase())
+        .collect();
+    if blocked.is_empty() {
+        return;
+    }
+
+    unsafe {
+        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            Ok(h) => h,
+            Err(_) => return,
+        };
+        let mut entry = PROCESSENTRY32 {
+            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
+            ..Default::default()
+        };
+        if Process32First(snapshot, &mut entry).is_ok() {
+            loop {
+                let name: String = entry
+                    .szExeFile
+                    .iter()
+                    .take_while(|&&c| c != 0)
+                    .map(|&c| c as u8 as char)
+                    .collect();
+                let name_lc = name.to_ascii_lowercase();
+                if blocked.contains(&name_lc) {
+                    let pid = entry.th32ProcessID;
+                    #[allow(clippy::collapsible_if)]
+                    if pid > 4 && pid != std::process::id() {
+                        if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                            let _ = TerminateProcess(handle, 1);
+                            let _ = CloseHandle(handle);
+                            info!(pid, name = %name, "Killed app over allowance quota");
+                        }
+                    }
+                }
+                if Process32Next(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = CloseHandle(snapshot);
     }
 }
 

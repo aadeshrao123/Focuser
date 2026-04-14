@@ -1005,3 +1005,255 @@ pub fn delete_all_data(state: State<'_, Arc<AppState>>) -> Result<(), String> {
     sync_hosts_now(&eng);
     Ok(())
 }
+
+// ────────────────────────────────────────────────────────────────────
+// Pomodoro commands
+// ────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn pomodoro_get_status(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let status = focuser_core::pomodoro::build_status(eng.db()).map_err(|e| e.to_string())?;
+    match status {
+        Some(s) => Ok(serde_json::to_value(s).map_err(|e| e.to_string())?),
+        None => Ok(serde_json::Value::Null),
+    }
+}
+
+#[tauri::command]
+pub fn pomodoro_start(
+    state: State<'_, Arc<AppState>>,
+    block_list_id: String,
+    work_secs: u32,
+    short_break_secs: u32,
+    long_break_secs: u32,
+    cycles_until_long_break: u32,
+) -> Result<Value, String> {
+    let bl_id = uuid::Uuid::parse_str(&block_list_id).map_err(|e| e.to_string())?;
+    let config = focuser_common::pomodoro::PomodoroConfig {
+        work_secs,
+        short_break_secs,
+        long_break_secs,
+        cycles_until_long_break,
+    };
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let session = focuser_core::pomodoro::start_session(&mut eng, bl_id, config)
+        .map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(serde_json::json!({
+        "session_id": session.id,
+        "block_list_id": session.block_list_id,
+        "started_at": session.started_at,
+    }))
+}
+
+#[tauri::command]
+pub fn pomodoro_pause(state: State<'_, Arc<AppState>>) -> Result<bool, String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    focuser_core::pomodoro::pause_session(&mut eng).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn pomodoro_resume(state: State<'_, Arc<AppState>>) -> Result<bool, String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    focuser_core::pomodoro::resume_session(&mut eng).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn pomodoro_skip(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let outcome = focuser_core::pomodoro::skip_phase(&mut eng).map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(serde_json::json!({ "advanced": outcome.is_some() }))
+}
+
+#[tauri::command]
+pub fn pomodoro_stop(state: State<'_, Arc<AppState>>) -> Result<bool, String> {
+    let mut eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let stopped = focuser_core::pomodoro::stop_session(&mut eng).map_err(|e| e.to_string())?;
+    sync_hosts_now(&eng);
+    Ok(stopped)
+}
+
+#[tauri::command]
+pub fn pomodoro_drain_events(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let events = state.drain_pomodoro_events();
+    let json: Vec<Value> = events
+        .iter()
+        .map(|e| match e {
+            crate::PomodoroEvent::PhaseAdvanced { to, cycle } => {
+                serde_json::json!({ "kind": "phase_advanced", "to": to, "cycle": cycle })
+            }
+            crate::PomodoroEvent::TamperDetected => {
+                serde_json::json!({ "kind": "tamper_detected" })
+            }
+        })
+        .collect();
+    Ok(Value::Array(json))
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Allowance commands
+// ────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn allowance_list(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let list = eng
+        .db()
+        .list_allowance_statuses()
+        .map_err(|e| e.to_string())?;
+    serde_json::to_value(list).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn allowance_create(
+    state: State<'_, Arc<AppState>>,
+    kind: String,
+    value: String,
+    daily_limit_secs: u32,
+    strict_mode: bool,
+) -> Result<Value, String> {
+    let target = match kind.as_str() {
+        "domain" => focuser_common::allowance::AllowanceMatch::Domain(value.trim().to_string()),
+        "app" => focuser_common::allowance::AllowanceMatch::AppExecutable(value.trim().to_string()),
+        _ => return Err(format!("unknown allowance kind: {kind}")),
+    };
+    let a = focuser_common::allowance::Allowance::new(target, daily_limit_secs, strict_mode);
+    a.validate()?;
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db().create_allowance(&a).map_err(|e| e.to_string())?;
+    state
+        .allowance_tracker
+        .rebuild_from_db(eng.db())
+        .map_err(|e| e.to_string())?;
+    serde_json::to_value(a).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn allowance_update(
+    state: State<'_, Arc<AppState>>,
+    id: String,
+    daily_limit_secs: u32,
+    strict_mode: bool,
+    enabled: bool,
+) -> Result<(), String> {
+    let id = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let Some(mut a) = eng.db().get_allowance(id).map_err(|e| e.to_string())? else {
+        return Err("allowance not found".into());
+    };
+    a.daily_limit_secs = daily_limit_secs;
+    a.strict_mode = strict_mode;
+    a.enabled = enabled;
+    a.validate()?;
+    eng.db().update_allowance(&a).map_err(|e| e.to_string())?;
+    state
+        .allowance_tracker
+        .rebuild_from_db(eng.db())
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn allowance_delete(state: State<'_, Arc<AppState>>, id: String) -> Result<(), String> {
+    let id = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db().delete_allowance(id).map_err(|e| e.to_string())?;
+    state
+        .allowance_tracker
+        .rebuild_from_db(eng.db())
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn allowance_reset_today(state: State<'_, Arc<AppState>>, id: String) -> Result<(), String> {
+    let id = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db()
+        .reset_allowance_usage_today(id)
+        .map_err(|e| e.to_string())?;
+    state
+        .allowance_tracker
+        .rebuild_from_db(eng.db())
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn allowance_drain_notifications(state: State<'_, Arc<AppState>>) -> Result<Value, String> {
+    let n = state.allowance_tracker.take_notifications();
+    serde_json::to_value(n).map_err(|e| e.to_string())
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Generic settings (used by Focus section)
+// ────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_setting(
+    state: State<'_, Arc<AppState>>,
+    key: String,
+    default: Option<String>,
+) -> Result<String, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db()
+        .get_setting_or_default(&key, default.as_deref().unwrap_or(""))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_setting(
+    state: State<'_, Arc<AppState>>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    eng.db()
+        .set_setting(&key, &value)
+        .map_err(|e| e.to_string())
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Statistics: Pomodoro + Allowance history
+// ────────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn pomodoro_history(state: State<'_, Arc<AppState>>, days: u32) -> Result<Value, String> {
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let rows = eng
+        .db()
+        .get_pomodoro_history(days)
+        .map_err(|e| e.to_string())?;
+    let json: Vec<Value> = rows
+        .into_iter()
+        .map(|(started, cycles, total_secs)| {
+            serde_json::json!({
+                "started_at": started.to_rfc3339(),
+                "completed_cycles": cycles,
+                "total_work_secs": total_secs,
+            })
+        })
+        .collect();
+    Ok(Value::Array(json))
+}
+
+#[tauri::command]
+pub fn allowance_history(
+    state: State<'_, Arc<AppState>>,
+    id: String,
+    days: u32,
+) -> Result<Value, String> {
+    let id = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    let eng = state.engine.lock().map_err(|e| e.to_string())?;
+    let rows = eng
+        .db()
+        .get_allowance_usage_history(id, days)
+        .map_err(|e| e.to_string())?;
+    let json: Vec<Value> = rows
+        .into_iter()
+        .map(|(date, secs)| serde_json::json!({ "date": date, "used_secs": secs }))
+        .collect();
+    Ok(Value::Array(json))
+}

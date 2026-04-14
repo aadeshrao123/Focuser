@@ -56,6 +56,36 @@
           <div class="stat-card"><div class="stat-label"><i data-lucide="monitor"></i> Apps blocked</div><div class="stat-value" id="stat-total-apps">0</div></div>
         </div>
 
+        <!-- Focus Panels: Pomodoro + Allowances -->
+        <div class="dashboard-panels">
+          <div class="panel focus-panel" id="pomodoro-panel">
+            <div class="panel-header">
+              <h3><i data-lucide="timer"></i> Focus Session</h3>
+              <span class="panel-header-hint" id="pomodoro-header-hint">Pomodoro</span>
+            </div>
+            <div class="panel-body" id="pomodoro-body">
+              <div class="pomodoro-idle">
+                <p class="pomodoro-idle-text">Start a focus session to block distractions in work/break cycles.</p>
+                <button class="btn btn-primary" id="btn-start-pomodoro">
+                  <i data-lucide="play"></i> Start Focus Session
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel focus-panel" id="allowance-panel">
+            <div class="panel-header">
+              <h3><i data-lucide="hourglass"></i> Today's Allowances</h3>
+              <button class="btn btn-sm btn-ghost" data-page="websites" data-target-tab="websites-tab-allowances" style="font-size:11px;padding:5px 12px;">
+                Manage <i data-lucide="arrow-right" style="width:12px;height:12px;"></i>
+              </button>
+            </div>
+            <div class="panel-body" id="dashboard-allowances">
+              <div class="empty-state">No allowances — add one from the Websites tab to cap daily usage.</div>
+            </div>
+          </div>
+        </div>
+
         <div class="dashboard-panels">
           <div class="panel">
             <div class="panel-header">
@@ -155,6 +185,7 @@
         <div class="tabs" style="margin-bottom:14px;">
           <button class="tab active" data-action="switch-tab" data-tab="websites-tab-block"><i data-lucide="globe"></i> Websites</button>
           <button class="tab" data-action="switch-tab" data-tab="websites-tab-exceptions"><i data-lucide="shield-off"></i> Exceptions</button>
+          <button class="tab" data-action="switch-tab" data-tab="websites-tab-allowances"><i data-lucide="hourglass"></i> Allowances</button>
         </div>
 
         <!-- Websites Tab -->
@@ -217,6 +248,34 @@
           <div class="panel fill-remaining">
             <div class="panel-header"><h3><i data-lucide="check-circle"></i> Exceptions (Whitelist)</h3></div>
             <div class="panel-body" id="exceptions-list"><div class="empty-state">No exceptions — all matching sites will be blocked</div></div>
+          </div>
+        </div>
+
+        <!-- Allowances Tab -->
+        <div id="websites-tab-allowances" class="tab-content">
+          <div class="panel overflow-visible" style="margin-bottom:14px;">
+            <div class="panel-header"><h3><i data-lucide="plus-circle"></i> Add Allowance</h3></div>
+            <div class="panel-body">
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+                Cap daily usage of a site (e.g., <code>youtube.com</code> = 30 min/day). Once the quota is hit, the site is blocked until midnight.
+              </p>
+              <div class="add-website-fields">
+                <select id="allowance-kind-select" class="input">
+                  <option value="domain">Domain</option>
+                  <option value="app">App executable</option>
+                </select>
+                <input type="text" id="allowance-value-input" class="input" placeholder="e.g. youtube.com">
+                <input type="number" id="allowance-minutes-input" class="input" placeholder="Minutes/day" min="1" max="480" value="30" style="max-width:140px;">
+                <label class="checkbox-inline" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);white-space:nowrap;">
+                  <input type="checkbox" id="allowance-strict-input" checked> Active-tab only
+                </label>
+                <button class="btn btn-primary" id="btn-add-allowance"><i data-lucide="plus"></i> Add</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel fill-remaining">
+            <div class="panel-header"><h3><i data-lucide="hourglass"></i> Your Allowances</h3></div>
+            <div class="panel-body" id="allowances-list"><div class="empty-state">No allowances yet</div></div>
           </div>
         </div>
       </section>
@@ -391,6 +450,18 @@
           <div class="panel-header"><h3><i data-lucide="table"></i> Blocked Attempts</h3></div>
           <div class="panel-body stats-table-body" id="stats-content"><div class="empty-state">No data yet. Blocked attempts will appear here.</div></div>
         </div>
+
+        <!-- Focus history: Pomodoro sessions + allowance usage -->
+        <div class="dashboard-panels" style="flex-shrink:0;margin-top:14px;">
+          <div class="panel">
+            <div class="panel-header"><h3><i data-lucide="timer"></i> Pomodoro Sessions</h3><span class="panel-header-hint">Last 30 days</span></div>
+            <div class="panel-body" id="stats-pomodoro-history"><div class="empty-state">No sessions yet</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h3><i data-lucide="hourglass"></i> Allowance Usage</h3><span class="panel-header-hint">Today's summary</span></div>
+            <div class="panel-body" id="stats-allowance-summary"><div class="empty-state">No allowances</div></div>
+          </div>
+        </div>
       </section>
 
       <!-- Settings -->
@@ -410,6 +481,28 @@
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Show notifications</span><span class="setting-desc">Display a notification when a site or app is blocked</span></div>
               <label class="toggle"><input type="checkbox" id="setting-notifications" checked><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-header"><h3><i data-lucide="timer"></i> Focus</h3></div>
+          <div class="panel-body settings-list">
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Default Pomodoro preset</span><span class="setting-desc">Pre-selected when you open the Start Focus Session modal</span></div>
+              <select id="setting-pomo-preset" class="input" style="max-width:160px;">
+                <option value="classic">Classic 25 / 5</option>
+                <option value="long">Long 50 / 10</option>
+                <option value="sprint">Sprint 15 / 3</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Allowance: active-tab only (strict)</span><span class="setting-desc">When enabled by default, new allowances only count time from the currently focused tab</span></div>
+              <label class="toggle"><input type="checkbox" id="setting-allowance-strict" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info"><span class="setting-name">Phase-change notifications</span><span class="setting-desc">Show a toast when Pomodoro work/break phases change</span></div>
+              <label class="toggle"><input type="checkbox" id="setting-pomo-notifications" checked><span class="toggle-slider"></span></label>
             </div>
           </div>
         </div>
@@ -464,7 +557,7 @@
           <div class="panel-header"><h3><i data-lucide="info"></i> About</h3></div>
           <div class="panel-body settings-list">
             <div class="setting-row">
-              <div class="setting-info"><span class="setting-name" id="about-version">Focuser v0.0.9</span><span class="setting-desc">Open-source website and application blocker</span></div>
+              <div class="setting-info"><span class="setting-name" id="about-version">Focuser v0.1.0</span><span class="setting-desc">Open-source website and application blocker</span></div>
             </div>
             <div class="setting-row">
               <div class="setting-info"><span class="setting-name">Check for updates</span><span class="setting-desc" id="update-status-text">See if a newer version is available</span></div>

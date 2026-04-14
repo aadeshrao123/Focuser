@@ -1182,7 +1182,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "focuser-cli"
-version = "0.0.9"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1198,7 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-common"
-version = "0.0.9"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "glob-match",
@@ -1211,7 +1211,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-core"
-version = "0.0.9"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "focuser-common",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-native"
-version = "0.0.9"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1243,7 +1243,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-service"
-version = "0.0.9"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1263,7 +1263,7 @@ dependencies = [
 
 [[package]]
 name = "focuser-ui"
-version = "0.0.9"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2319,9 +2319,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.184"
+version = "0.2.185"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48f5d2a454e16a5ea0f4ced81bd44e4cfc7bd3a507b61887c99fd3538b28e4af"
+checksum = "52ff2c0fe9bc6cb6b14a0592c2ff4fa9ceb83eea9db979b0487cd054946a2b8f"
 
 [[package]]
 name = "libloading"

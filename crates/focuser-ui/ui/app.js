@@ -10,6 +10,16 @@ async function invoke(cmd, args) {
 
 var state = { blockLists: [], currentPage: 'dashboard' };
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ─── Disable right-click context menu ───────────────────────────────
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
@@ -48,6 +58,8 @@ var ui = {
       this._renderDashboardActiveLists(status.active_blocks);
       await this._renderDashboardRecentActivity();
       await this._renderBrowserStatus();
+      await this._renderPomodoroWidget();
+      await this._renderAllowanceDashboard();
       refreshIcons();
     } catch (e) {}
   },
@@ -788,6 +800,60 @@ var ui = {
       var events = await invoke('get_blocked_events', { from: from.toISOString(), to: now.toISOString() });
       this._renderLineChart(events || [], from, now);
     } catch (e) { /* no events yet */ }
+
+    // Focus history panels
+    await this._renderPomodoroHistory();
+    await this._renderAllowanceSummary();
+    refreshIcons();
+  },
+
+  _renderPomodoroHistory: async function() {
+    var c = document.getElementById('stats-pomodoro-history');
+    if (!c) return;
+    try {
+      var rows = await invoke('pomodoro_history', { days: 30 });
+      if (!rows || !rows.length) {
+        c.innerHTML = '<div class="empty-state">No sessions yet — start a Pomodoro from the Dashboard</div>';
+        return;
+      }
+      var total_cycles = 0, total_secs = 0;
+      rows.forEach(function(r) { total_cycles += r.completed_cycles; total_secs += r.total_work_secs; });
+
+      var listHtml = rows.slice(0, 8).map(function(r) {
+        var d = new Date(r.started_at);
+        var when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;">' +
+          '<span style="color:var(--text-muted);">' + escapeHtml(when) + '</span>' +
+          '<span style="color:var(--text);font-weight:600;">' + r.completed_cycles + ' cycle' + (r.completed_cycles === 1 ? '' : 's') + '</span>' +
+        '</div>';
+      }).join('');
+
+      c.innerHTML =
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 14px 12px;">' +
+          '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Sessions</div><div style="font-size:24px;font-weight:700;color:var(--text);">' + rows.length + '</div></div>' +
+          '<div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Cycles completed</div><div style="font-size:24px;font-weight:700;color:var(--text);">' + total_cycles + '</div></div>' +
+          '<div style="grid-column:1/-1;"><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Total focus time</div><div style="font-size:16px;font-weight:600;color:var(--text);">' + Math.round(total_secs / 60) + ' minutes</div></div>' +
+        '</div>' +
+        '<div style="padding:0 14px 10px;">' + listHtml + '</div>';
+    } catch (e) {
+      c.innerHTML = '<div class="empty-state">Unable to load history</div>';
+    }
+  },
+
+  _renderAllowanceSummary: async function() {
+    var c = document.getElementById('stats-allowance-summary');
+    if (!c) return;
+    try {
+      var list = await invoke('allowance_list');
+      if (!list || !list.length) {
+        c.innerHTML = '<div class="empty-state">No allowances configured</div>';
+        return;
+      }
+      c.innerHTML = '<div style="padding:10px 14px;">' + list.map(ui._renderAllowanceRow).join('') + '</div>';
+      refreshIcons();
+    } catch (e) {
+      c.innerHTML = '<div class="empty-state">Unable to load</div>';
+    }
   },
 
   _rangeToMs: function(range) {
@@ -1511,6 +1577,381 @@ var ui = {
     }
   },
 
+  // ─── Pomodoro + Allowance ─────────────────────────────────────
+  _pomodoroStatus: null,
+  _pomodoroPollTimer: null,
+  _pomodoroEventTimer: null,
+  _pomodoroPreset: 'classic',
+  _pomodoroLastPhase: null,
+
+  _fmtTime: function(secs) {
+    secs = Math.max(0, secs | 0);
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+  },
+
+  _fmtMinutes: function(secs) {
+    secs = Math.max(0, secs | 0);
+    var m = Math.floor(secs / 60);
+    return m + 'm';
+  },
+
+  _renderPomodoroWidget: async function() {
+    var body = document.getElementById('pomodoro-body');
+    var hint = document.getElementById('pomodoro-header-hint');
+    if (!body) return;
+    try {
+      var status = await invoke('pomodoro_get_status');
+      ui._pomodoroStatus = status;
+      if (!status) {
+        body.innerHTML = '<div class="pomodoro-idle">' +
+          '<p class="pomodoro-idle-text">Start a focus session to block distractions in work/break cycles.</p>' +
+          '<button class="btn btn-primary" id="btn-start-pomodoro"><i data-lucide="play"></i> Start Focus Session</button>' +
+          '</div>';
+        if (hint) hint.textContent = 'Pomodoro';
+        var b = document.getElementById('btn-start-pomodoro');
+        if (b) b.addEventListener('click', function() { ui.openPomodoroStartModal(); });
+        refreshIcons();
+        return;
+      }
+
+      var phase = status.current_phase; // "work" | "short_break" | "long_break"
+      var isWork = phase === 'work';
+      var phaseLabel = isWork ? 'Work' : (phase === 'long_break' ? 'Long Break' : 'Short Break');
+      var remaining = status.remaining_secs;
+      var totalDur = status.phase_duration_secs || 1;
+      var pct = 1 - (remaining / totalDur);
+      if (pct < 0) pct = 0; if (pct > 1) pct = 1;
+
+      // Ring math: circumference = 2πr where r = 54 (size=120, stroke=8 → r=54)
+      var radius = 54;
+      var circumference = 2 * Math.PI * radius;
+      var dashOffset = circumference * (1 - pct);
+
+      var ringClass = isWork ? 'phase-work' : 'phase-break';
+      var cycleText = 'Cycle ' + status.current_cycle + ' · ' + status.completed_cycles + ' done';
+
+      body.innerHTML =
+        '<div class="pomodoro-active">' +
+          '<div class="pomodoro-ring ' + ringClass + '">' +
+            '<svg viewBox="0 0 120 120">' +
+              '<circle class="pomodoro-ring-bg" cx="60" cy="60" r="' + radius + '" stroke-width="8"></circle>' +
+              '<circle class="pomodoro-ring-fill" cx="60" cy="60" r="' + radius + '" stroke-width="8" ' +
+                'stroke-dasharray="' + circumference + '" stroke-dashoffset="' + dashOffset + '"></circle>' +
+            '</svg>' +
+            '<div class="pomodoro-ring-center">' +
+              '<div class="pomodoro-time">' + ui._fmtTime(remaining) + '</div>' +
+              '<div class="pomodoro-cycle-badge">' + (status.paused ? 'Paused' : phaseLabel) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="pomodoro-info">' +
+            '<h4 class="pomodoro-phase-label">' + phaseLabel + (status.paused ? ' (paused)' : '') + '</h4>' +
+            '<div class="pomodoro-meta">' + escapeHtml(status.block_list_name) + '</div>' +
+            '<div class="pomodoro-meta">' + cycleText + '</div>' +
+            '<div class="pomodoro-controls">' +
+              (status.paused
+                ? '<button class="btn btn-primary" id="btn-pom-resume"><i data-lucide="play"></i> Resume</button>'
+                : '<button class="btn btn-secondary" id="btn-pom-pause"><i data-lucide="pause"></i> Pause</button>') +
+              '<button class="btn btn-secondary" id="btn-pom-skip"><i data-lucide="skip-forward"></i> Skip</button>' +
+              '<button class="btn btn-danger" id="btn-pom-stop"><i data-lucide="square"></i> Stop</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      if (hint) hint.textContent = isWork ? 'Focus mode' : 'Break time';
+
+      var bp = document.getElementById('btn-pom-pause');
+      if (bp) bp.addEventListener('click', function() { ui.pomodoroPause(); });
+      var br = document.getElementById('btn-pom-resume');
+      if (br) br.addEventListener('click', function() { ui.pomodoroResume(); });
+      var bs = document.getElementById('btn-pom-skip');
+      if (bs) bs.addEventListener('click', function() { ui.pomodoroSkip(); });
+      var bq = document.getElementById('btn-pom-stop');
+      if (bq) bq.addEventListener('click', function() { ui.pomodoroStop(); });
+      refreshIcons();
+    } catch (e) {
+      body.innerHTML = '<div class="empty-state">Focus session unavailable</div>';
+    }
+  },
+
+  startPomodoroPolling: function() {
+    if (ui._pomodoroPollTimer) return;
+    ui._pomodoroPollTimer = setInterval(function() {
+      if (state.currentPage !== 'dashboard') return;
+      ui._renderPomodoroWidget();
+    }, 1000);
+  },
+
+  _pomodoroNotifEnabled: true,
+
+  startPomodoroEventPolling: function() {
+    if (ui._pomodoroEventTimer) return;
+    ui._pomodoroEventTimer = setInterval(function() {
+      invoke('pomodoro_drain_events').then(function(events) {
+        if (!events || !events.length) return;
+        events.forEach(function(ev) {
+          if (ev.kind === 'phase_advanced') {
+            if (!ui._pomodoroNotifEnabled) return;
+            var label = ev.to === 'work' ? 'Work session started — blocks on' :
+                        ev.to === 'long_break' ? 'Long break — 15 min off' :
+                        'Break time — 5 min off';
+            toast(label, 'success');
+          } else if (ev.kind === 'tamper_detected') {
+            toast('Pomodoro aborted: system clock changed', 'error');
+          }
+        });
+        ui._renderPomodoroWidget();
+      }).catch(function() {});
+    }, 2000);
+  },
+
+  openPomodoroStartModal: async function() {
+    var lists = [];
+    try { lists = await invoke('list_block_lists'); } catch (e) {}
+    if (!lists || lists.length === 0) {
+      toast('Create a block list first', 'warning');
+      return;
+    }
+
+    var old = document.getElementById('pomodoro-modal-overlay');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'pomodoro-modal-overlay';
+    overlay.className = 'pomodoro-modal-overlay';
+
+    var defaultListId = lists[0].id;
+    var optHtml = lists.map(function(l) {
+      return '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>';
+    }).join('');
+
+    overlay.innerHTML =
+      '<div class="pomodoro-modal">' +
+        '<h3>Start Focus Session</h3>' +
+        '<p class="modal-sub">Choose a block list and a work/break rhythm. Blocks toggle automatically at each phase.</p>' +
+        '<div class="form-group">' +
+          '<label>Block list</label>' +
+          '<select id="pomo-list" class="input">' + optHtml + '</select>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label>Preset</label>' +
+          '<div class="pomodoro-preset-row">' +
+            '<button class="pomodoro-preset-chip active" data-preset="classic"><span class="chip-label">Classic</span><span class="chip-desc">25 / 5</span></button>' +
+            '<button class="pomodoro-preset-chip" data-preset="long"><span class="chip-label">Long</span><span class="chip-desc">50 / 10</span></button>' +
+            '<button class="pomodoro-preset-chip" data-preset="sprint"><span class="chip-label">Sprint</span><span class="chip-desc">15 / 3</span></button>' +
+          '</div>' +
+          '<button class="pomodoro-preset-chip" data-preset="custom" style="width:100%;margin-top:8px;"><span class="chip-label">Custom</span><span class="chip-desc">Configure manually</span></button>' +
+        '</div>' +
+        '<div id="pomo-custom" style="display:none;">' +
+          '<div class="form-group"><label>Work (minutes)</label><input type="number" id="pomo-work" class="input" min="1" max="480" value="25"></div>' +
+          '<div class="form-group"><label>Short break (minutes)</label><input type="number" id="pomo-short" class="input" min="1" max="120" value="5"></div>' +
+          '<div class="form-group"><label>Long break (minutes)</label><input type="number" id="pomo-long" class="input" min="1" max="120" value="15"></div>' +
+          '<div class="form-group"><label>Cycles until long break</label><input type="number" id="pomo-cycles" class="input" min="1" max="20" value="4"></div>' +
+        '</div>' +
+        '<div class="form-actions">' +
+          '<button class="btn btn-secondary" id="pomo-cancel">Cancel</button>' +
+          '<button class="btn btn-primary" id="pomo-start"><i data-lucide="play"></i> Start</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+    refreshIcons();
+
+    var chips = overlay.querySelectorAll('.pomodoro-preset-chip');
+    chips.forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        chips.forEach(function(c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        ui._pomodoroPreset = chip.getAttribute('data-preset');
+        document.getElementById('pomo-custom').style.display =
+          ui._pomodoroPreset === 'custom' ? 'block' : 'none';
+      });
+    });
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.getElementById('pomo-cancel').addEventListener('click', function() { overlay.remove(); });
+    document.getElementById('pomo-start').addEventListener('click', async function() {
+      var listId = document.getElementById('pomo-list').value;
+      var config = ui._resolvePomodoroConfig();
+      try {
+        await invoke('pomodoro_start', {
+          blockListId: listId,
+          workSecs: config.work,
+          shortBreakSecs: config.short,
+          longBreakSecs: config.long,
+          cyclesUntilLongBreak: config.cycles,
+        });
+        overlay.remove();
+        toast('Focus session started', 'success');
+        ui._renderPomodoroWidget();
+      } catch (e) {
+        toast('Failed to start: ' + e, 'error');
+      }
+    });
+  },
+
+  _resolvePomodoroConfig: function() {
+    var preset = ui._pomodoroPreset;
+    if (preset === 'custom') {
+      return {
+        work: Math.max(60, parseInt(document.getElementById('pomo-work').value || '25', 10) * 60),
+        short: Math.max(30, parseInt(document.getElementById('pomo-short').value || '5', 10) * 60),
+        long: Math.max(30, parseInt(document.getElementById('pomo-long').value || '15', 10) * 60),
+        cycles: Math.max(1, parseInt(document.getElementById('pomo-cycles').value || '4', 10)),
+      };
+    }
+    if (preset === 'long') return { work: 50 * 60, short: 10 * 60, long: 30 * 60, cycles: 3 };
+    if (preset === 'sprint') return { work: 15 * 60, short: 3 * 60, long: 10 * 60, cycles: 4 };
+    return { work: 25 * 60, short: 5 * 60, long: 15 * 60, cycles: 4 }; // classic
+  },
+
+  pomodoroPause: async function() {
+    try { await invoke('pomodoro_pause'); ui._renderPomodoroWidget(); }
+    catch (e) { toast('Pause failed: ' + e, 'error'); }
+  },
+
+  pomodoroResume: async function() {
+    try { await invoke('pomodoro_resume'); ui._renderPomodoroWidget(); }
+    catch (e) { toast('Resume failed: ' + e, 'error'); }
+  },
+
+  pomodoroSkip: async function() {
+    try { await invoke('pomodoro_skip'); ui._renderPomodoroWidget(); }
+    catch (e) { toast('Skip failed: ' + e, 'error'); }
+  },
+
+  pomodoroStop: async function() {
+    if (!confirm('End this focus session?')) return;
+    try {
+      await invoke('pomodoro_stop');
+      toast('Focus session ended', 'success');
+      ui._renderPomodoroWidget();
+    } catch (e) { toast('Stop failed: ' + e, 'error'); }
+  },
+
+  _renderAllowanceDashboard: async function() {
+    var container = document.getElementById('dashboard-allowances');
+    if (!container) return;
+    try {
+      var list = await invoke('allowance_list');
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div class="empty-state">No allowances — add one from the Websites tab to cap daily usage.</div>';
+        return;
+      }
+      container.innerHTML = list.slice(0, 6).map(ui._renderAllowanceRow).join('');
+      refreshIcons();
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state">Unable to load allowances</div>';
+    }
+  },
+
+  _renderAllowanceRow: function(item) {
+    var a = item.allowance;
+    var used = item.used_today_secs;
+    var limit = a.daily_limit_secs;
+    var pct = Math.min(100, (used / limit) * 100);
+    var fillClass = item.exhausted ? 'exhausted' : (pct >= 80 ? 'warn' : '');
+    var kindLabel = a.target.kind === 'domain' ? 'Domain' : 'App';
+    var target = a.target.value;
+    var exhaustedCls = item.exhausted ? 'exhausted' : '';
+
+    return '<div class="allowance-row ' + exhaustedCls + '" data-allowance-id="' + a.id + '">' +
+      '<div class="allowance-target">' +
+        '<div class="allowance-target-name">' + escapeHtml(target) + '</div>' +
+        '<div class="allowance-target-kind">' + kindLabel + (a.enabled ? '' : ' · disabled') + '</div>' +
+      '</div>' +
+      '<div class="allowance-progress-wrap">' +
+        '<div class="allowance-progress-bar">' +
+          '<div class="allowance-progress-fill ' + fillClass + '" style="width:' + pct + '%;"></div>' +
+        '</div>' +
+        '<div class="allowance-meta">' + ui._fmtMinutes(used) + ' / ' + ui._fmtMinutes(limit) +
+          (item.exhausted ? ' · blocked' : ' · ' + ui._fmtMinutes(item.remaining_secs) + ' left') +
+        '</div>' +
+      '</div>' +
+      '<div class="allowance-row-actions">' +
+        '<button data-action="reset-allowance" data-id="' + a.id + '" title="Reset today"><i data-lucide="rotate-ccw"></i></button>' +
+        '<button data-action="delete-allowance" data-id="' + a.id + '" class="danger" title="Delete"><i data-lucide="trash-2"></i></button>' +
+      '</div>' +
+    '</div>';
+  },
+
+  refreshAllowancesTab: async function() {
+    var container = document.getElementById('allowances-list');
+    if (!container) return;
+    try {
+      var list = await invoke('allowance_list');
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div class="empty-state">No allowances yet — add one above to cap daily usage.</div>';
+        return;
+      }
+      container.innerHTML = list.map(ui._renderAllowanceRow).join('');
+      refreshIcons();
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state">Unable to load allowances</div>';
+    }
+  },
+
+  addAllowance: async function() {
+    var kind = document.getElementById('allowance-kind-select').value;
+    var value = (document.getElementById('allowance-value-input').value || '').trim();
+    var minutes = parseInt(document.getElementById('allowance-minutes-input').value || '30', 10);
+    var strict = document.getElementById('allowance-strict-input').checked;
+    if (!value) { toast('Enter a domain or app', 'warning'); return; }
+    if (!minutes || minutes < 1) { toast('Enter minutes > 0', 'warning'); return; }
+    try {
+      await invoke('allowance_create', {
+        kind: kind, value: value,
+        dailyLimitSecs: minutes * 60,
+        strictMode: strict,
+      });
+      document.getElementById('allowance-value-input').value = '';
+      document.getElementById('allowance-minutes-input').value = '30';
+      toast('Allowance added', 'success');
+      ui.refreshAllowancesTab();
+      ui._renderAllowanceDashboard();
+    } catch (e) {
+      toast('Failed: ' + e, 'error');
+    }
+  },
+
+  deleteAllowance: async function(id) {
+    if (!confirm('Delete this allowance?')) return;
+    try {
+      await invoke('allowance_delete', { id: id });
+      toast('Deleted', 'success');
+      ui.refreshAllowancesTab();
+      ui._renderAllowanceDashboard();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  resetAllowance: async function(id) {
+    try {
+      await invoke('allowance_reset_today', { id: id });
+      toast('Today reset', 'success');
+      ui.refreshAllowancesTab();
+      ui._renderAllowanceDashboard();
+    } catch (e) { toast('Failed: ' + e, 'error'); }
+  },
+
+  startAllowanceNotificationPolling: function() {
+    setInterval(function() {
+      invoke('allowance_drain_notifications').then(function(events) {
+        if (!events || !events.length) return;
+        events.forEach(function(n) {
+          if (n.kind === 'Warning80') {
+            toast(n.target + ': ' + Math.round(n.used_secs / 60) + ' min used (80%)', 'warning');
+          } else if (n.kind === 'Exhausted') {
+            toast(n.target + ' blocked for today (quota reached)', 'error');
+          }
+        });
+        if (state.currentPage === 'dashboard') ui._renderAllowanceDashboard();
+        if (state.currentPage === 'websites') ui.refreshAllowancesTab();
+      }).catch(function() {});
+    }, 3000);
+  },
+
   // ─── Updater ───────────────────────────────────────────────────
   _updateAvailable: false,
   _updating: false,
@@ -1653,7 +2094,17 @@ document.addEventListener('click', function(e) {
     var a = el.getAttribute('data-action');
     // Don't preventDefault on checkboxes — let the change event handle them
     if (a && el.tagName !== 'INPUT') { e.preventDefault(); doAction(a, el); return; }
-    if (el.dataset && el.dataset.page && (el.classList.contains('nav-item') || el.classList.contains('quick-action-btn') || el.classList.contains('quick-action-card') || el.tagName === 'BUTTON')) { ui.navigateTo(el.dataset.page); return; }
+    if (el.dataset && el.dataset.page && (el.classList.contains('nav-item') || el.classList.contains('quick-action-btn') || el.classList.contains('quick-action-card') || el.tagName === 'BUTTON')) {
+      ui.navigateTo(el.dataset.page);
+      var targetTab = el.dataset.targetTab;
+      if (targetTab) {
+        setTimeout(function() {
+          var t = document.querySelector('[data-tab="' + targetTab + '"]');
+          if (t) t.click();
+        }, 50);
+      }
+      return;
+    }
     el = el.parentElement;
   }
   if (e.target.id === 'modal-overlay') ui.closeModal();
@@ -1680,7 +2131,10 @@ function doAction(a, el) {
       var target = document.getElementById(tabId);
       if (target) target.classList.add('active');
       if (tabId === 'websites-tab-exceptions') ui.refreshExceptions();
+      if (tabId === 'websites-tab-allowances') ui.refreshAllowancesTab();
       break;
+    case 'reset-allowance': ui.resetAllowance(el.getAttribute('data-id')); break;
+    case 'delete-allowance': ui.deleteAllowance(el.getAttribute('data-id')); break;
     case 'import-text': ui.importFromText(); closeAllDropdowns(); break;
     case 'import-json': ui.importFromText(); closeAllDropdowns(); break;
     case 'import-premade': ui.importPremadeList(el.getAttribute('data-category')); closeAllDropdowns(); break;
@@ -1736,6 +2190,53 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (bApplyRetention) bApplyRetention.addEventListener('click', function() { ui.applyRetention(); });
   var bCheckUpdate = document.getElementById('btn-check-update');
   if (bCheckUpdate) bCheckUpdate.addEventListener('click', function() { ui.handleSettingsUpdateBtn(); });
+
+  // Focus: Pomodoro + Allowance
+  var bStartPom = document.getElementById('btn-start-pomodoro');
+  if (bStartPom) bStartPom.addEventListener('click', function() { ui.openPomodoroStartModal(); });
+  var bAddAllow = document.getElementById('btn-add-allowance');
+  if (bAddAllow) bAddAllow.addEventListener('click', function() { ui.addAllowance(); });
+  ui.startPomodoroPolling();
+  ui.startPomodoroEventPolling();
+  ui.startAllowanceNotificationPolling();
+
+  // Focus settings
+  (async function() {
+    try {
+      var preset = await invoke('get_setting', { key: 'focus_default_preset', default: 'classic' });
+      var sp = document.getElementById('setting-pomo-preset');
+      if (sp && preset) { sp.value = preset; ui._pomodoroPreset = preset; }
+
+      var strict = await invoke('get_setting', { key: 'focus_allowance_strict_default', default: 'true' });
+      var st = document.getElementById('setting-allowance-strict');
+      if (st) st.checked = (strict !== 'false');
+
+      var notif = await invoke('get_setting', { key: 'focus_pomo_notifications', default: 'true' });
+      ui._pomodoroNotifEnabled = (notif !== 'false');
+      var pn = document.getElementById('setting-pomo-notifications');
+      if (pn) pn.checked = ui._pomodoroNotifEnabled;
+    } catch (e) {}
+  })();
+
+  var sp = document.getElementById('setting-pomo-preset');
+  if (sp) sp.addEventListener('change', function() {
+    ui._pomodoroPreset = this.value;
+    invoke('set_setting', { key: 'focus_default_preset', value: this.value })
+      .catch(function() {});
+  });
+  var st = document.getElementById('setting-allowance-strict');
+  if (st) st.addEventListener('change', function() {
+    invoke('set_setting', { key: 'focus_allowance_strict_default', value: this.checked ? 'true' : 'false' })
+      .catch(function() {});
+    var ai = document.getElementById('allowance-strict-input');
+    if (ai) ai.checked = this.checked;
+  });
+  var pn = document.getElementById('setting-pomo-notifications');
+  if (pn) pn.addEventListener('change', function() {
+    ui._pomodoroNotifEnabled = this.checked;
+    invoke('set_setting', { key: 'focus_pomo_notifications', value: this.checked ? 'true' : 'false' })
+      .catch(function() {});
+  });
   var rInput = document.getElementById('setting-retention-input');
   if (rInput) {
     rInput.addEventListener('keydown', function(e) {
