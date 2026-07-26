@@ -37,10 +37,22 @@ Desktop.ini
 *.key
 credentials.json
 
-# ─── Tauri (future UI) ──────────────────────────────────
-crates/focuser-ui/ui/node_modules/
-crates/focuser-ui/ui/dist/
-crates/focuser-ui/ui/.next/
+# ─── Frontend / Node ────────────────────────────────────
+# Path-agnostic on purpose: these were previously pinned to
+# crates/focuser-ui/ui/, so the new frontend/ directory was not covered and
+# node_modules showed up as untracked.
+node_modules/
+dist/
+.vite/
+vite.config.ts.timestamp-*
+*.tsbuildinfo
+.eslintcache
+
+# npm/pnpm/yarn diagnostics
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
 # ─── Build artifacts ─────────────────────────────────────
 *.exe

@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    // TypeScript 7 defaults `types` to []. Without this, every Node and Vite
+    // global resolves to "cannot find name".
+    "types": ["node", "vite/client"],
+    "paths": { "@/*": ["./src/*"] },
+
+    "strict": true,
+    "noEmit": true,
+    // Required by Vite: Oxc transpiles file-by-file with no type information.
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+}

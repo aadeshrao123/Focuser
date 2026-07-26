@@ -1195,6 +1195,7 @@ dependencies = [
  "focuser-core",
  "serde",
  "serde_json",
+ "specta",
  "thiserror 2.0.18",
  "tracing",
  "uuid",

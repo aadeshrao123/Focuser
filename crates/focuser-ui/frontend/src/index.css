@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Self-hosted — the old UI pulled Inter from Google Fonts at runtime, which
+   made a local-first desktop app depend on the network to render text. */
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Raw tokens ──────────────────────────────────────────────────────
+   Ported from the v0.1.8 stylesheet. Kept as plain custom properties so
+   `.dark` can override them; `@theme inline` below is what exposes them
+   to utilities. A non-inline `@theme` would freeze the light values. */
+
+:root {
+  --radius: 0.625rem;
+
+  /* Layered surfaces — deliberate contrast jumps between levels */
+  --deep: #07070a;
+  --base: #0d0d12;
+  --surface: #181820;
+  --elevated: #22222e;
+  --hover: #2a2a3a;
+  --active: #333346;
+
+  --foreground: #f0f0f4;
+  --muted-foreground: #b4b4c8;
+  --faint-foreground: #6a6a82;
+
+  /* Violet accent — the product's identity colour */
+  --primary: #8b5cf6;
+  --primary-hover: #a078ff;
+  --primary-foreground: #ffffff;
+  --primary-dim: rgb(139 92 246 / 0.14);
+
+  --success: #34d399;
+  --warning: #fbbf24;
+  --destructive: #f87171;
+  --info: #60a5fa;
+
+  --border: rgb(255 255 255 / 0.07);
+  --border-strong: rgb(255 255 255 / 0.12);
+  --ring: #8b5cf6;
+}
+
+/* ─── Tailwind theme ──────────────────────────────────────────────── */
+
+@theme inline {
+  --color-background: var(--base);
+  --color-deep: var(--deep);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-dim: var(--primary-dim);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-info: var(--info);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+
+  /* Top-down lighting: inset highlight plus stacked ambient shadows */
+  --shadow-depth-sm:
+    inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 3px rgb(0 0 0 / 0.4), 0 4px 8px rgb(0 0 0 / 0.15);
+  --shadow-depth-md:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 4px 8px rgb(0 0 0 / 0.4), 0 12px 28px rgb(0 0 0 / 0.25);
+  --shadow-depth-lg:
+    inset 0 1px 0 rgb(255 255 255 / 0.07), 0 8px 16px rgb(0 0 0 / 0.4),
+    0 24px 56px rgb(0 0 0 / 0.35);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Desktop chrome: text selection and right-click menus read as web-page
+       affordances in an app window. Re-enabled per element where wanted. */
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable] {
+    user-select: text;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+}

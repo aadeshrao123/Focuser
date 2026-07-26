@@ -8,10 +8,14 @@
 //! CLI/GUI parity a structural property rather than something to maintain by hand —
 //! there is nowhere else for behaviour to diverge.
 //!
-//! See `docs/COMMAND-CORE.md` for the design rationale.
+//! See `internal-docs/tasks/2026-07-26-ui-revamp/02-command-core.md` for the design.
 
+pub mod command;
 pub mod context;
 pub mod error;
+pub mod execute;
 
-pub use context::{AppContext, PomodoroEvent};
+pub use command::{Command, CommandResult};
+pub use context::{AppContext, NoopSync, PomodoroEvent, SystemSync};
 pub use error::{CommandError, CommandOutcome};
+pub use execute::execute;
