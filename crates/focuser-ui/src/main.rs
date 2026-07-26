@@ -3,6 +3,7 @@
 mod api;
 mod blocker;
 mod commands;
+mod foreground_watcher;
 
 use directories::ProjectDirs;
 use focuser_core::allowance::AllowanceTracker;
@@ -182,6 +183,12 @@ fn main() {
             let api_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || {
                 api::run_api_server(api_state);
+            });
+
+            // Spawn foreground-app watcher — feeds app allowance ticks.
+            let watcher_state = Arc::clone(&state_for_blocker);
+            std::thread::spawn(move || {
+                foreground_watcher::run_foreground_watcher(watcher_state);
             });
 
             // System tray icon
