@@ -1249,6 +1249,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "focuser-devserver"
+version = "0.1.8"
+dependencies = [
+ "clap",
+ "focuser-app",
+ "focuser-core",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "focuser-native"
 version = "0.1.8"
 dependencies = [

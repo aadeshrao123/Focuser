@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { AppLayout } from "@/app-layout";
 import "@/index.css";
+import { BlockLists } from "@/routes/block-lists";
 import { Placeholder } from "@/routes/placeholder";
 
 const queryClient = new QueryClient({
@@ -28,7 +29,7 @@ const router = createHashRouter([
     element: <AppLayout />,
     children: [
       { index: true, element: <Placeholder title="Dashboard" /> },
-      { path: "block-lists", element: <Placeholder title="Block Lists" /> },
+      { path: "block-lists", element: <BlockLists /> },
       { path: "websites", element: <Placeholder title="Websites" /> },
       { path: "apps", element: <Placeholder title="Applications" /> },
       { path: "schedule", element: <Placeholder title="Schedule" /> },

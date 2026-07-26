@@ -4,6 +4,7 @@ members = [
     "crates/focuser-common",
     "crates/focuser-core",
     "crates/focuser-app",
+    "crates/focuser-devserver",
     "crates/focuser-service",
     "crates/focuser-cli",
     "crates/focuser-native",

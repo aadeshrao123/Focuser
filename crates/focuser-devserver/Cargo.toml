@@ -1,0 +1,17 @@
+[package]
+name = "focuser-devserver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Development-only HTTP bridge exposing the command core to a browser"
+publish = false
+
+[dependencies]
+focuser-app.workspace = true
+focuser-core.workspace = true
+
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true

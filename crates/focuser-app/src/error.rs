@@ -30,10 +30,36 @@ pub enum CommandError {
     Unsupported,
 
     #[error(transparent)]
-    Core(#[from] focuser_common::FocuserError),
+    Core(focuser_common::FocuserError),
 
     #[error("{0}")]
     Internal(String),
+}
+
+/// Classify core errors instead of funnelling them all into [`CommandError::Core`].
+///
+/// Without this, a caller mistake like "delete a list that doesn't exist" arrives
+/// as `Core`, which reports exit code 1 (internal fault) and HTTP 500 — telling a
+/// script the backend broke when in fact the request was wrong. The distinction is
+/// the whole point of having stable codes, so the mapping has to happen here rather
+/// than at each call site.
+impl From<focuser_common::FocuserError> for CommandError {
+    fn from(err: focuser_common::FocuserError) -> Self {
+        use focuser_common::FocuserError as E;
+        match err {
+            E::BlockListNotFound(id) | E::BlockNotFound(id) => {
+                // The core carries ids as strings; keep the original text when it
+                // isn't a well-formed UUID rather than inventing a nil id.
+                match id.parse::<EntityId>() {
+                    Ok(parsed) => Self::BlockListNotFound(parsed),
+                    Err(_) => Self::Validation(format!("block list not found: {id}")),
+                }
+            }
+            E::LockActive(_) | E::ProtectionActive(_) => Self::Protected,
+            E::InvalidPattern(m) | E::InvalidConfig(m) => Self::Validation(m),
+            other => Self::Core(other),
+        }
+    }
 }
 
 impl CommandError {
@@ -107,6 +133,35 @@ mod tests {
     fn validation_exits_two_and_protected_exits_five() {
         assert_eq!(CommandError::Validation("x".into()).exit_code(), 2);
         assert_eq!(CommandError::Protected.exit_code(), 5);
+    }
+
+    #[test]
+    fn core_not_found_is_classified_as_not_found_not_internal() {
+        let id = EntityId::new_v4();
+        let err: CommandError =
+            focuser_common::FocuserError::BlockListNotFound(id.to_string()).into();
+
+        assert_eq!(err.code(), "block_list_not_found");
+        assert_eq!(
+            err.exit_code(),
+            4,
+            "a missing list is a caller error, not an internal fault"
+        );
+    }
+
+    #[test]
+    fn core_protection_errors_map_to_protected() {
+        let err: CommandError =
+            focuser_common::FocuserError::ProtectionActive("still locked".into()).into();
+        assert_eq!(err.code(), "protected");
+        assert_eq!(err.exit_code(), 5);
+    }
+
+    #[test]
+    fn genuinely_internal_core_errors_stay_internal() {
+        let err: CommandError = focuser_common::FocuserError::Database("disk gone".into()).into();
+        assert_eq!(err.code(), "core");
+        assert_eq!(err.exit_code(), 1);
     }
 
     #[test]

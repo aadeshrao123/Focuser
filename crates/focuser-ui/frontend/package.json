@@ -11,7 +11,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:backend": "cargo run --manifest-path ../../../Cargo.toml -p focuser-devserver -- --memory"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
