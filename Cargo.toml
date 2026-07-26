@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/focuser-common",
     "crates/focuser-core",
+    "crates/focuser-app",
     "crates/focuser-service",
     "crates/focuser-cli",
     "crates/focuser-native",
@@ -33,6 +34,14 @@ clap = { version = "4", features = ["derive"] }
 regex = "1"
 glob-match = "0.2"
 
+# Rust -> TypeScript type/command generation.
+# Pinned with `=` because the v2 line is pre-release; v1 supports Tauri v1 only,
+# so it is not an option here. Upgrade deliberately, never by caret.
+specta = { version = "=2.0.0-rc.25", features = ["derive", "chrono", "uuid"] }
+specta-typescript = "0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
+
 # Internal crates
 focuser-common = { path = "crates/focuser-common" }
 focuser-core = { path = "crates/focuser-core" }
+focuser-app = { path = "crates/focuser-app" }

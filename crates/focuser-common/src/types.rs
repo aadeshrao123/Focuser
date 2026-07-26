@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveTime, Utc, Weekday};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 /// Unique identifier for all entities.
@@ -11,7 +12,7 @@ pub fn new_id() -> EntityId {
 }
 
 /// A named collection of blocking rules.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct BlockList {
     pub id: EntityId,
     pub name: String,
@@ -102,7 +103,7 @@ impl BlockList {
 // ─── Website Blocking ───────────────────────────────────────────────
 
 /// How a website rule matches URLs/domains.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum WebsiteMatchType {
     /// Exact domain match (e.g., "reddit.com" blocks reddit.com and *.reddit.com)
     Domain(String),
@@ -116,7 +117,7 @@ pub enum WebsiteMatchType {
     EntireInternet,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct WebsiteRule {
     pub id: EntityId,
     pub match_type: WebsiteMatchType,
@@ -167,7 +168,7 @@ impl WebsiteRule {
 
 // ─── Application Blocking ───────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum AppMatchType {
     /// Match by executable name (e.g., "steam.exe")
     ExecutableName(String),
@@ -179,7 +180,7 @@ pub enum AppMatchType {
     BundleId(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AppRule {
     pub id: EntityId,
     pub match_type: AppMatchType,
@@ -214,7 +215,7 @@ impl AppRule {
 
 // ─── Exceptions ─────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum ExceptionType {
     /// Allow a specific domain even when other rules would block it
     Domain(String),
@@ -224,7 +225,7 @@ pub enum ExceptionType {
     LocalFiles,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExceptionRule {
     pub id: EntityId,
     pub exception_type: ExceptionType,
@@ -243,7 +244,7 @@ impl ExceptionRule {
 
 // ─── Protection ────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Protection {
     pub prevent_uninstall: bool,
     pub prevent_service_stop: bool,
@@ -277,7 +278,7 @@ impl Protection {
 // ─── Locks ──────────────────────────────────────────────────────────
 
 /// How a block is enforced — determines what it takes to disable it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum Lock {
     /// Block runs for a fixed duration, cannot be cancelled.
     Timer {
@@ -299,7 +300,7 @@ pub enum Lock {
 // ─── Schedules ──────────────────────────────────────────────────────
 
 /// Weekly recurring schedule.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Schedule {
     pub id: EntityId,
     pub name: String,
@@ -308,7 +309,7 @@ pub struct Schedule {
 }
 
 /// A time range on a specific day of the week.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TimeSlot {
     pub day: Weekday,
     pub start: NaiveTime,
@@ -317,7 +318,7 @@ pub struct TimeSlot {
 
 // ─── Breaks ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum BreakConfig {
     /// Pomodoro-style: work for X minutes, break for Y minutes.
     Pomodoro {
@@ -335,7 +336,7 @@ pub enum BreakConfig {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum AllowancePeriod {
     PerHour,
     PerDay,
@@ -343,7 +344,7 @@ pub enum AllowancePeriod {
 
 // ─── Statistics ─────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct UsageStat {
     pub domain_or_app: String,
     pub duration_seconds: u64,
@@ -352,7 +353,7 @@ pub struct UsageStat {
 }
 
 /// A single block event with precise timestamp (for timeline charts).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct BlockedEvent {
     pub domain_or_app: String,
     pub timestamp: String,

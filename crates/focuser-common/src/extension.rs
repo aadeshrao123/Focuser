@@ -39,6 +39,7 @@
 //! The native host binary translates these to normal IPC requests.
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 // ─── Messages from Service → Extension ──────────────────────────────
 
@@ -46,7 +47,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// The service sends this whenever block lists change. The extension
 /// caches it and uses it for real-time URL matching without round-trips.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExtensionRuleSet {
     /// Version counter — extension discards stale updates.
     pub version: u64,
@@ -93,7 +94,7 @@ impl ExtensionRuleSet {
 // ─── Messages from Extension → Service ──────────────────────────────
 
 /// Event reported by the extension back to the service.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum ExtensionEvent {
     /// Extension connected and is ready.
     Connected {
@@ -120,7 +121,7 @@ pub enum ExtensionEvent {
 }
 
 /// Which browser the extension is running in.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
 pub enum BrowserType {
     Chrome,
     Firefox,
@@ -131,7 +132,7 @@ pub enum BrowserType {
 }
 
 /// Describes which rule matched (for stats/debugging).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum MatchedRule {
     Domain(String),
     Keyword(String),
@@ -144,6 +145,11 @@ pub enum MatchedRule {
 
 /// Message envelope for Native Messaging protocol.
 /// The native host reads/writes these as length-prefixed JSON on stdin/stdout.
+///
+/// Deliberately *not* `specta::Type`: `payload` is an untyped `serde_json::Value`,
+/// which has no TypeScript representation. This type never crosses the Tauri
+/// boundary — it is the browser-extension wire format only — so it does not need
+/// generated bindings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeMessage {
     /// Message type tag for quick dispatch.
@@ -152,7 +158,7 @@ pub struct NativeMessage {
     pub payload: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub enum NativeMessageType {
     /// Service → Extension: here are your blocking rules.
     RuleUpdate,
@@ -172,7 +178,7 @@ pub enum NativeMessageType {
 ///
 /// The service tracks this to warn the user when they create rules
 /// that need the extension but the extension isn't connected.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct BlockingCapabilities {
     /// Hosts file is writable — domain blocking works.
     pub hosts_file: bool,

@@ -1,10 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::types::{EntityId, new_id};
 
 /// What an allowance targets: a domain or an application.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(tag = "kind", content = "value")]
 pub enum AllowanceMatch {
     /// A domain (matches the domain itself and any subdomain).
@@ -51,7 +52,7 @@ impl AllowanceMatch {
 }
 
 /// A user-configured daily time budget for a domain or app.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Allowance {
     pub id: EntityId,
     pub target: AllowanceMatch,
@@ -87,7 +88,7 @@ impl Allowance {
 }
 
 /// A snapshot of an allowance with today's usage, for the UI.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AllowanceStatus {
     pub allowance: Allowance,
     pub used_today_secs: u32,
@@ -111,7 +112,7 @@ impl AllowanceStatus {
 }
 
 /// Tick payload from the extension / app watcher.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AllowanceTick {
     /// Hostname of the active tab (e.g., "youtube.com"). None for app ticks.
     pub hostname: Option<String>,

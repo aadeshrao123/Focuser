@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 use crate::types::{EntityId, new_id};
 
 /// User-editable configuration for a Pomodoro session.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct PomodoroConfig {
     pub work_secs: u32,
     pub short_break_secs: u32,
@@ -54,7 +55,7 @@ impl PomodoroConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum PomodoroPhase {
     Work,
@@ -90,7 +91,7 @@ impl PomodoroPhase {
 }
 
 /// An active Pomodoro session. Persisted to DB across restarts.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PomodoroSession {
     pub id: EntityId,
     pub block_list_id: EntityId,
@@ -153,7 +154,7 @@ impl PomodoroSession {
 }
 
 /// Snapshot of the Pomodoro state for the UI.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PomodoroStatus {
     pub session_id: Uuid,
     pub block_list_id: Uuid,

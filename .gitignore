@@ -58,3 +58,10 @@ dist/
 *.AppImage
 # Sidecar binaries (built by CI, not committed)
 crates/focuser-ui/binaries/
+
+# ─── Internal working docs (local only, never pushed) ────
+# Per-task plans, progress logs, gotchas. See internal-docs/README.md
+internal-docs/
+
+# ─── Claude Code local config ────────────────────────────
+.claude/
