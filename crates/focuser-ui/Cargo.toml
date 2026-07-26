@@ -11,6 +11,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 focuser-common = { workspace = true }
 focuser-core = { workspace = true }
+focuser-app = { workspace = true }
 directories = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -26,6 +27,9 @@ tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
+specta = { workspace = true }
+specta-typescript = { workspace = true }
+tauri-specta = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

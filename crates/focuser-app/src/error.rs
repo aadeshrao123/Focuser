@@ -6,7 +6,31 @@
 //! string-matching human-readable messages.
 
 use focuser_common::EntityId;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use specta::Type;
+
+/// The wire form of a failure: `{ "code": ..., "message": ... }`.
+///
+/// A separate type because [`CommandError`] cannot itself derive `specta::Type` —
+/// its `Core` variant wraps `FocuserError`, which has no TypeScript
+/// representation. This is what crosses the boundary, and what the generated
+/// bindings describe.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CommandErrorPayload {
+    /// Stable identifier for the failure kind. Safe to branch on.
+    pub code: String,
+    /// Human-readable explanation. Not stable; never branch on it.
+    pub message: String,
+}
+
+impl From<CommandError> for CommandErrorPayload {
+    fn from(err: CommandError) -> Self {
+        Self {
+            code: err.code().to_string(),
+            message: err.to_string(),
+        }
+    }
+}
 
 /// Anything a command can fail with.
 #[derive(Debug, thiserror::Error)]

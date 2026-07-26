@@ -13,14 +13,11 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import type { CommandErrorPayload } from "@/bindings";
 
 const DEVSERVER_URL = import.meta.env.VITE_DEVSERVER_URL ?? "http://localhost:17550";
 
-/** Shape the backend uses for every failure: `{ code, message }`. */
-export interface CommandErrorPayload {
-  code: string;
-  message: string;
-}
+export type { CommandErrorPayload };
 
 /** A failed command. `code` is stable and safe to branch on; `message` is prose. */
 export class CommandError extends Error {

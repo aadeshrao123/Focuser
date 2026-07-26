@@ -4,11 +4,12 @@ mod api;
 mod blocker;
 mod commands;
 mod foreground_watcher;
+mod typed_commands;
 
 use directories::ProjectDirs;
-use focuser_core::allowance::AllowanceTracker;
+
 use focuser_core::{BlockEngine, Database};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::{
     Manager,
     menu::{MenuBuilder, MenuItemBuilder},
@@ -17,41 +18,25 @@ use tauri::{
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-/// Events from the blocker loop that the UI thread should react to
-/// (e.g., OS notifications on Pomodoro phase change).
-#[derive(Debug, Clone)]
-pub enum PomodoroEvent {
-    PhaseAdvanced { to: String, cycle: u32 },
-    TamperDetected,
-}
+/// Shared application state.
+///
+/// This *is* `focuser_app::AppContext` — the GUI no longer owns a private copy of
+/// the engine handle. Kept as an alias so the 70-odd existing `AppState`
+/// references keep compiling while commands are ported over domain by domain.
+///
+/// New code should say `AppContext`.
+pub use focuser_app::{AppContext as AppState, PomodoroEvent};
 
-/// Shared application state accessible from all Tauri commands.
-pub struct AppState {
-    pub engine: Mutex<BlockEngine>,
-    pub allowance_tracker: AllowanceTracker,
-    pomodoro_events: Mutex<Vec<PomodoroEvent>>,
-}
+/// Pushes the engine's blocked-domain set into the system hosts file.
+///
+/// This is the GUI's implementation of the one system side effect the command
+/// core needs. Injecting it keeps `focuser-app` free of any dependency on a
+/// particular frontend, and lets tests substitute a no-op.
+struct HostsSync;
 
-impl AppState {
-    pub fn new(engine: BlockEngine) -> Self {
-        Self {
-            engine: Mutex::new(engine),
-            allowance_tracker: AllowanceTracker::new(),
-            pomodoro_events: Mutex::new(Vec::new()),
-        }
-    }
-
-    pub fn push_pomodoro_event(&self, event: PomodoroEvent) {
-        if let Ok(mut buf) = self.pomodoro_events.lock() {
-            buf.push(event);
-        }
-    }
-
-    pub fn drain_pomodoro_events(&self) -> Vec<PomodoroEvent> {
-        self.pomodoro_events
-            .lock()
-            .map(|mut b| std::mem::take(&mut *b))
-            .unwrap_or_default()
+impl focuser_app::SystemSync for HostsSync {
+    fn sync_hosts(&self, domains: &[String]) {
+        let _ = blocker::apply_hosts_blocks(domains);
     }
 }
 
@@ -84,7 +69,12 @@ fn main() {
     let db = Database::open(&db_path).expect("Could not open database");
     let engine = BlockEngine::new(db).expect("Could not initialize engine");
 
-    let state = Arc::new(AppState::new(engine));
+    let state = Arc::new(AppState::new(engine, Arc::new(HostsSync)));
+
+    // Regenerate frontend bindings on every debug run, so a changed Command
+    // enum immediately breaks the TypeScript build rather than drifting.
+    #[cfg(debug_assertions)]
+    typed_commands::export_bindings();
 
     let state_for_blocker = Arc::clone(&state);
 
@@ -161,6 +151,7 @@ fn main() {
             commands::set_setting,
             commands::pomodoro_history,
             commands::allowance_history,
+            typed_commands::run_command,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run
