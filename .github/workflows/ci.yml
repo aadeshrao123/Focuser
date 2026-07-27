@@ -163,3 +163,22 @@ jobs:
 
       - name: Check for drift
         run: git diff --exit-code -- crates/focuser-ui/frontend/src/bindings.ts
+
+  extension:
+    name: Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The hostname rules here mirror focuser_common::host. If they drift,
+      # which form the user typed starts to matter again.
+      - name: Test
+        run: node --test extension/background.test.mjs
+
+      - name: Build
+        run: python extension/build.py

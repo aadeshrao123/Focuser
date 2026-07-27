@@ -126,7 +126,15 @@ pub fn run_api_server(state: Arc<AppState>) {
         }
     };
     info!(port = API_PORT, "Extension API server listening");
+    serve(listener, state);
+}
 
+/// Serve on an already-bound listener.
+///
+/// Split out so tests can bind an ephemeral port and drive the real endpoints
+/// over real HTTP — the extension's half of the contract is otherwise only
+/// exercised by installing the extension and watching.
+pub fn serve(listener: TcpListener, state: Arc<AppState>) {
     for stream in listener.incoming().flatten() {
         let state = Arc::clone(&state);
         std::thread::spawn(move || {
@@ -660,5 +668,219 @@ fn api_allowances_list(state: &AppState) -> (&'static str, String) {
             serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()),
         ),
         Err(e) => ("500 Internal Server Error", format!(r#"{{"error":"{e}"}}"#)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Drives the real extension endpoints over real HTTP.
+    //!
+    //! This is the half of the allowance feature that used to be verifiable
+    //! only by installing the extension and watching a number fail to move.
+    //! The requests below are byte-for-byte what `background.js` sends.
+
+    use std::io::{Read, Write};
+    use std::sync::Arc;
+
+    use focuser_app::AppContext;
+    use focuser_common::allowance::AllowanceMatch;
+    use focuser_common::types::{BlockList, WebsiteRule};
+    use focuser_core::{BlockEngine, Database};
+
+    /// A context that reports a connected extension, since that is the state
+    /// any request to these endpoints implies.
+    fn ctx_with_extension(setup: impl FnOnce(&Database)) -> Arc<AppContext> {
+        struct Connected;
+        impl focuser_app::SystemSync for Connected {
+            fn sync_hosts(&self, _domains: &[String]) {}
+            fn connected_browsers(&self) -> Vec<String> {
+                vec!["Chrome".to_string()]
+            }
+        }
+
+        let db = Database::open_in_memory().unwrap();
+        setup(&db);
+        let engine = BlockEngine::new(db).unwrap();
+        Arc::new(AppContext::new(engine, Arc::new(Connected)))
+    }
+
+    /// Start the server on an ephemeral port and return its address.
+    fn start(state: Arc<AppContext>) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        std::thread::spawn(move || super::serve(listener, state));
+        addr
+    }
+
+    fn request(addr: &str, method: &str, path: &str, body: Option<&str>) -> String {
+        let mut stream = std::net::TcpStream::connect(addr).unwrap();
+        let body = body.unwrap_or("");
+        let request = format!(
+            "{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(request.as_bytes()).unwrap();
+
+        let mut response = String::new();
+        stream.read_to_string(&mut response).unwrap();
+        response
+            .split_once("\r\n\r\n")
+            .map(|(_, b)| b.to_string())
+            .unwrap_or(response)
+    }
+
+    fn tick(addr: &str, hostname: &str, seconds: u32) -> String {
+        // Exactly the payload background.js posts.
+        let body = format!(
+            r#"{{"hostname":"{hostname}","app_exe":null,"active":true,\
+               "source":"extension-tick","increment_secs":{seconds}}}"#
+        )
+        .replace("\\\n               ", "");
+        request(addr, "POST", "/api/allowance-tick", Some(&body))
+    }
+
+    fn used_secs(state: &AppContext) -> u32 {
+        let eng = state.engine.lock().unwrap();
+        let allowances = eng.db().list_allowances().unwrap();
+        eng.db().get_allowance_used_today(allowances[0].id).unwrap()
+    }
+
+    #[test]
+    fn a_tick_increments_the_matching_allowance_whichever_www_form_it_reports() {
+        for stored in ["youtube.com", "www.youtube.com"] {
+            let state = ctx_with_extension(|db| {
+                db.create_allowance(&focuser_common::allowance::Allowance::new(
+                    AllowanceMatch::Domain(stored.into()),
+                    1800,
+                    true,
+                ))
+                .unwrap();
+            });
+            let addr = start(Arc::clone(&state));
+
+            assert_eq!(used_secs(&state), 0, "starts at zero");
+
+            for reported in ["youtube.com", "www.youtube.com", "music.youtube.com"] {
+                tick(&addr, reported, 5);
+            }
+
+            assert_eq!(
+                used_secs(&state),
+                15,
+                "allowance stored as {stored:?} should count every form"
+            );
+        }
+    }
+
+    #[test]
+    fn a_tick_for_an_unrelated_site_counts_nothing() {
+        let state = ctx_with_extension(|db| {
+            db.create_allowance(&focuser_common::allowance::Allowance::new(
+                AllowanceMatch::Domain("youtube.com".into()),
+                1800,
+                true,
+            ))
+            .unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+
+        tick(&addr, "example.com", 30);
+        tick(&addr, "notyoutube.com", 30);
+
+        assert_eq!(used_secs(&state), 0);
+    }
+
+    #[test]
+    fn usage_accumulates_until_the_limit_then_the_site_is_blocked() {
+        let state = ctx_with_extension(|db| {
+            let mut list = BlockList::new("Videos");
+            list.websites.push(WebsiteRule::domain("youtube.com"));
+            db.create_block_list(&list).unwrap();
+            db.create_allowance(&focuser_common::allowance::Allowance::new(
+                AllowanceMatch::Domain("www.youtube.com".into()),
+                60,
+                true,
+            ))
+            .unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+
+        // Under the limit: reachable, because the allowance exempts it.
+        let body = request(&addr, "GET", "/api/check?domain=www.youtube.com", None);
+        assert!(
+            body.contains(r#""blocked":false"#),
+            "should be reachable while the budget lasts, got {body}"
+        );
+
+        // Burn the whole minute.
+        for _ in 0..2 {
+            tick(&addr, "www.youtube.com", 30);
+        }
+        assert_eq!(used_secs(&state), 60);
+
+        // Exhausted: blocked again, in either form.
+        for host in ["youtube.com", "www.youtube.com"] {
+            let body = request(&addr, "GET", &format!("/api/check?domain={host}"), None);
+            assert!(
+                body.contains(r#""blocked":true"#),
+                "{host} should be blocked once the budget is spent, got {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn strict_mode_ignores_a_tick_from_an_unfocused_tab() {
+        let state = ctx_with_extension(|db| {
+            db.create_allowance(&focuser_common::allowance::Allowance::new(
+                AllowanceMatch::Domain("youtube.com".into()),
+                1800,
+                true,
+            ))
+            .unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+
+        request(
+            &addr,
+            "POST",
+            "/api/allowance-tick",
+            Some(r#"{"hostname":"youtube.com","app_exe":null,"active":false,"increment_secs":30}"#),
+        );
+
+        assert_eq!(used_secs(&state), 0, "strict mode only counts focused time");
+    }
+
+    #[test]
+    fn compiled_rules_carry_both_www_forms_for_blocks_and_exemptions() {
+        let state = ctx_with_extension(|db| {
+            let mut list = BlockList::new("Videos");
+            list.websites.push(WebsiteRule::domain("youtube.com"));
+            db.create_block_list(&list).unwrap();
+            db.create_allowance(&focuser_common::allowance::Allowance::new(
+                AllowanceMatch::Domain("www.youtube.com".into()),
+                1800,
+                true,
+            ))
+            .unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+
+        let body = request(&addr, "GET", "/api/rules", None);
+        let rules: serde_json::Value = serde_json::from_str(&body).unwrap();
+
+        let blocked = rules["blocked_domains"].as_array().unwrap();
+        let allowed = rules["allowed_domains"].as_array().unwrap();
+
+        for form in ["youtube.com", "www.youtube.com"] {
+            assert!(
+                blocked.iter().any(|d| d == form),
+                "blocked_domains should list {form}: {blocked:?}"
+            );
+            assert!(
+                allowed.iter().any(|d| d == form),
+                "allowed_domains should list {form}: {allowed:?}"
+            );
+        }
     }
 }
