@@ -2,10 +2,13 @@
   "productName": "Focuser",
   "identifier": "com.focuser.app",
   "build": {
-    "frontendDist": "./ui"
+    "beforeDevCommand": "npm --prefix frontend run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm --prefix frontend ci && npm --prefix frontend run build",
+    "frontendDist": "./frontend/dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
@@ -19,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
@@ -58,7 +61,10 @@
     },
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libappindicator3-1"]
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libappindicator3-1"
+        ]
       },
       "appimage": {
         "bundleMediaFramework": false

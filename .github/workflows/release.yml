@@ -41,6 +41,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/focuser-ui/frontend/package-lock.json
+
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 

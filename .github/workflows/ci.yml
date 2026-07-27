@@ -44,11 +44,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
+      - name: Build sidecar binaries
+        shell: bash
+        run: |
+          cargo build -p focuser-service -p focuser-cli -p focuser-native
+          mkdir -p crates/focuser-ui/binaries
+          host=$(rustc -vV | awk '/^host:/ {print $2}')
+          ext=""
+          [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
+          for bin in focuser-service focuser-cli focuser-native; do
+            cp "target/debug/$bin$ext" "crates/focuser-ui/binaries/$bin-$host$ext"
+          done
+
       - name: Run tests
-        run: cargo test --workspace --exclude focuser-ui --verbose
+        run: cargo test --workspace --verbose
 
       - name: Run clippy
-        run: cargo clippy --workspace --exclude focuser-ui -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -85,5 +97,69 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
-      - name: Build all crates (excluding Tauri UI which needs system webview)
-        run: cargo build --workspace --exclude focuser-ui
+      - name: Build sidecar binaries
+        shell: bash
+        run: |
+          cargo build -p focuser-service -p focuser-cli -p focuser-native
+          mkdir -p crates/focuser-ui/binaries
+          host=$(rustc -vV | awk '/^host:/ {print $2}')
+          ext=""
+          [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
+          for bin in focuser-service focuser-cli focuser-native; do
+            cp "target/debug/$bin$ext" "crates/focuser-ui/binaries/$bin-$host$ext"
+          done
+
+      - name: Build all crates
+        run: cargo build --workspace
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/focuser-ui/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/focuser-ui/frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint and format
+        run: npx biome check .
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx vitest run
+
+      - name: Build
+        run: npx vite build
+
+  bindings:
+    name: Bindings are up to date
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      # Generated from Rust, so a stale committed copy means the frontend is
+      # typechecking against a backend that no longer exists.
+      - name: Regenerate
+        run: cargo run -p focuser-ui -- --export-bindings
+
+      - name: Check for drift
+        run: git diff --exit-code -- crates/focuser-ui/frontend/src/bindings.ts

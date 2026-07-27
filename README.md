@@ -147,12 +147,14 @@ Focuser/
 ├── crates/
 │   ├── focuser-common/    # Shared types, errors, platform traits
 │   ├── focuser-core/      # Database, rules engine, blocking logic
+│   ├── focuser-app/       # Command core — every action the app can perform
 │   ├── focuser-service/   # Standalone service daemon
 │   ├── focuser-native/    # Native messaging host (extension bridge)
 │   ├── focuser-cli/       # Command-line interface
+│   ├── focuser-devserver/ # Dev-only HTTP bridge, for running the UI in a browser
 │   └── focuser-ui/        # Tauri desktop app (embeds the engine)
-│       ├── src/           # Rust backend (commands, blocker, API server)
-│       └── ui/            # Frontend (HTML/CSS/JS)
+│       ├── src/           # Rust shell (blocker, extension API, native shims)
+│       └── frontend/      # React + TypeScript + Tailwind
 ├── extension/             # Browser extension (Manifest V3)
 │   ├── dist/chrome/       # Chrome/Edge/Brave/Opera build
 │   └── dist/firefox/      # Firefox build
