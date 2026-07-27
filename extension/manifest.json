@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Focuser",
-  "version": "0.4.1",
-  "description": "Website blocker — blocks distracting sites to help you stay focused",
+  "version": "0.4.2",
+  "description": "Website blocker \u2014 blocks distracting sites to help you stay focused",
   "permissions": [
     "activeTab",
     "tabs",
@@ -17,14 +17,18 @@
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "browser_specific_settings": {
     "gecko": {
       "id": "focuser@focuser-app",
       "strict_min_version": "142.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
@@ -43,16 +47,30 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content-early.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content-early.js"
+      ],
       "run_at": "document_start",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html", "blocked.css", "content-block.js", "content-hide.css", "content-early.js", "messages.json", "premade-lists.json"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "blocked.html",
+        "blocked.css",
+        "content-block.js",
+        "content-hide.css",
+        "content-early.js",
+        "messages.json",
+        "premade-lists.json"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
