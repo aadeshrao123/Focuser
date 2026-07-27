@@ -38,7 +38,12 @@ const router = createHashRouter([
       { path: "websites", element: <Websites /> },
       { path: "apps", element: <Apps /> },
       { path: "schedule", element: <Schedule /> },
-      { path: "statistics", element: <Placeholder title="Statistics" /> },
+      // Split out: the charting library is a third of the bundle and most
+      // sessions never open this page.
+      {
+        path: "statistics",
+        lazy: async () => ({ Component: (await import("@/routes/statistics")).Statistics }),
+      },
       { path: "settings", element: <Placeholder title="Settings" /> },
     ],
   },

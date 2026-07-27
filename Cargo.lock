@@ -1209,12 +1209,13 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "directories",
+ "focuser-app",
  "focuser-common",
+ "focuser-core",
  "serde",
  "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
+ "tempfile",
  "uuid",
 ]
 
