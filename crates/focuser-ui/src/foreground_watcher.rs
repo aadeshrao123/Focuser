@@ -97,14 +97,9 @@ fn user_idle_seconds() -> Option<u32> {
     }
 }
 
-/// Strip a full Windows path down to its file name component.
-fn file_name(path: &str) -> String {
-    path.rsplit(['\\', '/']).next().unwrap_or(path).to_string()
-}
-
 #[cfg(windows)]
 mod win {
-    use super::{ForegroundSample, file_name};
+    use super::ForegroundSample;
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::SystemInformation::GetTickCount;
     use windows::Win32::System::Threading::{
@@ -113,6 +108,15 @@ mod win {
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+
+    /// Strip a full path down to its file name component.
+    ///
+    /// Lives inside the Windows module because that is its only caller — on
+    /// other platforms `foreground_app` returns `None` and this would be dead
+    /// code that fails a `-D warnings` build.
+    fn file_name(path: &str) -> String {
+        path.rsplit(['\\', '/']).next().unwrap_or(path).to_string()
+    }
 
     pub fn foreground_app() -> Option<ForegroundSample> {
         let pid = foreground_pid()?;
@@ -172,32 +176,32 @@ mod win {
             Some(now.saturating_sub(info.dwTime) / 1000)
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::file_name;
+    #[cfg(test)]
+    mod tests {
+        use super::file_name;
 
-    #[test]
-    fn file_name_strips_windows_path() {
-        assert_eq!(
-            file_name(r"C:\Program Files\Discord\Discord.exe"),
-            "Discord.exe"
-        );
-    }
+        #[test]
+        fn file_name_strips_windows_path() {
+            assert_eq!(
+                file_name(r"C:\Program Files\Discord\Discord.exe"),
+                "Discord.exe"
+            );
+        }
 
-    #[test]
-    fn file_name_strips_unix_path() {
-        assert_eq!(file_name("/usr/bin/firefox"), "firefox");
-    }
+        #[test]
+        fn file_name_strips_unix_path() {
+            assert_eq!(file_name("/usr/bin/firefox"), "firefox");
+        }
 
-    #[test]
-    fn file_name_handles_bare_name() {
-        assert_eq!(file_name("notepad.exe"), "notepad.exe");
-    }
+        #[test]
+        fn file_name_handles_bare_name() {
+            assert_eq!(file_name("notepad.exe"), "notepad.exe");
+        }
 
-    #[test]
-    fn file_name_handles_empty() {
-        assert_eq!(file_name(""), "");
+        #[test]
+        fn file_name_handles_empty() {
+            assert_eq!(file_name(""), "");
+        }
     }
 }
