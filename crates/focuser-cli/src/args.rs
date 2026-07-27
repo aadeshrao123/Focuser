@@ -325,15 +325,24 @@ pub enum PomodoroCmd {
     Status,
     Start {
         block_list_id: EntityId,
-        #[arg(long, default_value_t = 1500)]
-        work_secs: u32,
-        #[arg(long, default_value_t = 300)]
-        short_break_secs: u32,
-        #[arg(long, default_value_t = 900)]
-        long_break_secs: u32,
-        #[arg(long, default_value_t = 4)]
-        cycles: u32,
+        /// Duration preset to start from. See `pomodoro presets`.
+        #[arg(long, default_value = "classic")]
+        preset: String,
+        /// Override the preset's focus length.
+        #[arg(long)]
+        work_secs: Option<u32>,
+        /// Override the preset's short break.
+        #[arg(long)]
+        short_break_secs: Option<u32>,
+        /// Override the preset's long break.
+        #[arg(long)]
+        long_break_secs: Option<u32>,
+        /// Override how many focus blocks precede a long break.
+        #[arg(long)]
+        cycles: Option<u32>,
     },
+    /// List the built-in duration presets.
+    Presets,
     Pause,
     Resume,
     Skip,
@@ -560,21 +569,36 @@ impl TopLevel {
 
             TopLevel::Pomodoro(c) => match c {
                 PomodoroCmd::Status => Command::PomodoroStatus,
+                PomodoroCmd::Presets => Command::PomodoroPresets,
                 PomodoroCmd::Start {
                     block_list_id,
+                    preset,
                     work_secs,
                     short_break_secs,
                     long_break_secs,
                     cycles,
-                } => Command::PomodoroStart {
-                    block_list_id,
-                    config: PomodoroConfig {
-                        work_secs,
-                        short_break_secs,
-                        long_break_secs,
-                        cycles_until_long_break: cycles,
-                    },
-                },
+                } => {
+                    // The preset supplies the baseline; each flag overrides one
+                    // field, so `--preset sprint --work-secs 600` means what it
+                    // looks like rather than silently ignoring one of the two.
+                    let base =
+                        focuser_common::pomodoro::preset_by_key(&preset).ok_or_else(|| {
+                            let keys: Vec<String> = focuser_common::pomodoro::presets()
+                                .into_iter()
+                                .map(|p| p.key)
+                                .collect();
+                            anyhow::anyhow!("unknown preset '{preset}' — try {}", keys.join(", "))
+                        })?;
+                    Command::PomodoroStart {
+                        block_list_id,
+                        config: PomodoroConfig {
+                            work_secs: work_secs.unwrap_or(base.work_secs),
+                            short_break_secs: short_break_secs.unwrap_or(base.short_break_secs),
+                            long_break_secs: long_break_secs.unwrap_or(base.long_break_secs),
+                            cycles_until_long_break: cycles.unwrap_or(base.cycles_until_long_break),
+                        },
+                    }
+                }
                 PomodoroCmd::Pause => Command::PomodoroPause,
                 PomodoroCmd::Resume => Command::PomodoroResume,
                 PomodoroCmd::Skip => Command::PomodoroSkip,

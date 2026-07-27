@@ -375,6 +375,20 @@ export function usePomodoroStatus() {
   });
 }
 
+/**
+ * The built-in duration presets, straight from Rust.
+ *
+ * They never change while the app is open, so this is fetched once and kept —
+ * refetching constants would only add flicker.
+ */
+export function usePomodoroPresets() {
+  return useQuery({
+    queryKey: ["pomodoro-presets"] as const,
+    queryFn: async () => expect(await run({ cmd: "pomodoro_presets" }), "pomodoro_presets").data,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
 function usePomodoroMutation<TArgs>(build: (args: TArgs) => Command) {
   const qc = useQueryClient();
   return useMutation({

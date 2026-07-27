@@ -19,10 +19,10 @@
 //! focuser --db /tmp/test.db --json list ls
 //! ```
 //!
-//! This replaces an IPC-based CLI that talked to `focuser-service` over TCP
-//! 17549. That port is contested by the Tauri app's extension API, and nothing
-//! ever launched the service, so those commands could not work in a shipped
-//! install. Going straight to the database removes the moving part entirely.
+//! This replaces an IPC-based CLI that talked to a standalone service over TCP
+//! 17549 — a port the app's extension API already owns, for a service nothing
+//! ever launched. Those commands could not work in a shipped install. Going
+//! straight to the database removes the moving part entirely.
 
 mod args;
 mod output;

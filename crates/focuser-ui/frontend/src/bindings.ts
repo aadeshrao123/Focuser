@@ -266,7 +266,9 @@ export type Command =
 /**  Remove Focuser's hosts-file entries. */
 { cmd: "remove_blocks" } | 
 /**  Current session, or `None` when nothing is running. */
-{ cmd: "pomodoro_status" } | { cmd: "pomodoro_start"; args: {
+{ cmd: "pomodoro_status" } | 
+/**  The built-in duration presets, in display order. */
+{ cmd: "pomodoro_presets" } | { cmd: "pomodoro_start"; args: {
 	block_list_id: string,
 	config: PomodoroConfig,
 } } | 
@@ -364,7 +366,7 @@ export type CommandResult =
 /**  A yes/no outcome — e.g. "was a session actually paused". */
 { kind: "flag"; data: boolean } | 
 /**  Current Pomodoro session, or `None` when idle. */
-{ kind: "pomodoro_status"; data: PomodoroStatus | null } | { kind: "pomodoro_session"; data: PomodoroSession } | { kind: "pomodoro_events"; data: PomodoroEventDto[] } | { kind: "pomodoro_history"; data: PomodoroHistoryEntry[] } | { kind: "allowance"; data: Allowance } | { kind: "allowances"; data: AllowanceStatus[] } | { kind: "allowance_notifications"; data: AllowanceNotificationDto[] } | { kind: "allowance_history"; data: AllowanceUsageEntry[] } | 
+{ kind: "pomodoro_status"; data: PomodoroStatus | null } | { kind: "pomodoro_session"; data: PomodoroSession } | { kind: "pomodoro_events"; data: PomodoroEventDto[] } | { kind: "pomodoro_history"; data: PomodoroHistoryEntry[] } | { kind: "pomodoro_presets"; data: PomodoroPreset[] } | { kind: "allowance"; data: Allowance } | { kind: "allowances"; data: AllowanceStatus[] } | { kind: "allowance_notifications"; data: AllowanceNotificationDto[] } | { kind: "allowance_history"; data: AllowanceUsageEntry[] } | 
 /**  Free text — an exported configuration document, or a version string. */
 { kind: "text"; data: string } | { kind: "browser_status"; data: BrowserStatus[] } | { kind: "app_icons"; data: AppIcon[] };
 
@@ -430,6 +432,21 @@ export type PomodoroHistoryEntry = {
 };
 
 export type PomodoroPhase = "work" | "short_break" | "long_break";
+
+/**
+ *  A named starting point for a Pomodoro session.
+ * 
+ *  The three built-ins are the single source of these numbers. The GUI and the
+ *  CLI both read them through [`presets`] instead of restating them, so a
+ *  change here reaches every surface at once.
+ */
+export type PomodoroPreset = {
+	/**  Stable identifier — what `--preset` accepts. Never translated. */
+	key: string,
+	/**  What the user sees. */
+	label: string,
+	config: PomodoroConfig,
+};
 
 /**  An active Pomodoro session. Persisted to DB across restarts. */
 export type PomodoroSession = {

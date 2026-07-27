@@ -14,6 +14,44 @@ pub struct PomodoroConfig {
     pub cycles_until_long_break: u32,
 }
 
+/// A named starting point for a Pomodoro session.
+///
+/// The three built-ins are the single source of these numbers. The GUI and the
+/// CLI both read them through [`presets`] instead of restating them, so a
+/// change here reaches every surface at once.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
+pub struct PomodoroPreset {
+    /// Stable identifier — what `--preset` accepts. Never translated.
+    pub key: String,
+    /// What the user sees.
+    pub label: String,
+    pub config: PomodoroConfig,
+}
+
+/// The presets on offer, in the order they should be shown.
+pub fn presets() -> Vec<PomodoroPreset> {
+    [
+        ("classic", "Classic", PomodoroConfig::CLASSIC),
+        ("long", "Long", PomodoroConfig::LONG),
+        ("sprint", "Sprint", PomodoroConfig::SPRINT),
+    ]
+    .into_iter()
+    .map(|(key, label, config)| PomodoroPreset {
+        key: key.into(),
+        label: label.into(),
+        config,
+    })
+    .collect()
+}
+
+/// Resolve a preset key, for `--preset` on the command line.
+pub fn preset_by_key(key: &str) -> Option<PomodoroConfig> {
+    presets()
+        .into_iter()
+        .find(|p| p.key.eq_ignore_ascii_case(key))
+        .map(|p| p.config)
+}
+
 impl PomodoroConfig {
     pub const CLASSIC: Self = Self {
         work_secs: 25 * 60,
@@ -167,4 +205,54 @@ pub struct PomodoroStatus {
     pub phase_duration_secs: u32,
     pub paused: bool,
     pub started_at: DateTime<Utc>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_preset_passes_its_own_validation() {
+        for preset in presets() {
+            assert!(
+                preset.config.validate().is_ok(),
+                "preset {} is not a valid config",
+                preset.key
+            );
+        }
+    }
+
+    #[test]
+    fn preset_keys_are_unique() {
+        let mut keys: Vec<String> = presets().into_iter().map(|p| p.key).collect();
+        let total = keys.len();
+        keys.sort();
+        keys.dedup();
+        assert_eq!(keys.len(), total, "two presets share a key");
+    }
+
+    #[test]
+    fn every_preset_is_reachable_by_its_own_key() {
+        for preset in presets() {
+            assert_eq!(
+                preset_by_key(&preset.key),
+                Some(preset.config),
+                "{} did not resolve back to itself",
+                preset.key
+            );
+        }
+    }
+
+    #[test]
+    fn lookup_ignores_case_and_rejects_unknown_keys() {
+        assert_eq!(preset_by_key("CLASSIC"), Some(PomodoroConfig::CLASSIC));
+        assert_eq!(preset_by_key("nonsense"), None);
+    }
+
+    #[test]
+    fn classic_is_the_first_preset_offered() {
+        // The GUI opens on whatever comes first, so this is the default a
+        // user sees before touching anything.
+        assert_eq!(presets()[0].config, PomodoroConfig::CLASSIC);
+    }
 }

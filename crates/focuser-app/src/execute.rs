@@ -355,6 +355,10 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         // ─── Pomodoro ─────────────────────────────────────────────
+        Command::PomodoroPresets => Ok(CommandResult::PomodoroPresets(
+            focuser_common::pomodoro::presets(),
+        )),
+
         Command::PomodoroStatus => Ok(CommandResult::PomodoroStatus(pomodoro::build_status(
             engine.db(),
         )?)),

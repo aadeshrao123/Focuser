@@ -124,6 +124,20 @@ pub fn print_human(result: &CommandResult) {
             }
         }
 
+        CommandResult::PomodoroPresets(presets) => {
+            for p in presets {
+                println!(
+                    "{:<8} {:<8} {} focus / {} short / {} long, long break every {}",
+                    p.key,
+                    p.label,
+                    format_duration(u64::from(p.config.work_secs)),
+                    format_duration(u64::from(p.config.short_break_secs)),
+                    format_duration(u64::from(p.config.long_break_secs)),
+                    p.config.cycles_until_long_break,
+                );
+            }
+        }
+
         CommandResult::Allowance(a) => println!("{}  {}", a.id, a.target.display()),
 
         CommandResult::Allowances(statuses) if statuses.is_empty() => println!("No allowances."),

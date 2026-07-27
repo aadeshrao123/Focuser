@@ -9,7 +9,7 @@
 
 use chrono::NaiveDate;
 use focuser_common::allowance::{Allowance, AllowanceMatch, AllowanceStatus};
-use focuser_common::pomodoro::{PomodoroConfig, PomodoroSession, PomodoroStatus};
+use focuser_common::pomodoro::{PomodoroConfig, PomodoroPreset, PomodoroSession, PomodoroStatus};
 use focuser_common::types::{
     AppMatchType, AppRule, BlockList, BlockedEvent, EntityId, ExceptionRule, ExceptionType,
     TimeSlot, UsageStat, WebsiteMatchType, WebsiteRule,
@@ -181,6 +181,8 @@ pub enum Command {
     // ─── Pomodoro ─────────────────────────────────────────────────
     /// Current session, or `None` when nothing is running.
     PomodoroStatus,
+    /// The built-in duration presets, in display order.
+    PomodoroPresets,
     PomodoroStart {
         block_list_id: EntityId,
         config: PomodoroConfig,
@@ -337,6 +339,7 @@ pub enum CommandResult {
     PomodoroSession(Box<PomodoroSession>),
     PomodoroEvents(Vec<PomodoroEventDto>),
     PomodoroHistory(Vec<PomodoroHistoryEntry>),
+    PomodoroPresets(Vec<PomodoroPreset>),
     Allowance(Box<Allowance>),
     Allowances(Vec<AllowanceStatus>),
     AllowanceNotifications(Vec<AllowanceNotificationDto>),
