@@ -1285,6 +1285,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "directories",
+ "focuser-app",
  "focuser-common",
  "focuser-core",
  "nix",
