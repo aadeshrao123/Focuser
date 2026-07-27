@@ -3,6 +3,7 @@ import {
   BarChart3,
   CalendarClock,
   Globe,
+  Hourglass,
   LayoutDashboard,
   ListChecks,
   Settings,
@@ -16,6 +17,7 @@ const NAV = [
   { to: "/websites", label: "Websites", icon: Globe },
   { to: "/apps", label: "Applications", icon: AppWindow },
   { to: "/schedule", label: "Schedule", icon: CalendarClock },
+  { to: "/allowances", label: "Allowances", icon: Hourglass },
   { to: "/statistics", label: "Statistics", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { InlineError } from "@/components/ui/feedback";
 import { NumberField } from "@/components/ui/number-field";
+import { Progress } from "@/components/ui/progress";
 import {
   usePausePomodoro,
   usePomodoroStatus,
@@ -94,17 +95,7 @@ function Running({
         </div>
       </div>
 
-      <div
-        className="mt-4 h-1.5 overflow-hidden rounded-full bg-elevated"
-        role="progressbar"
-        aria-label="Phase progress"
-        aria-valuenow={Math.round(progress * 100)}
-      >
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-1000 ease-linear"
-          style={{ width: `${Math.min(100, progress * 100)}%` }}
-        />
-      </div>
+      <Progress className="mt-4" value={progress} label="Phase progress" />
 
       <InlineError error={pause.error ?? resume.error ?? skip.error ?? stop.error} />
     </div>

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { AppLayout } from "@/app-layout";
 import "@/index.css";
+import { Allowances } from "@/routes/allowances";
 import { Apps } from "@/routes/apps";
 import { BlockLists } from "@/routes/block-lists";
 import { Dashboard } from "@/routes/dashboard";
@@ -39,6 +40,7 @@ const router = createHashRouter([
       { path: "websites", element: <Websites /> },
       { path: "apps", element: <Apps /> },
       { path: "schedule", element: <Schedule /> },
+      { path: "allowances", element: <Allowances /> },
       // Split out: the charting library is a third of the bundle and most
       // sessions never open this page.
       {
