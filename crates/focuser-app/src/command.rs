@@ -7,9 +7,40 @@
 //! Ported incrementally from `focuser-ui/src/commands.rs` — see
 //! `internal-docs/tasks/2026-07-26-ui-revamp/02-command-core.md` for the order.
 
-use focuser_common::types::{BlockList, EntityId};
+use chrono::NaiveDate;
+use focuser_common::allowance::{Allowance, AllowanceMatch, AllowanceStatus};
+use focuser_common::pomodoro::{PomodoroConfig, PomodoroSession, PomodoroStatus};
+use focuser_common::types::{
+    AppMatchType, AppRule, BlockList, BlockedEvent, EntityId, ExceptionRule, ExceptionType,
+    TimeSlot, UsageStat, WebsiteMatchType, WebsiteRule,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+/// A website rule kind *without* its value.
+///
+/// Needed by bulk import, which supplies one kind and many values. Distinct from
+/// [`WebsiteMatchType`], which always carries its payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum WebsiteRuleKind {
+    Domain,
+    Keyword,
+    Wildcard,
+    UrlPath,
+}
+
+impl WebsiteRuleKind {
+    /// Build a rule of this kind from a value.
+    pub fn rule(self, value: &str) -> WebsiteRule {
+        match self {
+            Self::Domain => WebsiteRule::domain(value),
+            Self::Keyword => WebsiteRule::keyword(value),
+            Self::Wildcard => WebsiteRule::wildcard(value),
+            Self::UrlPath => WebsiteRule::url_path(value),
+        }
+    }
+}
 
 /// One application action.
 ///
@@ -22,16 +53,231 @@ pub enum Command {
     /// All block lists, with their rules.
     ListBlockLists,
     /// Create an empty block list. Returns the created list.
-    CreateBlockList { name: String },
+    CreateBlockList {
+        name: String,
+    },
     /// Replace a block list wholesale.
     ///
     /// Takes a real [`BlockList`], not the JSON string the old
     /// `update_block_list(list_json: String)` accepted.
-    UpdateBlockList { list: Box<BlockList> },
+    UpdateBlockList {
+        list: Box<BlockList>,
+    },
     /// Delete a block list and re-sync the hosts file.
-    DeleteBlockList { id: EntityId },
+    DeleteBlockList {
+        id: EntityId,
+    },
     /// Enable or disable a block list.
-    ToggleBlockList { id: EntityId, enabled: bool },
+    ToggleBlockList {
+        id: EntityId,
+        enabled: bool,
+    },
+
+    // ─── Website rules ────────────────────────────────────────────
+    /// Add a website rule. The match type carries its own value, so there is no
+    /// separate stringly-typed `rule_type` to get wrong.
+    AddWebsiteRule {
+        list_id: EntityId,
+        rule: WebsiteMatchType,
+    },
+    /// Remove a website rule. Errors if the rule is not in the list.
+    RemoveWebsiteRule {
+        list_id: EntityId,
+        rule_id: EntityId,
+    },
+    /// Add many website rules of one kind at once, skipping blanks, comment
+    /// lines, and values already present. Returns how many were added.
+    BulkImportWebsites {
+        list_id: EntityId,
+        values: Vec<String>,
+        kind: WebsiteRuleKind,
+    },
+    /// Remove every website rule from every unprotected list.
+    ClearAllWebsites,
+
+    // ─── Application rules ────────────────────────────────────────
+    AddAppRule {
+        list_id: EntityId,
+        rule: AppMatchType,
+    },
+    /// Remove an app rule. Errors if the rule is not in the list.
+    RemoveAppRule {
+        list_id: EntityId,
+        rule_id: EntityId,
+    },
+    /// Remove every app rule from every unprotected list.
+    ClearAllApps,
+
+    // ─── Exceptions ───────────────────────────────────────────────
+    AddException {
+        list_id: EntityId,
+        exception: ExceptionType,
+    },
+    /// Remove an exception. Errors if it is not in the list.
+    RemoveException {
+        list_id: EntityId,
+        exception_id: EntityId,
+    },
+
+    // ─── Schedule ─────────────────────────────────────────────────
+    /// Replace a list's schedule.
+    ///
+    /// `always_active` clears the schedule entirely, meaning the list blocks at
+    /// all times. Slots are real [`TimeSlot`]s — the old command took
+    /// `Vec<serde_json::Value>` and hand-parsed `"Mon"`-style day strings,
+    /// silently dropping any slot it failed to recognise.
+    UpdateSchedule {
+        list_id: EntityId,
+        slots: Vec<TimeSlot>,
+        always_active: bool,
+    },
+
+    // ─── Statistics ───────────────────────────────────────────────
+    GetStats {
+        from: NaiveDate,
+        to: NaiveDate,
+    },
+    GetBlockedEvents {
+        from: NaiveDate,
+        to: NaiveDate,
+    },
+    /// Delete all statistics and blocked events. Block lists are preserved.
+    ClearStatistics,
+    GetStatsRetention,
+    /// Set the retention window and immediately prune anything older.
+    /// Returns the number of rows deleted.
+    SetStatsRetention {
+        days: u32,
+    },
+
+    // ─── Protection ───────────────────────────────────────────────
+    EnableProtection {
+        list_id: EntityId,
+        duration_minutes: u32,
+        prevent_uninstall: bool,
+        prevent_service_stop: bool,
+        prevent_modification: bool,
+    },
+    GetProtectionStatus,
+
+    // ─── Settings ─────────────────────────────────────────────────
+    GetSetting {
+        key: String,
+        default: Option<String>,
+    },
+    SetSetting {
+        key: String,
+        value: String,
+    },
+    /// Reset settings to defaults. Block lists and statistics are preserved.
+    ResetSettings,
+
+    // ─── Enforcement ──────────────────────────────────────────────
+    /// Push the current blocked-domain set to the hosts file now.
+    ApplyBlocks,
+    /// Remove Focuser's hosts-file entries.
+    RemoveBlocks,
+
+    // ─── Pomodoro ─────────────────────────────────────────────────
+    /// Current session, or `None` when nothing is running.
+    PomodoroStatus,
+    PomodoroStart {
+        block_list_id: EntityId,
+        config: PomodoroConfig,
+    },
+    /// Returns whether a session was actually paused.
+    PomodoroPause,
+    PomodoroResume,
+    /// Returns whether a phase actually advanced.
+    PomodoroSkip,
+    /// Returns whether a session was actually stopped.
+    PomodoroStop,
+    /// Take and clear buffered phase-change / tamper events.
+    PomodoroDrainEvents,
+    PomodoroHistory {
+        days: u32,
+    },
+
+    // ─── Allowances ───────────────────────────────────────────────
+    AllowanceList,
+    /// The target carries its own kind, so there is no separate `kind: String`.
+    AllowanceCreate {
+        target: AllowanceMatch,
+        daily_limit_secs: u32,
+        strict_mode: bool,
+    },
+    AllowanceUpdate {
+        id: EntityId,
+        daily_limit_secs: u32,
+        strict_mode: bool,
+        enabled: bool,
+    },
+    AllowanceDelete {
+        id: EntityId,
+    },
+    /// Zero today's usage for one allowance.
+    AllowanceResetToday {
+        id: EntityId,
+    },
+    AllowanceDrainNotifications,
+    AllowanceHistory {
+        id: EntityId,
+        days: u32,
+    },
+}
+
+/// A buffered Pomodoro event, in wire form.
+///
+/// `focuser_app::PomodoroEvent` is the internal type and has no `specta::Type`;
+/// this is its serialisable counterpart.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PomodoroEventDto {
+    PhaseAdvanced { to: String, cycle: u32 },
+    TamperDetected,
+}
+
+/// One completed Pomodoro session, for the statistics page.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct PomodoroHistoryEntry {
+    pub started_at: chrono::DateTime<chrono::Utc>,
+    pub completed_cycles: u32,
+    pub total_work_secs: u32,
+}
+
+/// One day's usage against an allowance.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AllowanceUsageEntry {
+    pub date: String,
+    pub used_secs: u32,
+}
+
+/// An allowance crossing a threshold. Mirrors `focuser_core`'s internal type,
+/// which is not `specta::Type`.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AllowanceNotificationDto {
+    pub allowance_id: String,
+    pub target: String,
+    pub kind: String,
+    pub used_secs: u32,
+    pub limit_secs: u32,
+}
+
+/// An active protection window on a block list.
+///
+/// Replaces the ad-hoc `serde_json::json!` object the old command built.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ProtectionInfo {
+    pub block_list_id: EntityId,
+    pub block_list_name: String,
+    pub prevent_uninstall: bool,
+    pub prevent_service_stop: bool,
+    pub prevent_modification: bool,
+    /// Exported as a TS `number`; see the note on [`UsageStat`] — seconds can
+    /// never approach the 2^53 precision ceiling.
+    #[specta(type = specta_typescript::Number)]
+    pub remaining_seconds: u64,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// The result of a successful [`Command`].
@@ -46,6 +292,27 @@ pub enum CommandResult {
     Unit,
     BlockList(Box<BlockList>),
     BlockLists(Vec<BlockList>),
+    WebsiteRule(Box<WebsiteRule>),
+    AppRule(Box<AppRule>),
+    Exception(Box<ExceptionRule>),
+    /// A number of affected items — e.g. rules imported or cleared.
+    Count(u32),
+    Stats(Vec<UsageStat>),
+    BlockedEvents(Vec<BlockedEvent>),
+    ProtectionStatus(Vec<ProtectionInfo>),
+    /// A setting value; `None` when unset and no default was supplied.
+    Setting(Option<String>),
+    /// A yes/no outcome — e.g. "was a session actually paused".
+    Flag(bool),
+    /// Current Pomodoro session, or `None` when idle.
+    PomodoroStatus(Option<PomodoroStatus>),
+    PomodoroSession(Box<PomodoroSession>),
+    PomodoroEvents(Vec<PomodoroEventDto>),
+    PomodoroHistory(Vec<PomodoroHistoryEntry>),
+    Allowance(Box<Allowance>),
+    Allowances(Vec<AllowanceStatus>),
+    AllowanceNotifications(Vec<AllowanceNotificationDto>),
+    AllowanceHistory(Vec<AllowanceUsageEntry>),
 }
 
 impl CommandResult {
@@ -60,6 +327,13 @@ impl CommandResult {
     pub fn as_block_list(&self) -> Option<&BlockList> {
         match self {
             Self::BlockList(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    pub fn as_count(&self) -> Option<u32> {
+        match self {
+            Self::Count(n) => Some(*n),
             _ => None,
         }
     }

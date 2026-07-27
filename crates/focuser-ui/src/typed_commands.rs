@@ -51,20 +51,38 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .commands(tauri_specta::collect_commands![run_command])
 }
 
+/// Where generated bindings are written, relative to the crate root.
+const BINDINGS_PATH: &str = "frontend/src/bindings.ts";
+
 /// Write `bindings.ts` next to the frontend source.
 ///
-/// Debug builds only: bindings are committed, and a release build should never
-/// depend on writing into the source tree.
-#[cfg(debug_assertions)]
-pub fn export_bindings() {
+/// Invoked via `--export-bindings`, which exits before the database is opened or
+/// a window is created. An earlier version did this during normal startup, but
+/// that made regeneration depend on successfully launching a GUI app — which
+/// fails silently when another instance holds the database, leaving stale
+/// bindings behind with no error. A dedicated flag is deterministic and
+/// scriptable:
+///
+/// ```text
+/// cargo run -p focuser-ui -- --export-bindings
+/// ```
+///
+/// Returns whether the export succeeded, so the caller can set an exit code.
+pub fn export_bindings() -> bool {
     use specta_typescript::Typescript;
 
-    const OUT: &str = "frontend/src/bindings.ts";
-
-    match specta_builder().export(Typescript::default(), OUT) {
-        Ok(()) => tracing::info!(path = OUT, "exported TypeScript bindings"),
-        // Not fatal: the app must still run from a directory where the frontend
-        // source isn't present (a packaged debug build, say).
-        Err(e) => tracing::warn!(error = %e, path = OUT, "could not export bindings"),
+    // Note: 64-bit fields opt into `number` individually with
+    // `#[specta(type = specta_typescript::Number)]` at their definition, rather
+    // than being waved through globally here — so each one is a deliberate,
+    // reviewable decision about precision.
+    match specta_builder().export(Typescript::default(), BINDINGS_PATH) {
+        Ok(()) => {
+            println!("exported TypeScript bindings to {BINDINGS_PATH}");
+            true
+        }
+        Err(e) => {
+            eprintln!("failed to export bindings to {BINDINGS_PATH}: {e}");
+            false
+        }
     }
 }

@@ -41,6 +41,17 @@ impl focuser_app::SystemSync for HostsSync {
 }
 
 fn main() {
+    // Regenerate frontend TypeScript bindings and exit. Handled before any
+    // logging, database access, or window creation so it works in CI and in a
+    // checkout where another Focuser instance already holds the database.
+    if std::env::args().any(|a| a == "--export-bindings") {
+        std::process::exit(if typed_commands::export_bindings() {
+            0
+        } else {
+            1
+        });
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
@@ -70,11 +81,6 @@ fn main() {
     let engine = BlockEngine::new(db).expect("Could not initialize engine");
 
     let state = Arc::new(AppState::new(engine, Arc::new(HostsSync)));
-
-    // Regenerate frontend bindings on every debug run, so a changed Command
-    // enum immediately breaks the TypeScript build rather than drifting.
-    #[cfg(debug_assertions)]
-    typed_commands::export_bindings();
 
     let state_for_blocker = Arc::clone(&state);
 

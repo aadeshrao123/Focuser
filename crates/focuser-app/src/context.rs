@@ -66,6 +66,15 @@ impl AppContext {
         self.system.sync_hosts(&engine.collect_blocked_domains());
     }
 
+    /// Push an explicit domain set, bypassing the engine.
+    ///
+    /// Only used to write an empty set, which is how "unblock everything" is
+    /// expressed — the sync replaces Focuser's hosts section wholesale, so an
+    /// empty list clears it.
+    pub fn sync_hosts_with(&self, domains: &[String]) {
+        self.system.sync_hosts(domains);
+    }
+
     pub fn push_pomodoro_event(&self, event: PomodoroEvent) {
         if let Ok(mut buf) = self.pomodoro_events.lock() {
             buf.push(event);

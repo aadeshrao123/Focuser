@@ -15,7 +15,56 @@ export const commands = {
 };
 
 /* Types */
+/**  A user-configured daily time budget for a domain or app. */
+export type Allowance = {
+	id: string,
+	target: AllowanceMatch,
+	daily_limit_secs: number,
+	/**
+	 *  If true, only count time when the tab/app is actively focused.
+	 *  If false, count as long as it's open.
+	 */
+	strict_mode: boolean,
+	enabled: boolean,
+	created_at: string,
+};
+
+/**  What an allowance targets: a domain or an application. */
+export type AllowanceMatch = 
+/**  A domain (matches the domain itself and any subdomain). */
+{ kind: "Domain"; value: string } | 
+/**  An app matched by executable name (e.g., "steam.exe"). */
+{ kind: "AppExecutable"; value: string };
+
+/**
+ *  An allowance crossing a threshold. Mirrors `focuser_core`'s internal type,
+ *  which is not `specta::Type`.
+ */
+export type AllowanceNotificationDto = {
+	allowance_id: string,
+	target: string,
+	kind: string,
+	used_secs: number,
+	limit_secs: number,
+};
+
 export type AllowancePeriod = "PerHour" | "PerDay";
+
+/**  A snapshot of an allowance with today's usage, for the UI. */
+export type AllowanceStatus = {
+	allowance: Allowance,
+	used_today_secs: number,
+	/**  `remaining = max(daily_limit - used, 0)`. */
+	remaining_secs: number,
+	/**  True once `used_today_secs >= daily_limit_secs`. */
+	exhausted: boolean,
+};
+
+/**  One day's usage against an allowance. */
+export type AllowanceUsageEntry = {
+	date: string,
+	used_secs: number,
+};
 
 export type AppMatchType = 
 /**  Match by executable name (e.g., "steam.exe") */
@@ -47,6 +96,12 @@ export type BlockList = {
 	breaks: BreakConfig | null,
 	created_at: string,
 	updated_at: string,
+};
+
+/**  A single block event with precise timestamp (for timeline charts). */
+export type BlockedEvent = {
+	domain_or_app: string,
+	timestamp: string,
 };
 
 export type BreakConfig = 
@@ -95,6 +150,129 @@ export type Command =
 { cmd: "toggle_block_list"; args: {
 	id: string,
 	enabled: boolean,
+} } | 
+/**
+ *  Add a website rule. The match type carries its own value, so there is no
+ *  separate stringly-typed `rule_type` to get wrong.
+ */
+{ cmd: "add_website_rule"; args: {
+	list_id: string,
+	rule: WebsiteMatchType,
+} } | 
+/**  Remove a website rule. Errors if the rule is not in the list. */
+{ cmd: "remove_website_rule"; args: {
+	list_id: string,
+	rule_id: string,
+} } | 
+/**
+ *  Add many website rules of one kind at once, skipping blanks, comment
+ *  lines, and values already present. Returns how many were added.
+ */
+{ cmd: "bulk_import_websites"; args: {
+	list_id: string,
+	values: string[],
+	kind: WebsiteRuleKind,
+} } | 
+/**  Remove every website rule from every unprotected list. */
+{ cmd: "clear_all_websites" } | { cmd: "add_app_rule"; args: {
+	list_id: string,
+	rule: AppMatchType,
+} } | 
+/**  Remove an app rule. Errors if the rule is not in the list. */
+{ cmd: "remove_app_rule"; args: {
+	list_id: string,
+	rule_id: string,
+} } | 
+/**  Remove every app rule from every unprotected list. */
+{ cmd: "clear_all_apps" } | { cmd: "add_exception"; args: {
+	list_id: string,
+	exception: ExceptionType,
+} } | 
+/**  Remove an exception. Errors if it is not in the list. */
+{ cmd: "remove_exception"; args: {
+	list_id: string,
+	exception_id: string,
+} } | 
+/**
+ *  Replace a list's schedule.
+ * 
+ *  `always_active` clears the schedule entirely, meaning the list blocks at
+ *  all times. Slots are real [`TimeSlot`]s — the old command took
+ *  `Vec<serde_json::Value>` and hand-parsed `"Mon"`-style day strings,
+ *  silently dropping any slot it failed to recognise.
+ */
+{ cmd: "update_schedule"; args: {
+	list_id: string,
+	slots: TimeSlot[],
+	always_active: boolean,
+} } | { cmd: "get_stats"; args: {
+	from: string,
+	to: string,
+} } | { cmd: "get_blocked_events"; args: {
+	from: string,
+	to: string,
+} } | 
+/**  Delete all statistics and blocked events. Block lists are preserved. */
+{ cmd: "clear_statistics" } | { cmd: "get_stats_retention" } | 
+/**
+ *  Set the retention window and immediately prune anything older.
+ *  Returns the number of rows deleted.
+ */
+{ cmd: "set_stats_retention"; args: {
+	days: number,
+} } | { cmd: "enable_protection"; args: {
+	list_id: string,
+	duration_minutes: number,
+	prevent_uninstall: boolean,
+	prevent_service_stop: boolean,
+	prevent_modification: boolean,
+} } | { cmd: "get_protection_status" } | { cmd: "get_setting"; args: {
+	key: string,
+	default: string | null,
+} } | { cmd: "set_setting"; args: {
+	key: string,
+	value: string,
+} } | 
+/**  Reset settings to defaults. Block lists and statistics are preserved. */
+{ cmd: "reset_settings" } | 
+/**  Push the current blocked-domain set to the hosts file now. */
+{ cmd: "apply_blocks" } | 
+/**  Remove Focuser's hosts-file entries. */
+{ cmd: "remove_blocks" } | 
+/**  Current session, or `None` when nothing is running. */
+{ cmd: "pomodoro_status" } | { cmd: "pomodoro_start"; args: {
+	block_list_id: string,
+	config: PomodoroConfig,
+} } | 
+/**  Returns whether a session was actually paused. */
+{ cmd: "pomodoro_pause" } | { cmd: "pomodoro_resume" } | 
+/**  Returns whether a phase actually advanced. */
+{ cmd: "pomodoro_skip" } | 
+/**  Returns whether a session was actually stopped. */
+{ cmd: "pomodoro_stop" } | 
+/**  Take and clear buffered phase-change / tamper events. */
+{ cmd: "pomodoro_drain_events" } | { cmd: "pomodoro_history"; args: {
+	days: number,
+} } | { cmd: "allowance_list" } | 
+/**  The target carries its own kind, so there is no separate `kind: String`. */
+{ cmd: "allowance_create"; args: {
+	target: AllowanceMatch,
+	daily_limit_secs: number,
+	strict_mode: boolean,
+} } | { cmd: "allowance_update"; args: {
+	id: string,
+	daily_limit_secs: number,
+	strict_mode: boolean,
+	enabled: boolean,
+} } | { cmd: "allowance_delete"; args: {
+	id: string,
+} } | 
+/**  Zero today's usage for one allowance. */
+{ cmd: "allowance_reset_today"; args: {
+	id: string,
+} } | { cmd: "allowance_drain_notifications" } | { cmd: "allowance_history"; args: {
+	id: string,
+	days: number,
 } };
 
 /**
@@ -121,7 +299,15 @@ export type CommandErrorPayload = {
  */
 export type CommandResult = 
 /**  Succeeded, nothing to return. */
-{ kind: "unit" } | { kind: "block_list"; data: BlockList } | { kind: "block_lists"; data: BlockList[] };
+{ kind: "unit" } | { kind: "block_list"; data: BlockList } | { kind: "block_lists"; data: BlockList[] } | { kind: "website_rule"; data: WebsiteRule } | { kind: "app_rule"; data: AppRule } | { kind: "exception"; data: ExceptionRule } | 
+/**  A number of affected items — e.g. rules imported or cleared. */
+{ kind: "count"; data: number } | { kind: "stats"; data: UsageStat[] } | { kind: "blocked_events"; data: BlockedEvent[] } | { kind: "protection_status"; data: ProtectionInfo[] } | 
+/**  A setting value; `None` when unset and no default was supplied. */
+{ kind: "setting"; data: string | null } | 
+/**  A yes/no outcome — e.g. "was a session actually paused". */
+{ kind: "flag"; data: boolean } | 
+/**  Current Pomodoro session, or `None` when idle. */
+{ kind: "pomodoro_status"; data: PomodoroStatus | null } | { kind: "pomodoro_session"; data: PomodoroSession } | { kind: "pomodoro_events"; data: PomodoroEventDto[] } | { kind: "pomodoro_history"; data: PomodoroHistoryEntry[] } | { kind: "allowance"; data: Allowance } | { kind: "allowances"; data: AllowanceStatus[] } | { kind: "allowance_notifications"; data: AllowanceNotificationDto[] } | { kind: "allowance_history"; data: AllowanceUsageEntry[] };
 
 export type ExceptionRule = {
 	id: string,
@@ -161,11 +347,92 @@ export type Lock =
 /**  Follows the attached schedule — active during scheduled times. */
 "Scheduled";
 
+/**  User-editable configuration for a Pomodoro session. */
+export type PomodoroConfig = {
+	work_secs: number,
+	short_break_secs: number,
+	long_break_secs: number,
+	cycles_until_long_break: number,
+};
+
+/**
+ *  A buffered Pomodoro event, in wire form.
+ * 
+ *  `focuser_app::PomodoroEvent` is the internal type and has no `specta::Type`;
+ *  this is its serialisable counterpart.
+ */
+export type PomodoroEventDto = { kind: "phase_advanced"; to: string; cycle: number } | { kind: "tamper_detected" };
+
+/**  One completed Pomodoro session, for the statistics page. */
+export type PomodoroHistoryEntry = {
+	started_at: string,
+	completed_cycles: number,
+	total_work_secs: number,
+};
+
+export type PomodoroPhase = "work" | "short_break" | "long_break";
+
+/**  An active Pomodoro session. Persisted to DB across restarts. */
+export type PomodoroSession = {
+	id: string,
+	block_list_id: string,
+	config: PomodoroConfig,
+	current_phase: PomodoroPhase,
+	current_cycle: number,
+	phase_started_at: string,
+	/**
+	 *  If Some, the session is paused and this is the remaining time
+	 *  when resumed (in seconds).
+	 */
+	paused_remaining_secs: number | null,
+	completed_cycles: number,
+	started_at: string,
+	/**
+	 *  The `enabled` state of the linked block list before this Pomodoro
+	 *  session started. Restored when the session ends.
+	 */
+	prev_enabled: boolean,
+};
+
+/**  Snapshot of the Pomodoro state for the UI. */
+export type PomodoroStatus = {
+	session_id: string,
+	block_list_id: string,
+	block_list_name: string,
+	config: PomodoroConfig,
+	current_phase: PomodoroPhase,
+	current_cycle: number,
+	completed_cycles: number,
+	remaining_secs: number,
+	phase_duration_secs: number,
+	paused: boolean,
+	started_at: string,
+};
+
 export type Protection = {
 	prevent_uninstall: boolean,
 	prevent_service_stop: boolean,
 	prevent_modification: boolean,
 	started_at: string,
+	expires_at: string,
+};
+
+/**
+ *  An active protection window on a block list.
+ * 
+ *  Replaces the ad-hoc `serde_json::json!` object the old command built.
+ */
+export type ProtectionInfo = {
+	block_list_id: string,
+	block_list_name: string,
+	prevent_uninstall: boolean,
+	prevent_service_stop: boolean,
+	prevent_modification: boolean,
+	/**
+	 *  Exported as a TS `number`; see the note on [`UsageStat`] — seconds can
+	 *  never approach the 2^53 precision ceiling.
+	 */
+	remaining_seconds: number,
 	expires_at: string,
 };
 
@@ -182,6 +449,13 @@ export type TimeSlot = {
 	day: string,
 	start: string,
 	end: string,
+};
+
+export type UsageStat = {
+	domain_or_app: string,
+	duration_seconds: number,
+	blocked_attempts: number,
+	date: string,
 };
 
 /**  How a website rule matches URLs/domains. */
@@ -202,6 +476,14 @@ export type WebsiteRule = {
 	match_type: WebsiteMatchType,
 	enabled: boolean,
 };
+
+/**
+ *  A website rule kind *without* its value.
+ * 
+ *  Needed by bulk import, which supplies one kind and many values. Distinct from
+ *  [`WebsiteMatchType`], which always carries its payload.
+ */
+export type WebsiteRuleKind = "domain" | "keyword" | "wildcard" | "url_path";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

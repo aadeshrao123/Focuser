@@ -347,7 +347,14 @@ pub enum AllowancePeriod {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct UsageStat {
     pub domain_or_app: String,
+    // Specta refuses to export u64 by default, since values above 2^53 lose
+    // precision as JavaScript numbers. Both fields are counts that cannot
+    // realistically approach that — 2^53 seconds is ~285 million years — so
+    // exporting them as `number` is safe and avoids pushing BigInt handling
+    // through the whole frontend.
+    #[specta(type = specta_typescript::Number)]
     pub duration_seconds: u64,
+    #[specta(type = specta_typescript::Number)]
     pub blocked_attempts: u64,
     pub date: chrono::NaiveDate,
 }
