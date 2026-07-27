@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use anyhow::Result;
+use focuser_app::{AppContext, Command, CommandError, CommandResult, SystemSync, execute};
 use focuser_common::extension::BrowserType;
 use focuser_common::ipc::*;
 use focuser_core::BlockEngine;
@@ -26,8 +27,19 @@ pub(crate) struct ExtensionConnection {
 /// Shared extension connection state.
 pub(crate) type ExtensionConnections = Arc<Mutex<HashMap<BrowserType, ExtensionConnection>>>;
 
+/// The service's implementation of the one side effect commands need.
+struct HostsSync;
+
+impl SystemSync for HostsSync {
+    fn sync_hosts(&self, domains: &[String]) {
+        if let Err(e) = crate::hosts::apply_blocks(domains) {
+            error!(error = %e, "Failed to sync hosts file");
+        }
+    }
+}
+
 pub struct FocuserService {
-    engine: Arc<Mutex<BlockEngine>>,
+    ctx: Arc<AppContext>,
     blocker: Arc<dyn focuser_common::platform::PlatformBlocker>,
     started_at: Instant,
     extension_connections: ExtensionConnections,
@@ -39,19 +51,7 @@ impl FocuserService {
         let blocker: Arc<dyn focuser_common::platform::PlatformBlocker> =
             Arc::from(platform::create_blocker());
 
-        // Read enforcement settings
-        let grace_seconds = engine
-            .db()
-            .get_setting_or_default("extension_grace_period", "60")
-            .unwrap_or_else(|_| "60".to_string())
-            .parse::<u64>()
-            .unwrap_or(60);
-        let enforce_browsers = engine
-            .db()
-            .get_setting_or_default("block_unsupported_browsers", "true")
-            .unwrap_or_else(|_| "true".to_string())
-            .parse::<bool>()
-            .unwrap_or(true);
+        let (grace_seconds, enforce_browsers) = enforcement_settings(engine.db());
 
         info!(
             grace_seconds,
@@ -59,7 +59,7 @@ impl FocuserService {
         );
 
         Ok(Self {
-            engine: Arc::new(Mutex::new(engine)),
+            ctx: Arc::new(AppContext::new(engine, Arc::new(HostsSync))),
             blocker,
             started_at: Instant::now(),
             extension_connections: Arc::new(Mutex::new(HashMap::new())),
@@ -77,7 +77,7 @@ impl FocuserService {
         self.apply_website_blocks();
 
         // Clone references for IPC handler
-        let engine = Arc::clone(&self.engine);
+        let ctx = Arc::clone(&self.ctx);
         let started_at = self.started_at;
         let ext_conns = Arc::clone(&self.extension_connections);
         let blocker_for_ipc = Arc::clone(&self.blocker);
@@ -86,7 +86,7 @@ impl FocuserService {
         // IPC handler
         let handler: ipc::RequestHandler = Box::new(move |request| {
             handle_request(
-                &engine,
+                &ctx,
                 &started_at,
                 &ext_conns,
                 &blocker_for_ipc,
@@ -103,7 +103,7 @@ impl FocuserService {
         });
 
         // Spawn tick loop: engine refresh + browser enforcement + protection enforcement
-        let engine_for_tick = Arc::clone(&self.engine);
+        let ctx_for_tick = Arc::clone(&self.ctx);
         let ext_conns_for_tick = Arc::clone(&self.extension_connections);
         let blocker_for_tick = Arc::clone(&self.blocker);
         let enforcement_for_tick = Arc::clone(&self.enforcement);
@@ -114,7 +114,7 @@ impl FocuserService {
                 tick.tick().await;
 
                 // Refresh engine cache
-                if let Ok(mut eng) = engine_for_tick.lock()
+                if let Ok(mut eng) = ctx_for_tick.engine.lock()
                     && let Err(e) = eng.refresh()
                 {
                     warn!(error = %e, "Failed to refresh engine");
@@ -134,8 +134,19 @@ impl FocuserService {
                     conns.keys().cloned().collect()
                 };
 
+                // Re-read on every tick: changing these in the UI must take
+                // effect without restarting the service.
+                {
+                    let eng = ctx_for_tick.engine.lock().unwrap();
+                    let (grace, enabled) = enforcement_settings(eng.db());
+                    enforcement_for_tick
+                        .lock()
+                        .unwrap()
+                        .reconfigure(grace, enabled);
+                }
+
                 let has_active_blocks = {
-                    let eng = engine_for_tick.lock().unwrap();
+                    let eng = ctx_for_tick.engine.lock().unwrap();
                     eng.block_lists().iter().any(|l| l.enabled)
                 };
 
@@ -187,7 +198,7 @@ impl FocuserService {
     }
 
     fn apply_website_blocks(&self) {
-        let engine = self.engine.lock().unwrap();
+        let engine = self.ctx.engine.lock().unwrap();
         let domains = engine.collect_blocked_domains();
         if domains.is_empty() {
             info!("No domains to block");
@@ -200,8 +211,15 @@ impl FocuserService {
     }
 }
 
+/// Translate an IPC request into a command, run it, and shape the reply.
+///
+/// Anything the command core can do goes through `execute` — this file used to
+/// carry a second implementation of block-list editing, protection checks and
+/// settings, which is exactly how a GUI and a service drift apart. What is left
+/// here is genuinely service-shaped: uptime, extension connections, and the
+/// capability probe.
 fn handle_request(
-    engine: &Arc<Mutex<BlockEngine>>,
+    ctx: &Arc<AppContext>,
     started_at: &Instant,
     ext_conns: &ExtensionConnections,
     blocker: &Arc<dyn focuser_common::platform::PlatformBlocker>,
@@ -211,10 +229,123 @@ fn handle_request(
     match request {
         IpcRequest::Ping => IpcResponse::Pong,
 
+        // ─── Straight through to the command core ─────────────────
+        IpcRequest::ListBlockLists => match execute(ctx, Command::ListBlockLists) {
+            Ok(CommandResult::BlockLists(lists)) => IpcResponse::BlockLists(lists),
+            other => unexpected(other),
+        },
+
+        IpcRequest::GetBlockList(id) => match execute(ctx, Command::ListBlockLists) {
+            Ok(CommandResult::BlockLists(lists)) => match lists.into_iter().find(|l| l.id == id) {
+                Some(list) => IpcResponse::BlockList(list),
+                None => IpcResponse::Error(format!("not_found: no block list with id {id}")),
+            },
+            other => unexpected(other),
+        },
+
+        // The wire form carries a whole list, so it is created and then filled
+        // in — both steps go through the core so protection and hosts sync apply.
+        IpcRequest::CreateBlockList(list) => {
+            match execute(
+                ctx,
+                Command::CreateBlockList {
+                    name: list.name.clone(),
+                },
+            ) {
+                Ok(CommandResult::BlockList(created)) => {
+                    let mut filled = list;
+                    filled.id = created.id;
+                    ok_or_error(execute(
+                        ctx,
+                        Command::UpdateBlockList {
+                            list: Box::new(filled),
+                        },
+                    ))
+                }
+                other => unexpected(other),
+            }
+        }
+
+        IpcRequest::UpdateBlockList(list) => ok_or_error(execute(
+            ctx,
+            Command::UpdateBlockList {
+                list: Box::new(list),
+            },
+        )),
+
+        IpcRequest::DeleteBlockList(id) => {
+            ok_or_error(execute(ctx, Command::DeleteBlockList { id }))
+        }
+
+        IpcRequest::SetBlockListEnabled { id, enabled } => {
+            ok_or_error(execute(ctx, Command::ToggleBlockList { id, enabled }))
+        }
+
+        // Starting and stopping a block is enabling and disabling its list.
+        IpcRequest::StartBlock { block_list_id, .. } => ok_or_error(execute(
+            ctx,
+            Command::ToggleBlockList {
+                id: block_list_id,
+                enabled: true,
+            },
+        )),
+
+        IpcRequest::StopBlock { block_list_id } => ok_or_error(execute(
+            ctx,
+            Command::ToggleBlockList {
+                id: block_list_id,
+                enabled: false,
+            },
+        )),
+
+        IpcRequest::CheckDomain(domain) => match execute(ctx, Command::CheckDomain { domain }) {
+            Ok(CommandResult::Flag(blocked)) => IpcResponse::DomainBlocked(blocked),
+            other => unexpected(other),
+        },
+
+        IpcRequest::GetStats { from, to } => match execute(ctx, Command::GetStats { from, to }) {
+            Ok(CommandResult::Stats(stats)) => IpcResponse::Stats(stats),
+            other => unexpected(other),
+        },
+
+        IpcRequest::GetSetting(key) => {
+            match execute(ctx, Command::GetSetting { key, default: None }) {
+                Ok(CommandResult::Setting(value)) => IpcResponse::Setting(value),
+                other => unexpected(other),
+            }
+        }
+
+        IpcRequest::SetSetting { key, value } => {
+            ok_or_error(execute(ctx, Command::SetSetting { key, value }))
+        }
+
+        IpcRequest::EnableProtection {
+            block_list_id,
+            duration_minutes,
+            prevent_uninstall,
+            prevent_service_stop,
+            prevent_modification,
+        } => ok_or_error(execute(
+            ctx,
+            Command::EnableProtection {
+                list_id: block_list_id,
+                duration_minutes,
+                prevent_uninstall,
+                prevent_service_stop,
+                prevent_modification,
+            },
+        )),
+
+        IpcRequest::GetProtectionStatus => {
+            let eng = ctx.engine.lock().unwrap();
+            IpcResponse::ProtectionStatus(eng.active_protection_info())
+        }
+
+        // ─── Service-shaped: no command equivalent ────────────────
         IpcRequest::GetStatus => {
-            let eng = engine.lock().unwrap();
-            let lists = eng.block_lists();
-            let active_blocks: Vec<ActiveBlockInfo> = lists
+            let eng = ctx.engine.lock().unwrap();
+            let active_blocks: Vec<ActiveBlockInfo> = eng
+                .block_lists()
                 .iter()
                 .filter(|l| l.enabled)
                 .map(|l| ActiveBlockInfo {
@@ -227,354 +358,81 @@ fn handle_request(
                 })
                 .collect();
 
-            let total_blocked_today = eng.db().get_total_blocked_today().unwrap_or(0);
-
             IpcResponse::Status(ServiceStatus {
                 running: true,
                 active_blocks,
-                total_blocked_today,
+                total_blocked_today: eng.db().get_total_blocked_today().unwrap_or(0),
                 uptime_seconds: started_at.elapsed().as_secs(),
             })
         }
 
-        IpcRequest::ListBlockLists => {
-            let eng = engine.lock().unwrap();
-            IpcResponse::BlockLists(eng.block_lists().to_vec())
-        }
-
-        IpcRequest::GetBlockList(id) => {
-            let eng = engine.lock().unwrap();
-            match eng.db().get_block_list(id) {
-                Ok(list) => IpcResponse::BlockList(list),
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::CreateBlockList(list) => {
-            let mut eng = engine.lock().unwrap();
-            match eng.db().create_block_list(&list) {
-                Ok(()) => {
-                    let _ = eng.refresh();
-                    IpcResponse::Ok
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::UpdateBlockList(list) => {
-            let mut eng = engine.lock().unwrap();
-            if eng.is_block_list_protected(list.id) {
-                return IpcResponse::Error(
-                    "Protection is active — cannot modify this block list until it expires"
-                        .to_string(),
-                );
-            }
-            match eng.db().update_block_list(&list) {
-                Ok(()) => {
-                    let _ = eng.refresh();
-                    IpcResponse::Ok
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::DeleteBlockList(id) => {
-            let mut eng = engine.lock().unwrap();
-            if eng.is_block_list_protected(id) {
-                return IpcResponse::Error(
-                    "Protection is active �� cannot delete this block list until it expires"
-                        .to_string(),
-                );
-            }
-            match eng.db().delete_block_list(id) {
-                Ok(()) => {
-                    let _ = eng.refresh();
-                    IpcResponse::Ok
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::SetBlockListEnabled { id, enabled } => {
-            let mut eng = engine.lock().unwrap();
-            if !enabled && eng.is_block_list_protected(id) {
-                return IpcResponse::Error(
-                    "Protection is active — cannot disable this block list until it expires"
-                        .to_string(),
-                );
-            }
-            match eng.db().get_block_list(id) {
-                Ok(mut list) => {
-                    list.enabled = enabled;
-                    list.updated_at = chrono::Utc::now();
-                    match eng.db().update_block_list(&list) {
-                        Ok(()) => {
-                            let _ = eng.refresh();
-                            IpcResponse::Ok
-                        }
-                        Err(e) => IpcResponse::Error(e.to_string()),
-                    }
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::CheckDomain(domain) => {
-            let eng = engine.lock().unwrap();
-            let blocked = eng.check_domain(&domain).is_some();
-            IpcResponse::DomainBlocked(blocked)
-        }
-
         IpcRequest::CheckApp(app) => {
-            let eng = engine.lock().unwrap();
-            let blocked = eng.check_app(&app, None, None).is_some();
-            IpcResponse::AppBlocked(blocked)
-        }
-
-        IpcRequest::GetStats { from, to } => {
-            let eng = engine.lock().unwrap();
-            match eng.db().get_stats(from, to) {
-                Ok(stats) => IpcResponse::Stats(stats),
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::GetSetting(key) => {
-            let eng = engine.lock().unwrap();
-            match eng.db().get_setting(&key) {
-                Ok(value) => IpcResponse::Setting(value),
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::SetSetting { key, value } => {
-            let eng = engine.lock().unwrap();
-            match eng.db().set_setting(&key, &value) {
-                Ok(()) => IpcResponse::Ok,
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
+            let eng = ctx.engine.lock().unwrap();
+            IpcResponse::AppBlocked(eng.check_app(&app, None, None).is_some())
         }
 
         IpcRequest::GetBlockedAttempts => {
-            let eng = engine.lock().unwrap();
+            let eng = ctx.engine.lock().unwrap();
             match eng.db().get_total_blocked_today() {
                 Ok(count) => IpcResponse::BlockedAttempts(count),
                 Err(e) => IpcResponse::Error(e.to_string()),
             }
         }
 
-        IpcRequest::StartBlock { block_list_id, .. } => {
-            let mut eng = engine.lock().unwrap();
-            match eng.db().get_block_list(block_list_id) {
-                Ok(mut list) => {
-                    list.enabled = true;
-                    list.updated_at = chrono::Utc::now();
-                    match eng.db().update_block_list(&list) {
-                        Ok(()) => {
-                            let _ = eng.refresh();
-                            IpcResponse::Ok
-                        }
-                        Err(e) => IpcResponse::Error(e.to_string()),
-                    }
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::StopBlock { block_list_id } => {
-            let mut eng = engine.lock().unwrap();
-            if eng.is_block_list_protected(block_list_id) {
-                return IpcResponse::Error(
-                    "Protection is active — cannot stop this block until it expires".to_string(),
-                );
-            }
-            match eng.db().get_block_list(block_list_id) {
-                Ok(mut list) => {
-                    // Check if there's an active lock
-                    if list.lock.is_some() {
-                        return IpcResponse::Error(
-                            "Cannot stop block — a lock is active".to_string(),
-                        );
-                    }
-                    list.enabled = false;
-                    list.updated_at = chrono::Utc::now();
-                    match eng.db().update_block_list(&list) {
-                        Ok(()) => {
-                            let _ = eng.refresh();
-                            IpcResponse::Ok
-                        }
-                        Err(e) => IpcResponse::Error(e.to_string()),
-                    }
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
         IpcRequest::GetExtensionRules => {
-            let eng = engine.lock().unwrap();
-            let rules = eng.compile_extension_rules();
-            IpcResponse::ExtensionRules(rules)
+            let eng = ctx.engine.lock().unwrap();
+            IpcResponse::ExtensionRules(eng.compile_extension_rules())
         }
 
-        IpcRequest::ExtensionEvent(event) => {
-            info!(event = ?event, "Extension event received");
-            match event {
-                focuser_common::extension::ExtensionEvent::Connected {
-                    browser,
-                    extension_version,
-                } => {
-                    info!(
-                        browser = ?browser,
-                        version = %extension_version,
-                        "Browser extension connected"
-                    );
-                    let now = Instant::now();
-                    let mut conns = ext_conns.lock().unwrap();
-                    conns.insert(
-                        browser.clone(),
-                        ExtensionConnection {
-                            browser,
-                            extension_version,
-                            connected_at: now,
-                            last_seen: now,
-                        },
-                    );
-                    IpcResponse::Ok
-                }
-                focuser_common::extension::ExtensionEvent::Disconnected { browser } => {
-                    info!(browser = ?browser, "Browser extension disconnected");
-                    let mut conns = ext_conns.lock().unwrap();
-                    conns.remove(&browser);
-                    IpcResponse::Ok
-                }
-                focuser_common::extension::ExtensionEvent::RequestRules => {
-                    let eng = engine.lock().unwrap();
-                    let rules = eng.compile_extension_rules();
-                    IpcResponse::ExtensionRules(rules)
-                }
-                focuser_common::extension::ExtensionEvent::Blocked { url, .. } => {
-                    // Extract domain from URL for stats
-                    let domain = url
-                        .split("://")
-                        .nth(1)
-                        .and_then(|s| s.split('/').next())
-                        .unwrap_or(&url);
-                    let eng = engine.lock().unwrap();
-                    let _ = eng.record_blocked(domain);
-                    IpcResponse::Ok
-                }
-                focuser_common::extension::ExtensionEvent::UsageReport {
-                    domain, seconds, ..
-                } => {
-                    debug!(domain = %domain, seconds, "Usage report from extension");
-                    // TODO: store usage duration in stats table
-                    IpcResponse::Ok
-                }
-            }
-        }
+        IpcRequest::ExtensionEvent(event) => handle_extension_event(ctx, ext_conns, event),
 
         IpcRequest::GetCapabilities => {
             let hosts_ok = crate::hosts::is_domain_blocked("localhost").is_ok();
             let conns = ext_conns.lock().unwrap();
             let connected_browsers: Vec<BrowserType> = conns.keys().cloned().collect();
-            let caps = focuser_common::extension::BlockingCapabilities {
+
+            IpcResponse::Capabilities(focuser_common::extension::BlockingCapabilities {
                 hosts_file: hosts_ok,
                 extension_connected: !connected_browsers.is_empty(),
                 connected_browsers,
-            };
-            IpcResponse::Capabilities(caps)
+            })
         }
 
+        // Richer than the core's `GetBrowserStatus`: it also reports how long a
+        // browser has left before enforcement closes it, which only the service
+        // knows.
         IpcRequest::GetBrowserStatus => {
             let processes = blocker.list_running_processes().unwrap_or_default();
             let conns = ext_conns.lock().unwrap();
             let enf = enforcement.lock().unwrap();
 
-            // Collect status for all known browsers
-            let mut statuses: Vec<focuser_common::browser::BrowserStatusInfo> = Vec::new();
-            let mut seen = std::collections::HashSet::new();
+            let statuses = focuser_common::browser::KNOWN_BROWSERS
+                .iter()
+                .map(|info| {
+                    let browser_type = &info.browser_type;
+                    let is_running = processes.iter().any(|p| {
+                        focuser_common::browser::identify_browser(&p.name)
+                            .is_some_and(|b| b.browser_type == *browser_type)
+                    });
 
-            for browser_info in focuser_common::browser::KNOWN_BROWSERS {
-                let bt = &browser_info.browser_type;
-                if !seen.insert(bt.clone()) {
-                    continue;
-                }
-
-                let is_running = processes.iter().any(|p| {
-                    focuser_common::browser::identify_browser(&p.name)
-                        .is_some_and(|b| b.browser_type == *bt)
-                });
-
-                let extension_connected = conns.contains_key(bt);
-                let grace_remaining = enf.grace_remaining(bt);
-
-                statuses.push(focuser_common::browser::BrowserStatusInfo {
-                    browser_type: bt.clone(),
-                    display_name: browser_info.display_name.to_string(),
-                    is_running,
-                    extension_connected,
-                    grace_period_remaining_secs: grace_remaining,
-                });
-            }
+                    focuser_common::browser::BrowserStatusInfo {
+                        browser_type: browser_type.clone(),
+                        display_name: info.display_name.to_string(),
+                        is_running,
+                        extension_connected: conns.contains_key(browser_type),
+                        grace_period_remaining_secs: enf.grace_remaining(browser_type),
+                    }
+                })
+                .collect();
 
             IpcResponse::BrowserStatus(statuses)
         }
 
-        IpcRequest::EnableProtection {
-            block_list_id,
-            duration_minutes,
-            prevent_uninstall,
-            prevent_service_stop,
-            prevent_modification,
-        } => {
-            let mut eng = engine.lock().unwrap();
-            match eng.db().get_block_list(block_list_id) {
-                Ok(mut list) => {
-                    if list.is_modification_protected() {
-                        return IpcResponse::Error(
-                            "Protection is already active on this block list".to_string(),
-                        );
-                    }
-
-                    let now = chrono::Utc::now();
-                    list.protection = Some(focuser_common::types::Protection {
-                        prevent_uninstall,
-                        prevent_service_stop,
-                        prevent_modification,
-                        started_at: now,
-                        expires_at: now + chrono::Duration::minutes(duration_minutes as i64),
-                    });
-                    list.updated_at = now;
-
-                    list.enabled = true;
-
-                    match eng.db().update_block_list(&list) {
-                        Ok(()) => {
-                            let _ = eng.refresh();
-                            info!(
-                                block_list = %list.name,
-                                duration_minutes,
-                                "Protection enabled"
-                            );
-                            IpcResponse::Ok
-                        }
-                        Err(e) => IpcResponse::Error(e.to_string()),
-                    }
-                }
-                Err(e) => IpcResponse::Error(e.to_string()),
-            }
-        }
-
-        IpcRequest::GetProtectionStatus => {
-            let eng = engine.lock().unwrap();
-            IpcResponse::ProtectionStatus(eng.active_protection_info())
-        }
-
         IpcRequest::Shutdown => {
-            let eng = engine.lock().unwrap();
+            let eng = ctx.engine.lock().unwrap();
             if eng.has_service_protection() {
                 return IpcResponse::Error(
-                    "Protection is active — cannot shut down the service until all protections expire"
+                    "protected: cannot shut down the service until all protections expire"
                         .to_string(),
                 );
             }
@@ -583,4 +441,99 @@ fn handle_request(
             std::process::exit(0);
         }
     }
+}
+
+fn handle_extension_event(
+    ctx: &Arc<AppContext>,
+    ext_conns: &ExtensionConnections,
+    event: focuser_common::extension::ExtensionEvent,
+) -> IpcResponse {
+    use focuser_common::extension::ExtensionEvent;
+
+    match event {
+        ExtensionEvent::Connected {
+            browser,
+            extension_version,
+        } => {
+            info!(browser = ?browser, version = %extension_version, "Browser extension connected");
+            let now = Instant::now();
+            ext_conns.lock().unwrap().insert(
+                browser.clone(),
+                ExtensionConnection {
+                    browser,
+                    extension_version,
+                    connected_at: now,
+                    last_seen: now,
+                },
+            );
+            IpcResponse::Ok
+        }
+
+        ExtensionEvent::Disconnected { browser } => {
+            info!(browser = ?browser, "Browser extension disconnected");
+            ext_conns.lock().unwrap().remove(&browser);
+            IpcResponse::Ok
+        }
+
+        ExtensionEvent::RequestRules => {
+            let eng = ctx.engine.lock().unwrap();
+            IpcResponse::ExtensionRules(eng.compile_extension_rules())
+        }
+
+        ExtensionEvent::Blocked { url, .. } => {
+            // The extension reports a full URL; statistics are keyed by host.
+            let domain = url
+                .split("://")
+                .nth(1)
+                .and_then(|s| s.split('/').next())
+                .unwrap_or(&url);
+            let eng = ctx.engine.lock().unwrap();
+            let _ = eng.record_blocked(domain);
+            IpcResponse::Ok
+        }
+
+        ExtensionEvent::UsageReport {
+            domain, seconds, ..
+        } => {
+            debug!(domain = %domain, seconds, "Usage report from extension");
+            IpcResponse::Ok
+        }
+    }
+}
+
+/// `Ok` for anything that succeeded; the error's stable code leads the message
+/// so a caller can branch on it without parsing prose.
+fn ok_or_error(result: Result<CommandResult, CommandError>) -> IpcResponse {
+    match result {
+        Ok(_) => IpcResponse::Ok,
+        Err(e) => IpcResponse::Error(format!("{}: {e}", e.code())),
+    }
+}
+
+/// A command returned a variant this request does not know how to shape. That
+/// is a bug in the mapping above, not a caller error.
+fn unexpected(result: Result<CommandResult, CommandError>) -> IpcResponse {
+    match result {
+        Ok(other) => IpcResponse::Error(format!("internal: unexpected result {other:?}")),
+        Err(e) => IpcResponse::Error(format!("{}: {e}", e.code())),
+    }
+}
+
+/// Grace period and whether unsupported browsers get closed at all.
+///
+/// Read on each tick rather than only at startup — the same stale-read bug the
+/// GUI's blocking loop had.
+fn enforcement_settings(db: &focuser_core::db::Database) -> (u64, bool) {
+    let grace = db
+        .get_setting_or_default("extension_grace_period", "60")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
+    let enabled = db
+        .get_setting_or_default("block_unsupported_browsers", "true")
+        .ok()
+        .and_then(|v| v.parse::<bool>().ok())
+        .unwrap_or(true);
+
+    (grace, enabled)
 }

@@ -31,6 +31,18 @@ impl BrowserEnforcement {
         }
     }
 
+    /// Apply changed settings without losing grace periods already running.
+    ///
+    /// Called every tick, so editing these in the UI takes effect immediately
+    /// instead of at the next restart.
+    pub fn reconfigure(&mut self, grace_seconds: u64, enabled: bool) {
+        self.grace_duration = Duration::from_secs(grace_seconds);
+        self.enabled = enabled;
+        if !enabled {
+            self.grace_periods.clear();
+        }
+    }
+
     /// Evaluate running processes and return PIDs of browsers to terminate.
     ///
     /// A browser is terminated only if:
@@ -216,5 +228,34 @@ mod tests {
         let remaining = enf.grace_remaining(&BrowserType::Chrome);
         assert!(remaining.is_some());
         assert!(remaining.unwrap() <= 60);
+    }
+
+    #[test]
+    fn reconfigure_applies_a_new_grace_period_without_restarting_the_clock() {
+        let mut enf = BrowserEnforcement::new(60, true);
+        let processes = vec![make_process(chrome_name(), 100)];
+        let connected = HashSet::new();
+
+        enf.evaluate(&processes, &connected, true);
+        enf.reconfigure(600, true);
+
+        let remaining = enf.grace_remaining(&BrowserType::Chrome).unwrap();
+        assert!(
+            remaining > 60,
+            "the longer period should apply to the browser already waiting, got {remaining}"
+        );
+    }
+
+    #[test]
+    fn disabling_enforcement_clears_pending_grace_periods() {
+        let mut enf = BrowserEnforcement::new(60, true);
+        let processes = vec![make_process(chrome_name(), 100)];
+        let connected = HashSet::new();
+
+        enf.evaluate(&processes, &connected, true);
+        enf.reconfigure(60, false);
+
+        assert!(enf.grace_remaining(&BrowserType::Chrome).is_none());
+        assert!(enf.evaluate(&processes, &connected, true).is_empty());
     }
 }
