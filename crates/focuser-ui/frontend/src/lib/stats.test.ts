@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UsageStat } from "@/bindings";
-import { formatDuration, summarise, totalsByDay, totalsByTarget } from "./stats";
+import { summarise, totalsByDay, totalsByTarget } from "./stats";
 
 const stat = (date: string, target: string, attempts: number, seconds = 0): UsageStat => ({
   date,
@@ -70,17 +70,5 @@ describe("summarise", () => {
 
   it("has no busiest day when nothing was blocked", () => {
     expect(summarise(totalsByDay([], range), []).busiestDay).toBeNull();
-  });
-});
-
-describe("formatDuration", () => {
-  it.each([
-    [0, "0s"],
-    [45, "45s"],
-    [90, "2m"],
-    [3600, "1h"],
-    [5040, "1h 24m"],
-  ])("%is → %s", (seconds, expected) => {
-    expect(formatDuration(seconds)).toBe(expected);
   });
 });

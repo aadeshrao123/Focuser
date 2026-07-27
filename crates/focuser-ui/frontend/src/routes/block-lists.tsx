@@ -9,6 +9,7 @@ import {
   useToggleBlockList,
 } from "@/lib/commands";
 import { transportKind } from "@/lib/transport";
+import { count } from "@/lib/utils";
 
 export function BlockLists() {
   const [name, setName] = useState("");
@@ -91,7 +92,7 @@ export function BlockLists() {
             <div className="min-w-0">
               <p className="truncate font-medium text-foreground text-sm">{list.name}</p>
               <p className="text-faint-foreground text-xs">
-                {list.websites.length} sites · {list.applications.length} apps
+                {count(list.websites.length, "site")} · {count(list.applications.length, "app")}
               </p>
             </div>
 

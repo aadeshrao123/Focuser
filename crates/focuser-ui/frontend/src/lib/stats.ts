@@ -69,14 +69,3 @@ export function summarise(days: DayTotal[], targets: TargetTotal[]): Totals {
     busiestDay: busiest,
   };
 }
-
-export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-
-  const remainder = minutes % 60;
-  const hours = Math.floor(minutes / 60);
-  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
-}

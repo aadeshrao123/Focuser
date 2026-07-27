@@ -169,6 +169,14 @@ fn run_command(ctx: &AppContext, body: &[u8]) -> (u16, String) {
         }
     };
 
+    // The engine caches block lists in memory. In the desktop app the blocking
+    // loop refreshes that every few seconds; here nothing does, so a change made
+    // by the CLI against the same file would stay invisible. Refresh per request
+    // — it keeps the CLI usable as a test harness alongside the browser.
+    if let Ok(mut engine) = ctx.engine.lock() {
+        let _ = engine.refresh();
+    }
+
     match execute(ctx, cmd) {
         Ok(result) => (
             200,

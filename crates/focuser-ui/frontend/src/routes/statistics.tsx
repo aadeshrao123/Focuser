@@ -8,7 +8,8 @@ import { Stat, StatGrid } from "@/components/ui/stat";
 import { UsageChart } from "@/components/usage-chart";
 import { useClearStatistics, useStats } from "@/lib/commands";
 import { formatDay, RANGES, type RangeId, rangeFor } from "@/lib/date-range";
-import { formatDuration, summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
+import { formatDuration } from "@/lib/duration";
+import { summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
 
 const TOP_LIMIT = 10;
 

@@ -6,7 +6,7 @@ import { AppLayout } from "@/app-layout";
 import "@/index.css";
 import { Apps } from "@/routes/apps";
 import { BlockLists } from "@/routes/block-lists";
-import { Placeholder } from "@/routes/placeholder";
+import { Dashboard } from "@/routes/dashboard";
 import { Schedule } from "@/routes/schedule";
 import { Settings } from "@/routes/settings";
 import { Websites } from "@/routes/websites";
@@ -34,7 +34,7 @@ const router = createHashRouter([
     path: "/",
     element: <AppLayout />,
     children: [
-      { index: true, element: <Placeholder title="Dashboard" /> },
+      { index: true, element: <Dashboard /> },
       { path: "block-lists", element: <BlockLists /> },
       { path: "websites", element: <Websites /> },
       { path: "apps", element: <Apps /> },
