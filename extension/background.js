@@ -680,7 +680,8 @@ if (chrome.windows && chrome.windows.onFocusChanged) {
   chrome.windows.onFocusChanged.addListener(function() { sendHeartbeat(); });
 }
 
-// Start HTTP polling (native messaging requires focuser-service running separately)
+// Start HTTP polling. This is the path that actually works: the desktop app
+// serves the rules API itself, and native messaging has no host to reach.
 startHttpPolling();
 
 

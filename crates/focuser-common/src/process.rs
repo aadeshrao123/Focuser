@@ -1,0 +1,266 @@
+//! Listing and terminating running processes.
+//!
+//! App blocking needs two primitives on every OS: enumerate what is running,
+//! and stop one of them. The three callers in the GUI's blocking loop differ
+//! only in *which* processes they pick, so the OS-specific part lives here and
+//! they stay platform-free.
+//!
+//! Names are the executable's file name, not its full path — `chrome.exe` on
+//! Windows, `Google Chrome` on macOS, `chrome` on Linux. That matches the
+//! per-OS tables in [`crate::browser`] and what users type into an app rule.
+
+/// A running process, reduced to what blocking decisions need.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Process {
+    pub pid: u32,
+    pub name: String,
+}
+
+impl Process {
+    /// Whether terminating this process is something we should ever do.
+    ///
+    /// Rules can match by name, and a name can collide with the kernel, init,
+    /// or Focuser itself. Killing any of those is never what the user meant.
+    pub fn is_killable(&self) -> bool {
+        self.pid > LOWEST_USER_PID && self.pid != std::process::id()
+    }
+}
+
+/// PIDs at or below this belong to the kernel or init on every platform we
+/// target (0 and 4 on Windows, 0 and 1 on Unix).
+const LOWEST_USER_PID: u32 = 4;
+
+/// Every process currently running.
+///
+/// Returns an empty list rather than an error when the OS refuses to answer —
+/// the callers poll on a timer, so a failed sweep should skip a beat, not
+/// bring down the loop.
+pub fn list() -> Vec<Process> {
+    imp::list()
+}
+
+/// Ask a process to exit. Returns whether the request was delivered.
+///
+/// Unix sends `SIGTERM`, so a process that traps it may survive; Windows
+/// terminates outright. Neither waits for the process to actually go away.
+pub fn terminate(pid: u32) -> bool {
+    imp::terminate(pid)
+}
+
+#[cfg(windows)]
+mod imp {
+    use super::Process;
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE, TerminateProcess};
+
+    pub fn list() -> Vec<Process> {
+        let mut found = Vec::new();
+
+        // SAFETY: the snapshot handle is checked before use and closed on every
+        // path out; `entry` is sized per the Win32 contract before the walk.
+        unsafe {
+            let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
+                return found;
+            };
+
+            let mut entry = PROCESSENTRY32W {
+                dwSize: size_of::<PROCESSENTRY32W>() as u32,
+                ..Default::default()
+            };
+
+            if Process32FirstW(snapshot, &mut entry).is_ok() {
+                loop {
+                    let len = entry
+                        .szExeFile
+                        .iter()
+                        .position(|&c| c == 0)
+                        .unwrap_or(entry.szExeFile.len());
+
+                    found.push(Process {
+                        pid: entry.th32ProcessID,
+                        name: String::from_utf16_lossy(&entry.szExeFile[..len]),
+                    });
+
+                    if Process32NextW(snapshot, &mut entry).is_err() {
+                        break;
+                    }
+                }
+            }
+
+            let _ = CloseHandle(snapshot);
+        }
+
+        found
+    }
+
+    pub fn terminate(pid: u32) -> bool {
+        // SAFETY: the handle is only used when OpenProcess succeeded, and is
+        // closed before returning.
+        unsafe {
+            let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) else {
+                return false;
+            };
+            let killed = TerminateProcess(handle, 1).is_ok();
+            let _ = CloseHandle(handle);
+            killed
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod imp {
+    use super::Process;
+
+    pub fn list() -> Vec<Process> {
+        // `comm` is the full executable path on macOS, so take the last
+        // component: `.../Google Chrome.app/Contents/MacOS/Google Chrome`
+        // has to match the `Google Chrome` in the browser table.
+        let Ok(output) = std::process::Command::new("ps")
+            .args(["-eo", "pid=,comm="])
+            .output()
+        else {
+            return Vec::new();
+        };
+
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter_map(parse_ps_line)
+            .collect()
+    }
+
+    /// One `pid=,comm=` row: leading-padded pid, a space, then the path.
+    fn parse_ps_line(line: &str) -> Option<Process> {
+        let trimmed = line.trim_start();
+        let split = trimmed.find(' ')?;
+        let pid = trimmed[..split].parse().ok()?;
+        let path = trimmed[split..].trim();
+        if path.is_empty() {
+            return None;
+        }
+        Some(Process {
+            pid,
+            name: path.rsplit('/').next().unwrap_or(path).to_string(),
+        })
+    }
+
+    pub fn terminate(pid: u32) -> bool {
+        super::unix_terminate(pid)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn a_ps_row_yields_the_executable_basename() {
+            let row = "  842 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+            let proc = parse_ps_line(row).expect("row should parse");
+            assert_eq!(proc.pid, 842);
+            assert_eq!(proc.name, "Google Chrome");
+        }
+
+        #[test]
+        fn a_bare_command_name_is_left_alone() {
+            assert_eq!(parse_ps_line("1 launchd").unwrap().name, "launchd");
+        }
+
+        #[test]
+        fn rows_without_a_pid_or_a_command_are_skipped() {
+            assert!(parse_ps_line("  PID COMM").is_none());
+            assert!(parse_ps_line("842 ").is_none());
+            assert!(parse_ps_line("").is_none());
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+mod imp {
+    use super::Process;
+
+    pub fn list() -> Vec<Process> {
+        let Ok(entries) = std::fs::read_dir("/proc") else {
+            return Vec::new();
+        };
+
+        entries
+            .flatten()
+            .filter_map(|entry| {
+                let pid = entry.file_name().to_string_lossy().parse().ok()?;
+                // `comm` is the 15-char command name the kernel tracks, which
+                // is what the Linux browser table is written against.
+                let comm = std::fs::read_to_string(entry.path().join("comm")).ok()?;
+                let name = comm.trim();
+                if name.is_empty() {
+                    return None;
+                }
+                Some(Process {
+                    pid,
+                    name: name.to_string(),
+                })
+            })
+            .collect()
+    }
+
+    pub fn terminate(pid: u32) -> bool {
+        super::unix_terminate(pid)
+    }
+}
+
+#[cfg(unix)]
+fn unix_terminate(pid: u32) -> bool {
+    use nix::sys::signal::{Signal, kill};
+    use nix::unistd::Pid;
+
+    kill(Pid::from_raw(pid as i32), Signal::SIGTERM).is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn our_own_process_is_never_killable() {
+        let me = Process {
+            pid: std::process::id(),
+            name: "focuser".into(),
+        };
+        assert!(!me.is_killable());
+    }
+
+    #[test]
+    fn kernel_and_init_pids_are_never_killable() {
+        for pid in 0..=LOWEST_USER_PID {
+            let proc = Process {
+                pid,
+                name: "system".into(),
+            };
+            assert!(!proc.is_killable(), "pid {pid} should be protected");
+        }
+    }
+
+    #[test]
+    fn an_ordinary_pid_is_killable() {
+        let other = std::process::id() + 1000;
+        assert!(
+            Process {
+                pid: other,
+                name: "chrome.exe".into()
+            }
+            .is_killable()
+        );
+    }
+
+    #[test]
+    fn listing_finds_the_test_binary_itself() {
+        let running = list();
+        assert!(!running.is_empty(), "the OS should report some processes");
+        assert!(
+            running.iter().any(|p| p.pid == std::process::id()),
+            "our own pid should appear in the list"
+        );
+    }
+}

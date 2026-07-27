@@ -2,7 +2,6 @@ use focuser_common::error::Result;
 use focuser_common::extension::ExtensionRuleSet;
 use focuser_common::host::hosts_entries;
 use focuser_common::ipc::ProtectionInfo;
-use focuser_common::platform::RunningProcess;
 use focuser_common::types::{BlockList, EntityId, ExceptionType, WebsiteMatchType};
 use tracing::{debug, info, warn};
 
@@ -56,24 +55,6 @@ impl BlockEngine {
             }
         }
         None
-    }
-
-    /// Evaluate all running processes and return which ones should be blocked.
-    pub fn find_blocked_processes<'a>(
-        &'a self,
-        processes: &'a [RunningProcess],
-    ) -> Vec<(&'a RunningProcess, &'a str)> {
-        let mut blocked = Vec::new();
-        for proc in processes {
-            if let Some(list_name) = self.check_app(
-                &proc.name,
-                proc.exe_path.as_deref(),
-                proc.window_title.as_deref(),
-            ) {
-                blocked.push((proc, list_name));
-            }
-        }
-        blocked
     }
 
     /// Collect all domains that need to be blocked (for hosts file generation).

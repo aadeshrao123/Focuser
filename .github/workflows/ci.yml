@@ -47,12 +47,12 @@ jobs:
       - name: Build sidecar binaries
         shell: bash
         run: |
-          cargo build -p focuser-service -p focuser-cli -p focuser-native
+          cargo build -p focuser-cli -p focuser-native
           mkdir -p crates/focuser-ui/binaries
           host=$(rustc -vV | awk '/^host:/ {print $2}')
           ext=""
           [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
-          for bin in focuser-service focuser-cli focuser-native; do
+          for bin in focuser-cli focuser-native; do
             cp "target/debug/$bin$ext" "crates/focuser-ui/binaries/$bin-$host$ext"
           done
 
@@ -100,12 +100,12 @@ jobs:
       - name: Build sidecar binaries
         shell: bash
         run: |
-          cargo build -p focuser-service -p focuser-cli -p focuser-native
+          cargo build -p focuser-cli -p focuser-native
           mkdir -p crates/focuser-ui/binaries
           host=$(rustc -vV | awk '/^host:/ {print $2}')
           ext=""
           [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
-          for bin in focuser-service focuser-cli focuser-native; do
+          for bin in focuser-cli focuser-native; do
             cp "target/debug/$bin$ext" "crates/focuser-ui/binaries/$bin-$host$ext"
           done
 

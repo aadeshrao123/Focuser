@@ -1,7 +1,7 @@
 //! Background blocking loop — syncs hosts file, kills blocked processes,
 //! and enforces browser extension installation.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use focuser_common::browser::identify_browser;
 use focuser_common::extension::BrowserType;
 use focuser_common::host::any_host_matches;
+use focuser_common::process;
 use tracing::{info, warn};
 
 use crate::AppState;
@@ -187,140 +188,52 @@ fn sync_hosts_file(domains: &[String]) {
     }
 }
 
+/// Kill processes matching an app rule on an active block list.
 fn kill_blocked_processes(
-    _eng: &focuser_core::BlockEngine,
-    _tracker: &focuser_core::allowance::AllowanceTracker,
-) {
-    #[cfg(windows)]
-    {
-        kill_blocked_processes_windows(_eng, _tracker);
-    }
-}
-
-/// Kill processes whose executable name matches an allowance that is
-/// exhausted for today.
-fn kill_allowance_blocked_apps(_tracker: &focuser_core::allowance::AllowanceTracker) {
-    #[cfg(windows)]
-    {
-        kill_allowance_blocked_apps_windows(_tracker);
-    }
-}
-
-#[cfg(windows)]
-fn kill_allowance_blocked_apps_windows(tracker: &focuser_core::allowance::AllowanceTracker) {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Diagnostics::ToolHelp::*;
-    use windows::Win32::System::Threading::*;
-
-    let blocked: std::collections::HashSet<String> = tracker
-        .blocked_apps()
-        .into_iter()
-        .map(|s| s.to_ascii_lowercase())
-        .collect();
-    if blocked.is_empty() {
-        return;
-    }
-
-    unsafe {
-        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
-            Ok(h) => h,
-            Err(_) => return,
-        };
-        let mut entry = PROCESSENTRY32 {
-            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
-            ..Default::default()
-        };
-        if Process32First(snapshot, &mut entry).is_ok() {
-            loop {
-                let name: String = entry
-                    .szExeFile
-                    .iter()
-                    .take_while(|&&c| c != 0)
-                    .map(|&c| c as u8 as char)
-                    .collect();
-                let name_lc = name.to_ascii_lowercase();
-                if blocked.contains(&name_lc) {
-                    let pid = entry.th32ProcessID;
-                    #[allow(clippy::collapsible_if)]
-                    if pid > 4 && pid != std::process::id() {
-                        if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-                            let _ = TerminateProcess(handle, 1);
-                            let _ = CloseHandle(handle);
-                            info!(pid, name = %name, "Killed app over allowance quota");
-                        }
-                    }
-                }
-                if Process32Next(snapshot, &mut entry).is_err() {
-                    break;
-                }
-            }
-        }
-        let _ = CloseHandle(snapshot);
-    }
-}
-
-#[cfg(windows)]
-fn kill_blocked_processes_windows(
     eng: &focuser_core::BlockEngine,
     tracker: &focuser_core::allowance::AllowanceTracker,
 ) {
-    // Apps with an active, non-exhausted allowance should NOT be killed.
-    let allowance_exempt: std::collections::HashSet<String> = tracker
+    // An app still inside its daily quota is exempt. Blocking it here would
+    // defeat the allowance, which exists precisely to permit some use.
+    let exempt: HashSet<String> = tracker
         .active_allowance_apps(eng.db())
         .into_iter()
         .map(|s| s.to_ascii_lowercase())
         .collect();
 
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Diagnostics::ToolHelp::*;
-    use windows::Win32::System::Threading::*;
-
-    unsafe {
-        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
-            Ok(h) => h,
-            Err(_) => return,
-        };
-
-        let mut entry = PROCESSENTRY32 {
-            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
-            ..Default::default()
-        };
-
-        if Process32First(snapshot, &mut entry).is_ok() {
-            loop {
-                let name: String = entry
-                    .szExeFile
-                    .iter()
-                    .take_while(|&&c| c != 0)
-                    .map(|&c| c as u8 as char)
-                    .collect();
-
-                // Skip if this app has an active (non-exhausted) allowance —
-                // user is still within their daily quota.
-                let name_lc = name.to_ascii_lowercase();
-                if !allowance_exempt.contains(&name_lc)
-                    && let Some(list_name) = eng.check_app(&name, None, None)
-                {
-                    let pid = entry.th32ProcessID;
-                    // Don't kill ourselves or system processes
-                    #[allow(clippy::collapsible_if)]
-                    if pid > 4 && pid != std::process::id() {
-                        if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-                            let _ = TerminateProcess(handle, 1);
-                            let _ = CloseHandle(handle);
-                            info!(pid, name = %name, list = %list_name, "Killed blocked process");
-                            let _ = eng.record_blocked(&name);
-                        }
-                    }
-                }
-
-                if Process32Next(snapshot, &mut entry).is_err() {
-                    break;
-                }
-            }
+    for proc in process::list() {
+        if !proc.is_killable() || exempt.contains(&proc.name.to_ascii_lowercase()) {
+            continue;
         }
+        let Some(list_name) = eng.check_app(&proc.name, None, None) else {
+            continue;
+        };
+        if process::terminate(proc.pid) {
+            info!(pid = proc.pid, name = %proc.name, list = %list_name, "Killed blocked process");
+            let _ = eng.record_blocked(&proc.name);
+        }
+    }
+}
 
-        let _ = CloseHandle(snapshot);
+/// Kill processes whose executable name matches an allowance that is
+/// exhausted for today.
+fn kill_allowance_blocked_apps(tracker: &focuser_core::allowance::AllowanceTracker) {
+    let exhausted: HashSet<String> = tracker
+        .blocked_apps()
+        .into_iter()
+        .map(|s| s.to_ascii_lowercase())
+        .collect();
+    if exhausted.is_empty() {
+        return;
+    }
+
+    for proc in process::list() {
+        if !proc.is_killable() || !exhausted.contains(&proc.name.to_ascii_lowercase()) {
+            continue;
+        }
+        if process::terminate(proc.pid) {
+            info!(pid = proc.pid, name = %proc.name, "Killed app over allowance quota");
+        }
     }
 }
 
@@ -329,9 +242,9 @@ fn kill_blocked_processes_windows(
 /// If active blocks exist and a browser is running without the Focuser extension
 /// connected, start a grace period. After the grace period expires, kill the browser.
 ///
-/// Note: Since the Tauri app communicates with the extension via HTTP API (port 17549),
-/// we track connected extensions via a simple "has the extension polled recently" check.
-/// The extension polls /api/rules every 2 seconds. If no poll in 10 seconds, it's gone.
+/// "Connected" means the extension polled `/api/rules` recently — that HTTP
+/// call is the only signal we get, so a browser is judged by whether its
+/// extension has been in touch, not by asking the browser anything.
 fn enforce_browser_extension(
     has_active_blocks: bool,
     grace_duration: Duration,
@@ -342,145 +255,79 @@ fn enforce_browser_extension(
         return;
     }
 
-    // For now, the extension connects via HTTP — we can't easily distinguish which
-    // browser's extension is connected. So we check if ANY extension is connected
-    // by seeing if the API server has been polled recently.
-    // The native messaging host (focuser-native) will send Connected events in the future.
-    //
-    // Current strategy: detect running browsers and enforce after grace period.
-    // Extension connection tracking will be enhanced when native messaging is active.
-
-    #[cfg(windows)]
-    enforce_browser_extension_windows(has_active_blocks, grace_duration, grace_periods);
-}
-
-#[cfg(windows)]
-fn enforce_browser_extension_windows(
-    _has_active_blocks: bool,
-    grace_duration: Duration,
-    grace_periods: &mut HashMap<BrowserType, Instant>,
-) {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Diagnostics::ToolHelp::*;
-    use windows::Win32::System::Threading::*;
-
     let now = Instant::now();
 
-    // Enumerate processes and find browsers
-    let mut running_browsers: HashMap<BrowserType, Vec<u32>> = HashMap::new();
-
-    unsafe {
-        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
-            Ok(h) => h,
-            Err(_) => return,
-        };
-
-        let mut entry = PROCESSENTRY32 {
-            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
-            ..Default::default()
-        };
-
-        if Process32First(snapshot, &mut entry).is_ok() {
-            loop {
-                let name: String = entry
-                    .szExeFile
-                    .iter()
-                    .take_while(|&&c| c != 0)
-                    .map(|&c| c as u8 as char)
-                    .collect();
-
-                if let Some(browser_info) = identify_browser(&name) {
-                    let pid = entry.th32ProcessID;
-                    if pid > 4 && pid != std::process::id() {
-                        running_browsers
-                            .entry(browser_info.browser_type.clone())
-                            .or_default()
-                            .push(pid);
-                    }
-                }
-
-                if Process32Next(snapshot, &mut entry).is_err() {
-                    break;
-                }
-            }
+    let mut running: HashMap<BrowserType, Vec<u32>> = HashMap::new();
+    for proc in process::list() {
+        if !proc.is_killable() {
+            continue;
         }
-
-        let _ = CloseHandle(snapshot);
+        if let Some(info) = identify_browser(&proc.name) {
+            running
+                .entry(info.browser_type.clone())
+                .or_default()
+                .push(proc.pid);
+        }
     }
 
-    // Check which browsers have a connected extension.
-    // Generous 2-minute window: extensions use chrome.alarms which fires
-    // every 30s when the service worker is asleep. We need at least 2x the
-    // alarm period plus margin for slow startup, suspended SW, or hiccups.
-    let connected_extensions = crate::api::get_connected_browsers(120);
+    // Generous 2-minute window: extensions use chrome.alarms, which fires
+    // every 30s once the service worker sleeps. Anything tighter would call a
+    // healthy extension dead during a slow startup or a suspended worker.
+    let connected = crate::api::get_connected_browsers(120);
 
-    // Check each running browser
-    for (browser_type, pids) in &running_browsers {
-        if connected_extensions.contains(browser_type) {
-            grace_periods.remove(browser_type);
+    for (browser, pids) in &running {
+        if connected.contains(browser) {
+            grace_periods.remove(browser);
             continue;
         }
 
-        match grace_periods.get(browser_type) {
-            None => {
-                // Start grace period
-                warn!(
-                    browser = ?browser_type,
-                    grace_secs = grace_duration.as_secs(),
-                    "Browser running without Focuser extension — grace period started"
-                );
-                grace_periods.insert(browser_type.clone(), now);
-            }
-            Some(started_at) => {
-                if now.duration_since(*started_at) >= grace_duration {
-                    // Grace expired — final safety net with an even wider 3-minute window.
-                    // This accounts for the case where the extension was just installed
-                    // mid-grace and is still warming up its alarms.
-                    let fresh_check = crate::api::get_connected_browsers(180);
-                    if fresh_check.contains(browser_type) {
-                        // Extension connected just in time — cancel kill
-                        info!(
-                            browser = ?browser_type,
-                            "Extension connected during grace period — cancelling termination"
-                        );
-                        grace_periods.remove(browser_type);
-                    } else {
-                        // Confirmed: no extension — kill browser
-                        info!(
-                            browser = ?browser_type,
-                            pid_count = pids.len(),
-                            "Grace period expired — terminating browser without extension"
-                        );
+        let Some(started_at) = grace_periods.get(browser) else {
+            warn!(
+                browser = ?browser,
+                grace_secs = grace_duration.as_secs(),
+                "Browser running without Focuser extension — grace period started"
+            );
+            grace_periods.insert(browser.clone(), now);
+            continue;
+        };
 
-                        for &pid in pids {
-                            unsafe {
-                                if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-                                    let _ = TerminateProcess(handle, 1);
-                                    let _ = CloseHandle(handle);
-                                }
-                            }
-                        }
-
-                        // Show the Focuser app with "install extension" prompt
-                        let browser_name = focuser_common::browser::KNOWN_BROWSERS
-                            .iter()
-                            .find(|b| b.browser_type == *browser_type)
-                            .map(|b| b.display_name)
-                            .unwrap_or("your browser");
-                        crate::api::set_killed_browser(browser_name);
-                        crate::api::SHOW_WINDOW_REQUESTED
-                            .store(true, std::sync::atomic::Ordering::Relaxed);
-
-                        // Reset so grace restarts if browser is relaunched
-                        grace_periods.remove(browser_type);
-                    }
-                }
-            }
+        if now.duration_since(*started_at) < grace_duration {
+            continue;
         }
+
+        // Last look before closing anything, with a wider window still: the
+        // extension may have been installed mid-grace and be warming up.
+        if crate::api::get_connected_browsers(180).contains(browser) {
+            info!(
+                browser = ?browser,
+                "Extension connected during grace period — cancelling termination"
+            );
+            grace_periods.remove(browser);
+            continue;
+        }
+
+        info!(
+            browser = ?browser,
+            pid_count = pids.len(),
+            "Grace period expired — terminating browser without extension"
+        );
+        for &pid in pids {
+            process::terminate(pid);
+        }
+
+        let name = focuser_common::browser::KNOWN_BROWSERS
+            .iter()
+            .find(|b| b.browser_type == *browser)
+            .map(|b| b.display_name)
+            .unwrap_or("your browser");
+        crate::api::set_killed_browser(name);
+        crate::api::SHOW_WINDOW_REQUESTED.store(true, std::sync::atomic::Ordering::Relaxed);
+
+        // Reset so the grace period restarts if the browser is relaunched.
+        grace_periods.remove(browser);
     }
 
-    // Clean up grace periods for browsers no longer running
-    grace_periods.retain(|bt, _| running_browsers.contains_key(bt));
+    grace_periods.retain(|browser, _| running.contains_key(browser));
 }
 
 fn hosts_path() -> String {

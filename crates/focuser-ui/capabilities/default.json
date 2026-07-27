@@ -17,10 +17,6 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "binaries/focuser-service",
-          "sidecar": true
-        },
-        {
           "name": "binaries/focuser-cli",
           "sidecar": true
         },

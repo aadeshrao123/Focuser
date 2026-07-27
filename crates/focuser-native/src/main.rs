@@ -1,17 +1,21 @@
 //! Focuser Native Messaging Host
 //!
-//! Bridges the browser extension to the Focuser service via the Native Messaging
-//! protocol (stdin/stdout length-prefixed JSON).
-//!
-//! ## Architecture
+//! Bridges the browser extension to Focuser via the Native Messaging protocol
+//! (stdin/stdout length-prefixed JSON).
 //!
 //! ```text
-//! Browser Extension <──stdio──> focuser-native <──IPC──> focuser-service
+//! Browser Extension <──stdio──> focuser-native <──IPC──> (no listener)
 //! ```
 //!
-//! The extension sends `NativeMessage` envelopes with `ExtensionEvent` payloads.
-//! This binary translates them to `IpcRequest::ExtensionEvent` and forwards to
-//! the service, then returns the response as a `NativeMessage` on stdout.
+//! **This bridge currently reaches nothing.** It forwards `IpcRequest` over TCP
+//! 17549 to the standalone service, which was removed in 0.4.2 — that port now
+//! belongs to the desktop app's HTTP extension API, which speaks a different
+//! protocol. The extension tries native messaging, fails, and falls back to
+//! polling that HTTP API, which is the path that actually works.
+//!
+//! Kept because the Native Messaging registration and framing are correct and
+//! worth reusing; it needs repointing at the desktop app before it does
+//! anything. See the extension section of README.md.
 
 mod ipc_client;
 

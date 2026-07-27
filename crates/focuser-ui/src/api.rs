@@ -39,7 +39,6 @@ static CONNECTED_BROWSERS: Mutex<Option<HashMap<BrowserType, Instant>>> = Mutex:
 /// - Multi-tab: multiple tabs of the same site reporting nearly simultaneously
 /// - Browser navigation events: onCommitted + onCompleted for the same URL
 /// - Service worker restarts: extension's local dedup state lost
-/// - Both the Tauri app and focuser-service running (rare)
 /// - Chrome retrying failed loads
 static RECENT_REPORTS: Mutex<Option<HashMap<String, Instant>>> = Mutex::new(None);
 const REPORT_DEDUP_WINDOW_SECS: u64 = 3;

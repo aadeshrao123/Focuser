@@ -6,11 +6,13 @@ Built in Rust for maximum performance and safety. Targets Windows, macOS, and Li
 
 ## Architecture
 - **Workspace layout**: `crates/` contains all Rust crates
-  - `focuser-common` — Shared types, error types, constants, platform abstractions
+  - `focuser-common` — Shared types, error types, process control, icon extraction
   - `focuser-core` — Rules engine, database, block evaluation, scheduling logic
-  - `focuser-service` — System daemon/service with platform-specific blocking
+  - `focuser-app` — Command core: every action the app can perform, in one enum
   - `focuser-cli` — Command-line interface
-  - `focuser-ui` — Tauri GUI (future)
+  - `focuser-native` — Native messaging host (browser extension bridge)
+  - `focuser-devserver` — Dev-only HTTP bridge, for running the UI in a browser
+  - `focuser-ui` — Tauri desktop app; owns the blocking loop and extension API
 - **Docs**: `internal-docs/` holds working notes and is **gitignored — never commit or push it**.
   - `internal-docs/reference/` — long-lived project docs (FEATURES, ARCHITECTURE, ROADMAP)
   - `internal-docs/tasks/<YYYY-MM-DD-slug>/` — one folder per piece of work, each with a
@@ -24,8 +26,9 @@ Built in Rust for maximum performance and safety. Targets Windows, macOS, and Li
 - **Async runtime**: Tokio (multi-threaded)
 - **Logging**: `tracing` crate with structured logging. Use `tracing::instrument` on public functions.
 - **Database**: SQLite via `rusqlite`. All migrations in `focuser-core/src/db/migrations/`.
-- **Platform code**: Gate with `#[cfg(target_os = "...")]` in `focuser-service/src/platform/`.
-  Common trait in `focuser-common/src/platform.rs`, implemented per OS.
+- **Platform code**: Gate with `#[cfg(target_os = "...")]` and keep it in a
+  per-OS `mod imp` inside the module that needs it — see
+  `focuser-common/src/process.rs`. Callers stay platform-free.
 - **Serialization**: `serde` for all data structures that cross boundaries (IPC, DB, config).
 - **IDs**: UUID v4 for all entities (blocks, schedules, etc.)
 - **Time**: `chrono` for all date/time. Store as UTC in DB, convert to local for display.
@@ -48,7 +51,6 @@ Built in Rust for maximum performance and safety. Targets Windows, macOS, and Li
 ```bash
 cargo build                          # Build all crates
 cargo run -p focuser-cli             # Run CLI
-cargo run -p focuser-service         # Run service (needs admin/root)
 cargo test --workspace               # Run all tests
 cargo clippy --workspace             # Lint
 ```
@@ -56,10 +58,14 @@ cargo clippy --workspace             # Lint
 ## Key Design Decisions
 1. **Hosts file blocking first** — simplest, works everywhere, no driver needed
 2. **SQLite for storage** — single file, no external DB, embedded with rusqlite
-3. **IPC via named pipes (Windows) / Unix sockets (Linux/macOS)** — fast, local-only
-4. **Service runs as elevated/root** — required for hosts file and process control
-5. **CLI communicates with service over IPC** — CLI never modifies system directly
-6. **Modular platform traits** — each OS implements `PlatformBlocker` trait
+3. **One command core** — `focuser-app` holds every action as a `Command` variant;
+   the GUI, CLI and devserver are deserialize-and-forward shims over `execute()`
+4. **The GUI owns the engine** — it runs the blocking loop, hosts-file sync and the
+   extension API directly. There is no daemon; a standalone service used to exist
+   and was removed in 0.4.2 because nothing launched it and its IPC port collided
+   with the extension API on 17549
+5. **The CLI goes straight to the database** — no IPC, so it works in a shipped install
+6. **TypeScript types are generated from Rust** via tauri-specta; CI fails on drift
 7. **Extension-ready architecture** — browser extension support is deferred but the
    integration points are built:
    - `focuser-common/src/extension.rs` defines the full protocol (messages, rule sets, events)

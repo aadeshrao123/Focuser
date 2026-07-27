@@ -117,10 +117,9 @@ The TypeScript types the frontend uses are **generated** from the Rust types by 
 ```
 Focuser/
 ├── crates/
-│   ├── focuser-common/    # Shared types, errors, platform traits, icon extraction
+│   ├── focuser-common/    # Shared types, errors, process control, icon extraction
 │   ├── focuser-core/      # Database, rules engine, blocking logic
 │   ├── focuser-app/       # Command core — every action the app can perform
-│   ├── focuser-service/   # Standalone service daemon
 │   ├── focuser-native/    # Native messaging host (extension bridge)
 │   ├── focuser-cli/       # Command-line interface
 │   ├── focuser-devserver/ # Dev-only HTTP bridge, for running the UI in a browser
@@ -166,7 +165,7 @@ cargo run -p focuser-ui
 Building installers additionally needs the sidecar binaries in place:
 
 ```bash
-cargo build --release -p focuser-service -p focuser-cli -p focuser-native
+cargo build --release -p focuser-cli -p focuser-native
 # copy each into crates/focuser-ui/binaries/<name>-<target-triple>[.exe]
 cd crates/focuser-ui && cargo tauri build
 ```
