@@ -1,4 +1,5 @@
 pub mod allowance;
+pub mod appicon;
 pub mod block;
 pub mod browser;
 pub mod error;

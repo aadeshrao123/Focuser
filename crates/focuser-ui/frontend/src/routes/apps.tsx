@@ -8,7 +8,7 @@ import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Page } from "@/components/ui/page";
 import { Select } from "@/components/ui/select";
-import { useAddAppRule, useBlockLists, useRemoveAppRule } from "@/lib/commands";
+import { useAddAppRule, useAppIcons, useBlockLists, useRemoveAppRule } from "@/lib/commands";
 import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
 import { isTauri, pickApplication } from "@/lib/native";
 
@@ -105,10 +105,10 @@ export function Apps() {
                 description="Add an executable name like discord.exe, or browse for one on disk."
               />
             ) : (
-              <RuleTable
-                rows={list.applications.map((r) => ({ id: r.id, ...describeApp(r.match_type) }))}
+              <AppRules
+                listId={list.id}
+                rules={list.applications}
                 onRemove={(ruleId) => remove.mutate({ listId: list.id, ruleId })}
-                noun="application"
               />
             )}
             <InlineError error={remove.error} />
@@ -116,5 +116,28 @@ export function Apps() {
         )}
       </QueryState>
     </Page>
+  );
+}
+
+/**
+ * The rule list, plus each program's real icon where the machine has one.
+ *
+ * Split out so the icon query is keyed by exactly the rules on screen, and so
+ * a slow disk read cannot hold up the rest of the page.
+ */
+function AppRules({
+  listId,
+  rules,
+  onRemove,
+}: {
+  listId: string;
+  rules: { id: string; match_type: Parameters<typeof describeApp>[0] }[];
+  onRemove: (ruleId: string) => void;
+}) {
+  const rows = rules.map((r) => ({ id: r.id, ...describeApp(r.match_type) }));
+  const icons = useAppIcons(rows.map((r) => r.value).filter(Boolean));
+
+  return (
+    <RuleTable key={listId} rows={rows} onRemove={onRemove} noun="application" icons={icons.data} />
   );
 }

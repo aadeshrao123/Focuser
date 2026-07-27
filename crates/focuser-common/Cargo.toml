@@ -15,3 +15,21 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
 glob-match = { workspace = true }
+
+# Application icons. Versions match what the Tauri dependency tree already
+# pulls in, so neither adds a second copy to the build.
+png = "0.17"
+base64 = "0.22"
+
+[target.'cfg(windows)'.dependencies]
+# Pinned to the version the rest of the workspace uses.
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_UI_Controls",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+winreg = "0.55"

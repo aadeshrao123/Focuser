@@ -179,6 +179,21 @@ pub fn print_human(result: &CommandResult) {
                 );
             }
         }
+
+        // A terminal cannot show the image, so report whether one was found.
+        // `--json` carries the data URI itself for anything that wants it.
+        CommandResult::AppIcons(icons) => {
+            for i in icons {
+                println!(
+                    "{:<32} {}",
+                    truncate(&i.target, 32),
+                    match &i.data_uri {
+                        Some(uri) => format!("icon ({} bytes)", uri.len()),
+                        None => "no icon".to_string(),
+                    },
+                );
+            }
+        }
     }
 }
 

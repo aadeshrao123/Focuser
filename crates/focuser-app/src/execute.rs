@@ -11,7 +11,7 @@ use focuser_common::types::{
 use focuser_core::{BlockEngine, pomodoro};
 
 use crate::command::{
-    AllowanceNotificationDto, AllowanceUsageEntry, BrowserStatus, Command, CommandResult,
+    AllowanceNotificationDto, AllowanceUsageEntry, AppIcon, BrowserStatus, Command, CommandResult,
     PomodoroEventDto, PomodoroHistoryEntry, ProtectionInfo,
 };
 use crate::context::{AppContext, PomodoroEvent};
@@ -581,6 +581,22 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 })
                 .collect();
             Ok(CommandResult::BrowserStatus(statuses))
+        }
+
+        Command::GetAppIcons { targets } => {
+            // Deduplicated: the same executable can appear in several rules,
+            // and reading its icon twice is wasted shell work.
+            let mut seen = std::collections::HashSet::new();
+            let icons = targets
+                .into_iter()
+                .filter(|target| seen.insert(target.clone()))
+                .map(|target| AppIcon {
+                    data_uri: focuser_common::appicon::icon_for(&target),
+                    target,
+                })
+                .collect();
+
+            Ok(CommandResult::AppIcons(icons))
         }
 
         Command::AppVersion => Ok(CommandResult::Text(env!("CARGO_PKG_VERSION").to_string())),
@@ -1582,6 +1598,69 @@ mod tests {
             statuses
                 .iter()
                 .all(|s| !s.running && !s.extension_connected)
+        );
+    }
+
+    #[test]
+    fn app_icons_answer_for_every_target_even_when_there_is_no_icon() {
+        let ctx = ctx();
+        let result = execute(
+            &ctx,
+            Command::GetAppIcons {
+                targets: vec!["Solitaire".into(), "definitely-not-installed.exe".into()],
+            },
+        )
+        .unwrap();
+
+        let CommandResult::AppIcons(icons) = result else {
+            panic!("expected app icons");
+        };
+        // A row still needs an answer so the caller knows to fall back rather
+        // than sit on a spinner.
+        assert_eq!(icons.len(), 2);
+        assert!(icons.iter().all(|i| i.data_uri.is_none()));
+    }
+
+    #[test]
+    fn app_icons_are_read_once_per_distinct_target() {
+        let ctx = ctx();
+        let result = execute(
+            &ctx,
+            Command::GetAppIcons {
+                targets: vec!["dupe.exe".into(), "dupe.exe".into(), "other.exe".into()],
+            },
+        )
+        .unwrap();
+
+        let CommandResult::AppIcons(icons) = result else {
+            panic!("expected app icons");
+        };
+        assert_eq!(
+            icons.iter().map(|i| i.target.as_str()).collect::<Vec<_>>(),
+            ["dupe.exe", "other.exe"]
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_program_that_is_installed_comes_back_with_its_icon() {
+        let ctx = ctx();
+        let result = execute(
+            &ctx,
+            Command::GetAppIcons {
+                targets: vec!["notepad.exe".into()],
+            },
+        )
+        .unwrap();
+
+        let CommandResult::AppIcons(icons) = result else {
+            panic!("expected app icons");
+        };
+        assert!(
+            icons[0]
+                .data_uri
+                .as_deref()
+                .is_some_and(|uri| uri.starts_with("data:image/png;base64,"))
         );
     }
 

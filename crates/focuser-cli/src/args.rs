@@ -182,6 +182,12 @@ pub enum AppCmd {
     },
     /// Remove every application rule from every unprotected list.
     Clear,
+    /// Look up the icons for one or more executables.
+    Icons {
+        /// Executable names or full paths.
+        #[arg(required = true)]
+        targets: Vec<String>,
+    },
 }
 
 // ─── Exceptions ─────────────────────────────────────────────────────
@@ -458,6 +464,7 @@ impl TopLevel {
                 },
                 AppCmd::Rm { list_id, rule_id } => Command::RemoveAppRule { list_id, rule_id },
                 AppCmd::Clear => Command::ClearAllApps,
+                AppCmd::Icons { targets } => Command::GetAppIcons { targets },
             },
 
             TopLevel::Exception(c) => match c {

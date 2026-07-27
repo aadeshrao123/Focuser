@@ -244,6 +244,13 @@ pub enum Command {
     },
     /// Which known browsers are running, and which have the extension.
     GetBrowserStatus,
+    /// Icons for application rules, read from the executables on disk.
+    ///
+    /// Batched because the caller wants a whole list at once and these are
+    /// carried inline; one request per row would be one round trip per row.
+    GetAppIcons {
+        targets: Vec<String>,
+    },
     AppVersion,
 }
 
@@ -337,6 +344,7 @@ pub enum CommandResult {
     /// Free text — an exported configuration document, or a version string.
     Text(String),
     BrowserStatus(Vec<BrowserStatus>),
+    AppIcons(Vec<AppIcon>),
 }
 
 /// One known browser and whether Focuser can see it.
@@ -350,6 +358,17 @@ pub struct BrowserStatus {
     pub store_url: String,
     /// Short name for launching this browser at a URL.
     pub launch_name: String,
+}
+
+/// One application rule's icon.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AppIcon {
+    /// Echoed back so the caller can match icons to rows without relying on
+    /// the order it sent them in.
+    pub target: String,
+    /// A `data:image/png;base64,…` URI, or `None` when the rule does not name
+    /// a program we can find — a window title, or software since uninstalled.
+    pub data_uri: Option<String>,
 }
 
 impl CommandResult {

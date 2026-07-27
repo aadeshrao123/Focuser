@@ -34,13 +34,34 @@ function initialFor(value: string): string {
 export function TargetIcon({
   value,
   glyph,
+  src,
   className,
 }: {
   value: string;
   glyph?: ReactNode;
+  /**
+   * The program's own icon, read off disk. Only applications have one, and
+   * only on platforms where we can get at it — everything else falls through
+   * to the monogram below.
+   */
+  src?: string | null;
   className?: string;
 }) {
   const hue = hueFor(value);
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        // Rendered at its own size inside the tile footprint rather than
+        // stretched: icons come back trimmed to their artwork, so forcing a
+        // square would distort anything that is not one.
+        className={cn("size-9 shrink-0 select-none object-contain", className)}
+        draggable={false}
+      />
+    );
+  }
 
   return (
     <span

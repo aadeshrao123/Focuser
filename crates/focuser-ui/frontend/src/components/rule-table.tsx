@@ -58,11 +58,14 @@ export function RuleTable({
   rows,
   onRemove,
   noun = "rule",
+  icons,
 }: {
   rows: RuleRow[];
   onRemove: (id: string) => void;
   /** Used in the search placeholder and the result count. */
   noun?: string;
+  /** Real icons by rule value, where the caller could find one. */
+  icons?: Map<string, string | null>;
 }) {
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<string | null>(null);
@@ -146,7 +149,11 @@ export function RuleTable({
                   "hover:-translate-y-px hover:border-border-strong hover:bg-elevated/50",
                 ].join(" ")}
               >
-                <TargetIcon value={row.value || row.kind} glyph={named ? undefined : icon} />
+                <TargetIcon
+                  value={row.value || row.kind}
+                  glyph={named ? undefined : icon}
+                  src={icons?.get(row.value)}
+                />
 
                 <p className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
                   {row.value || "—"}

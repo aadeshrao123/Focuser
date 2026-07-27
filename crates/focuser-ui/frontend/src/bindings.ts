@@ -66,6 +66,20 @@ export type AllowanceUsageEntry = {
 	used_secs: number,
 };
 
+/**  One application rule's icon. */
+export type AppIcon = {
+	/**
+	 *  Echoed back so the caller can match icons to rows without relying on
+	 *  the order it sent them in.
+	 */
+	target: string,
+	/**
+	 *  A `data:image/png;base64,…` URI, or `None` when the rule does not name
+	 *  a program we can find — a window title, or software since uninstalled.
+	 */
+	data_uri: string | null,
+};
+
 export type AppMatchType = 
 /**  Match by executable name (e.g., "steam.exe") */
 ({ ExecutableName: string }) & { BundleId?: never; ExecutablePath?: never; WindowTitle?: never } | 
@@ -307,7 +321,16 @@ export type Command =
 	domain: string,
 } } | 
 /**  Which known browsers are running, and which have the extension. */
-{ cmd: "get_browser_status" } | { cmd: "app_version" };
+{ cmd: "get_browser_status" } | 
+/**
+ *  Icons for application rules, read from the executables on disk.
+ * 
+ *  Batched because the caller wants a whole list at once and these are
+ *  carried inline; one request per row would be one round trip per row.
+ */
+{ cmd: "get_app_icons"; args: {
+	targets: string[],
+} } | { cmd: "app_version" };
 
 /**
  *  The wire form of a failure: `{ "code": ..., "message": ... }`.
@@ -343,7 +366,7 @@ export type CommandResult =
 /**  Current Pomodoro session, or `None` when idle. */
 { kind: "pomodoro_status"; data: PomodoroStatus | null } | { kind: "pomodoro_session"; data: PomodoroSession } | { kind: "pomodoro_events"; data: PomodoroEventDto[] } | { kind: "pomodoro_history"; data: PomodoroHistoryEntry[] } | { kind: "allowance"; data: Allowance } | { kind: "allowances"; data: AllowanceStatus[] } | { kind: "allowance_notifications"; data: AllowanceNotificationDto[] } | { kind: "allowance_history"; data: AllowanceUsageEntry[] } | 
 /**  Free text — an exported configuration document, or a version string. */
-{ kind: "text"; data: string } | { kind: "browser_status"; data: BrowserStatus[] };
+{ kind: "text"; data: string } | { kind: "browser_status"; data: BrowserStatus[] } | { kind: "app_icons"; data: AppIcon[] };
 
 export type ExceptionRule = {
 	id: string,

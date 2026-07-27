@@ -74,6 +74,7 @@ export const queryKeys = {
   retention: ["stats-retention"] as const,
   browsers: ["browsers"] as const,
   setting: (key: string) => ["setting", key] as const,
+  appIcons: (targets: string[]) => ["app-icons", ...targets] as const,
 };
 
 /** Anything that changes blocking invalidates lists and protection together. */
@@ -262,6 +263,31 @@ export function useBrowserStatus() {
     queryFn: async () => expect(await run({ cmd: "get_browser_status" }), "browser_status").data,
     // Browsers start and stop while the window is open, but not every 2s.
     refetchInterval: 10_000,
+  });
+}
+
+/**
+ * Real icons for application rules, keyed by the rule's value.
+ *
+ * An executable's icon only changes when the program is reinstalled, so this
+ * never goes stale on its own — otherwise the Applications page would re-read
+ * every icon off disk on each poll.
+ */
+export function useAppIcons(targets: string[]) {
+  const key = [...targets].sort();
+
+  return useQuery({
+    queryKey: queryKeys.appIcons(key),
+    enabled: key.length > 0,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+    queryFn: async () => {
+      const icons = expect(
+        await run({ cmd: "get_app_icons", args: { targets: key } }),
+        "app_icons",
+      ).data;
+      return new Map(icons.map((i) => [i.target, i.data_uri]));
+    },
   });
 }
 
