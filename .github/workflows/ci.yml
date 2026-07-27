@@ -156,6 +156,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
+      # focuser-ui declares these as Tauri sidecars, so its build script
+      # refuses to run until they exist — even though exporting bindings does
+      # not use them.
+      - name: Build sidecar binaries
+        shell: bash
+        run: |
+          cargo build -p focuser-cli -p focuser-native
+          mkdir -p crates/focuser-ui/binaries
+          host=$(rustc -vV | awk '/^host:/ {print $2}')
+          for bin in focuser-cli focuser-native; do
+            cp "target/debug/$bin" "crates/focuser-ui/binaries/$bin-$host"
+          done
+
       # Generated from Rust, so a stale committed copy means the frontend is
       # typechecking against a backend that no longer exists.
       - name: Regenerate

@@ -479,6 +479,25 @@ mod tests {
         }
     }
 
+    /// Assert the index resolved `key` to `expected`, comparing the two as the
+    /// same file rather than as identical strings.
+    ///
+    /// On a machine whose user name is longer than eight characters, `TEMP` is
+    /// an 8.3 short path (`C:\Users\RUNNER~1\...`) while the shell reports the
+    /// long one. Both name the same file; only the spelling differs.
+    fn assert_resolves_to(sources: &HashMap<String, PathBuf>, key: &str, expected: &Path) {
+        let actual = sources
+            .get(key)
+            .unwrap_or_else(|| panic!("nothing indexed under {key}"));
+        assert_eq!(
+            std::fs::canonicalize(actual).unwrap(),
+            std::fs::canonicalize(expected).unwrap(),
+            "{key} resolved to {}, expected {}",
+            actual.display(),
+            expected.display(),
+        );
+    }
+
     /// Something that exists on disk and can stand in for a program.
     fn touch(dir: &Path, name: &str) -> PathBuf {
         let path = dir.join(name);
@@ -515,7 +534,7 @@ mod tests {
 
         let sources = icon_sources(&[dir.path().to_path_buf()]);
 
-        assert_eq!(sources.get("steam.exe"), Some(&target));
+        assert_resolves_to(&sources, "steam.exe", &target);
     }
 
     // Squirrel installers — most Electron apps — point the shortcut at a shared
@@ -530,9 +549,9 @@ mod tests {
 
         let sources = icon_sources(&[dir.path().to_path_buf()]);
 
-        assert_eq!(sources.get("discord.exe"), Some(&icon));
+        assert_resolves_to(&sources, "discord.exe", &icon);
         // The updater is still reachable under its own name.
-        assert_eq!(sources.get("update.exe"), Some(&updater));
+        assert_resolves_to(&sources, "update.exe", &updater);
     }
 
     #[test]
@@ -547,7 +566,7 @@ mod tests {
 
         let sources = icon_sources(&[dir.path().to_path_buf()]);
 
-        assert_eq!(sources.get("app.exe"), Some(&real));
+        assert_resolves_to(&sources, "app.exe", &real);
     }
 
     #[test]
@@ -561,7 +580,7 @@ mod tests {
 
         let sources = icon_sources(&[dir.path().to_path_buf()]);
 
-        assert_eq!(sources.get("thing.exe"), Some(&target));
+        assert_resolves_to(&sources, "thing.exe", &target);
     }
 
     #[test]
@@ -574,7 +593,7 @@ mod tests {
 
         let sources = icon_sources(&[dir.path().to_path_buf()]);
 
-        assert_eq!(sources.get("nested.exe"), Some(&target));
+        assert_resolves_to(&sources, "nested.exe", &target);
     }
 
     #[test]

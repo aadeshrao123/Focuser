@@ -140,16 +140,15 @@ pub fn downscale(icon: &Icon, max_edge: u32) -> Icon {
                 }
             }
 
-            if a == 0 {
-                rgba.extend_from_slice(&[0, 0, 0, 0]);
-            } else {
-                rgba.extend_from_slice(&[
-                    (r / a) as u8,
-                    (g / a) as u8,
-                    (b / a) as u8,
-                    (a / n.max(1)) as u8,
-                ]);
-            }
+            // `max(1)` rather than a zero branch: colours are weighted by
+            // alpha, so a fully transparent block already has r, g and b at
+            // zero — dividing by 1 lands on the same transparent pixel.
+            rgba.extend_from_slice(&[
+                (r / a.max(1)) as u8,
+                (g / a.max(1)) as u8,
+                (b / a.max(1)) as u8,
+                (a / n.max(1)) as u8,
+            ]);
         }
     }
 
