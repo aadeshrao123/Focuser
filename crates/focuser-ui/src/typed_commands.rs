@@ -75,13 +75,19 @@ pub fn export_bindings() -> bool {
     // `#[specta(type = specta_typescript::Number)]` at their definition, rather
     // than being waved through globally here — so each one is a deliberate,
     // reviewable decision about precision.
-    match specta_builder().export(Typescript::default(), BINDINGS_PATH) {
+    // Anchored to the crate directory, not the working directory — otherwise
+    // where the bindings land depends on where you happened to run cargo from,
+    // and `npm run bindings` (which runs from the frontend folder) would write
+    // them into a second, unread copy of the tree.
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(BINDINGS_PATH);
+
+    match specta_builder().export(Typescript::default(), &path) {
         Ok(()) => {
-            println!("exported TypeScript bindings to {BINDINGS_PATH}");
+            println!("exported TypeScript bindings to {}", path.display());
             true
         }
         Err(e) => {
-            eprintln!("failed to export bindings to {BINDINGS_PATH}: {e}");
+            eprintln!("failed to export bindings to {}: {e}", path.display());
             false
         }
     }

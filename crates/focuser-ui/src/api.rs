@@ -17,6 +17,7 @@ use focuser_common::extension::BrowserType;
 use tracing::{debug, error, info};
 
 use crate::AppState;
+use crate::blocker;
 
 /// Flag to request the main window to show itself.
 pub static SHOW_WINDOW_REQUESTED: AtomicBool = AtomicBool::new(false);
@@ -434,7 +435,7 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
         );
     }
     let _ = eng.refresh();
-    crate::commands::sync_hosts_now_static(&eng);
+    let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
 
     ("200 OK", r#"{"ok":true}"#.into())
 }
@@ -486,7 +487,7 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
         );
     }
     let _ = eng.refresh();
-    crate::commands::sync_hosts_now_static(&eng);
+    let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
 
     ("200 OK", r#"{"ok":true}"#.into())
 }
@@ -598,7 +599,7 @@ fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {
         );
     }
     let _ = eng.refresh();
-    crate::commands::sync_hosts_now_static(&eng);
+    let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
 
     ("200 OK", r#"{"ok":true}"#.into())
 }

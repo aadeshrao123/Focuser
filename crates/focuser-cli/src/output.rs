@@ -161,6 +161,24 @@ pub fn print_human(result: &CommandResult) {
                 println!("{}  {}", e.date, format_duration(u64::from(e.used_secs)));
             }
         }
+
+        // Exported JSON goes to stdout verbatim so it can be redirected to a file.
+        CommandResult::Text(text) => println!("{text}"),
+
+        CommandResult::BrowserStatus(browsers) => {
+            for b in browsers {
+                println!(
+                    "{:<12} {:<8} {}",
+                    truncate(&b.display_name, 12),
+                    if b.running { "running" } else { "-" },
+                    if b.extension_connected {
+                        "extension connected"
+                    } else {
+                        "no extension"
+                    },
+                );
+            }
+        }
     }
 }
 

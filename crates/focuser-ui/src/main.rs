@@ -2,8 +2,8 @@
 
 mod api;
 mod blocker;
-mod commands;
 mod foreground_watcher;
+mod native;
 mod typed_commands;
 
 use directories::ProjectDirs;
@@ -38,7 +38,24 @@ impl focuser_app::SystemSync for HostsSync {
     fn sync_hosts(&self, domains: &[String]) {
         let _ = blocker::apply_hosts_blocks(domains);
     }
+
+    fn running_browsers(&self) -> Vec<String> {
+        native::detect_running_browsers()
+            .iter()
+            .map(|b| format!("{b:?}"))
+            .collect()
+    }
+
+    fn connected_browsers(&self) -> Vec<String> {
+        api::get_connected_browsers(EXTENSION_SEEN_SECS)
+            .iter()
+            .map(|b| format!("{b:?}"))
+            .collect()
+    }
 }
+
+/// How recently an extension must have checked in to count as connected.
+const EXTENSION_SEEN_SECS: u64 = 120;
 
 fn main() {
     // Regenerate frontend TypeScript bindings and exit. Handled before any
@@ -102,62 +119,15 @@ fn main() {
         ))
         .manage(state)
         .invoke_handler(tauri::generate_handler![
-            commands::get_status,
-            commands::list_block_lists,
-            commands::create_block_list,
-            commands::update_block_list,
-            commands::delete_block_list,
-            commands::toggle_block_list,
-            commands::add_website_rule,
-            commands::remove_website_rule,
-            commands::add_app_rule,
-            commands::remove_app_rule,
-            commands::check_domain,
-            commands::get_stats,
-            commands::get_blocked_events,
-            commands::apply_blocks,
-            commands::remove_blocks,
-            commands::bulk_import_websites,
-            commands::add_exception,
-            commands::remove_exception,
-            commands::export_block_list,
-            commands::clear_all_websites,
-            commands::clear_all_apps,
-            commands::pick_app_file,
-            commands::update_schedule,
-            commands::enable_protection,
-            commands::get_protection_status,
-            commands::export_configuration,
-            commands::import_configuration,
-            commands::pick_import_file,
-            commands::clear_statistics,
-            commands::get_stats_retention,
-            commands::set_stats_retention,
-            commands::reset_settings,
-            commands::delete_all_data,
-            commands::get_browser_status,
-            commands::open_browser_url,
-            commands::check_for_update,
-            commands::do_update,
-            commands::get_app_version,
-            commands::pomodoro_get_status,
-            commands::pomodoro_start,
-            commands::pomodoro_pause,
-            commands::pomodoro_resume,
-            commands::pomodoro_skip,
-            commands::pomodoro_stop,
-            commands::pomodoro_drain_events,
-            commands::allowance_list,
-            commands::allowance_create,
-            commands::allowance_update,
-            commands::allowance_delete,
-            commands::allowance_reset_today,
-            commands::allowance_drain_notifications,
-            commands::get_setting,
-            commands::set_setting,
-            commands::pomodoro_history,
-            commands::allowance_history,
+            // Everything the application can do goes through one command.
             typed_commands::run_command,
+            // Native shims that need a Tauri handle or OS process access.
+            native::pick_app_file,
+            native::pick_import_file,
+            native::save_configuration,
+            native::open_browser_url,
+            native::check_for_update,
+            native::do_update,
         ])
         .setup(move |app| {
             // Enable autostart by default on first run

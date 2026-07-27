@@ -459,3 +459,128 @@ fn runs_against_a_database_that_does_not_exist_yet() {
     );
     assert!(Path::new(&db).exists(), "database file should be created");
 }
+
+// ─── Whole configuration ────────────────────────────────────────────
+
+#[test]
+fn export_then_import_round_trips_through_a_file() {
+    let source = Cli::new();
+    let id = source.make_list("Social");
+    source.ok(&["site", "add", &id, "reddit.com"]);
+
+    let exported = source.ok(&["config", "export"]);
+
+    let target = Cli::new();
+    target.make_list("Replaced");
+    let path = target._dir.path().join("config.json");
+    std::fs::write(&path, &exported).unwrap();
+
+    target.ok(&["config", "import", path.to_str().unwrap()]);
+
+    let lists = target.json(&["list", "ls"]);
+    let data = lists["data"].as_array().unwrap();
+    assert_eq!(data.len(), 1, "import replaces rather than merges");
+    assert_eq!(data[0]["name"], "Social");
+    assert_eq!(data[0]["websites"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn wipe_refuses_without_an_explicit_yes() {
+    let cli = Cli::new();
+    cli.make_list("Keep me");
+
+    let (code, stderr) = cli.fail(&["config", "wipe"]);
+    assert_ne!(code, 0);
+    assert!(
+        stderr.contains("--yes"),
+        "stderr should say what is missing"
+    );
+
+    assert_eq!(
+        cli.json(&["list", "ls"])["data"].as_array().unwrap().len(),
+        1
+    );
+}
+
+#[test]
+fn wipe_with_yes_removes_everything() {
+    let cli = Cli::new();
+    cli.make_list("Gone");
+
+    cli.ok(&["config", "wipe", "--yes"]);
+
+    assert!(
+        cli.json(&["list", "ls"])["data"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn import_of_a_junk_file_fails_as_validation_and_changes_nothing() {
+    let cli = Cli::new();
+    cli.make_list("Keep me");
+
+    let path = cli._dir.path().join("junk.json");
+    std::fs::write(&path, "this is not a configuration").unwrap();
+
+    let (code, _) = cli.fail(&["config", "import", path.to_str().unwrap()]);
+    assert_eq!(code, 2, "caller error, not a backend fault");
+    assert_eq!(
+        cli.json(&["list", "ls"])["data"].as_array().unwrap().len(),
+        1
+    );
+}
+
+#[test]
+fn wipe_and_import_are_refused_while_a_list_is_locked() {
+    let cli = Cli::new();
+    let id = cli.make_list("Locked");
+    cli.ok(&["protect", "enable", &id, "--minutes", "60"]);
+
+    let path = cli._dir.path().join("empty.json");
+    std::fs::write(
+        &path,
+        r#"{"version":1,"app":"Focuser","exported_at":"2026-07-27T00:00:00Z","block_lists":[]}"#,
+    )
+    .unwrap();
+
+    assert_eq!(cli.fail(&["config", "wipe", "--yes"]).0, 5);
+    assert_eq!(cli.fail(&["config", "import", path.to_str().unwrap()]).0, 5);
+    assert_eq!(
+        cli.json(&["list", "ls"])["data"].as_array().unwrap().len(),
+        1
+    );
+}
+
+// ─── Diagnostics ────────────────────────────────────────────────────
+
+#[test]
+fn check_reports_whether_a_domain_is_blocked() {
+    let cli = Cli::new();
+    let id = cli.make_list("Social");
+    cli.ok(&["site", "add", &id, "reddit.com"]);
+
+    assert_eq!(cli.json(&["check", "reddit.com"])["data"], true);
+    assert_eq!(cli.json(&["check", "www.reddit.com"])["data"], true);
+    assert_eq!(cli.json(&["check", "example.com"])["data"], false);
+
+    cli.ok(&["list", "disable", &id]);
+    assert_eq!(cli.json(&["check", "reddit.com"])["data"], false);
+}
+
+#[test]
+fn browsers_lists_every_known_browser() {
+    let cli = Cli::new();
+    let browsers = cli.json(&["browsers"]);
+
+    assert_eq!(browsers["kind"], "browser_status");
+    assert!(!browsers["data"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn version_matches_the_binary() {
+    let cli = Cli::new();
+    assert_eq!(cli.ok(&["version"]), env!("CARGO_PKG_VERSION"));
+}

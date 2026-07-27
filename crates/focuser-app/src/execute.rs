@@ -11,8 +11,8 @@ use focuser_common::types::{
 use focuser_core::{BlockEngine, pomodoro};
 
 use crate::command::{
-    AllowanceNotificationDto, AllowanceUsageEntry, Command, CommandResult, PomodoroEventDto,
-    PomodoroHistoryEntry, ProtectionInfo,
+    AllowanceNotificationDto, AllowanceUsageEntry, BrowserStatus, Command, CommandResult,
+    PomodoroEventDto, PomodoroHistoryEntry, ProtectionInfo,
 };
 use crate::context::{AppContext, PomodoroEvent};
 use crate::error::{CommandError, CommandOutcome};
@@ -498,7 +498,121 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 .collect();
             Ok(CommandResult::AllowanceHistory(entries))
         }
+
+        // ─── Whole-configuration and diagnostics ──────────────
+        Command::ExportConfiguration => {
+            let document = ConfigDocument {
+                version: CONFIG_FORMAT_VERSION,
+                app: "Focuser".to_string(),
+                exported_at: chrono::Utc::now(),
+                block_lists: engine.block_lists().to_vec(),
+            };
+            let json = serde_json::to_string_pretty(&document)
+                .map_err(|e| CommandError::Internal(e.to_string()))?;
+            Ok(CommandResult::Text(json))
+        }
+
+        Command::ImportConfiguration { json } => {
+            let document: ConfigDocument = serde_json::from_str(&json).map_err(|e| {
+                CommandError::Validation(format!("not a Focuser configuration file: {e}"))
+            })?;
+            if document.version > CONFIG_FORMAT_VERSION {
+                return Err(CommandError::Validation(format!(
+                    "file was written by a newer version of Focuser (format {} vs {CONFIG_FORMAT_VERSION})",
+                    document.version
+                )));
+            }
+
+            ensure_nothing_protected(&engine)?;
+
+            for id in engine
+                .block_lists()
+                .iter()
+                .map(|l| l.id)
+                .collect::<Vec<_>>()
+            {
+                engine.db().delete_block_list(id)?;
+            }
+            for list in &document.block_lists {
+                engine.db().create_block_list(list)?;
+            }
+
+            engine.refresh()?;
+            ctx.sync_hosts(&engine);
+            Ok(CommandResult::Count(document.block_lists.len() as u32))
+        }
+
+        Command::DeleteAllData => {
+            ensure_nothing_protected(&engine)?;
+            engine.db().delete_all_data()?;
+            engine.refresh()?;
+            // Nothing is blocked any more, so clear the hosts file outright.
+            ctx.sync_hosts_with(&[]);
+            Ok(CommandResult::Unit)
+        }
+
+        Command::CheckDomain { domain } => {
+            // A domain with allowance time left is reachable even though it
+            // appears in a block list, so check that before the rules.
+            let lower = domain.to_ascii_lowercase();
+            let host = lower.strip_prefix("www.").unwrap_or(&lower);
+            let allowed = ctx
+                .allowance_tracker
+                .active_allowance_domains(engine.db())
+                .iter()
+                .any(|d| host == d || host.ends_with(&format!(".{d}")));
+
+            Ok(CommandResult::Flag(
+                !allowed && engine.check_domain(&domain).is_some(),
+            ))
+        }
+
+        Command::GetBrowserStatus => {
+            let running = ctx.running_browsers();
+            let connected = ctx.connected_browsers();
+
+            let statuses = focuser_common::browser::KNOWN_BROWSERS
+                .iter()
+                .map(|info| {
+                    let browser = format!("{:?}", info.browser_type);
+                    BrowserStatus {
+                        running: running.contains(&browser),
+                        extension_connected: connected.contains(&browser),
+                        display_name: info.display_name.to_string(),
+                        browser,
+                    }
+                })
+                .collect();
+            Ok(CommandResult::BrowserStatus(statuses))
+        }
+
+        Command::AppVersion => Ok(CommandResult::Text(env!("CARGO_PKG_VERSION").to_string())),
     }
+}
+
+/// Bumped only when the exported shape changes incompatibly.
+const CONFIG_FORMAT_VERSION: u32 = 1;
+
+/// The exported/imported document. Typed rather than hand-built JSON so export
+/// and import can never disagree about the shape.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ConfigDocument {
+    version: u32,
+    /// Only there so a human opening the file can tell what wrote it.
+    app: String,
+    exported_at: chrono::DateTime<chrono::Utc>,
+    block_lists: Vec<BlockList>,
+}
+
+/// Wholesale operations are refused while any list is locked — otherwise a
+/// commitment could be escaped by importing over it or wiping everything.
+fn ensure_nothing_protected(engine: &BlockEngine) -> CommandOutcome<()> {
+    for list in engine.block_lists() {
+        if engine.is_block_list_protected(list.id) {
+            return Err(CommandError::Protected);
+        }
+    }
+    Ok(())
 }
 
 /// Statistics retention setting key and bounds.
@@ -1280,6 +1394,188 @@ mod tests {
             err.exit_code(),
             0,
             "a missing list must not report success to a script"
+        );
+    }
+
+    // ─── Whole-configuration and diagnostics ──────────────────
+
+    fn text(result: CommandResult) -> String {
+        match result {
+            CommandResult::Text(t) => t,
+            other => panic!("expected text, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn export_then_import_restores_the_same_lists() {
+        let source = ctx();
+        let list = create(&source, "Social media");
+        execute(
+            &source,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("reddit.com".into()),
+            },
+        )
+        .unwrap();
+
+        let json = text(execute(&source, Command::ExportConfiguration).unwrap());
+
+        let target = ctx();
+        create(&target, "Something else");
+        let imported = execute(&target, Command::ImportConfiguration { json })
+            .unwrap()
+            .as_count()
+            .unwrap();
+
+        assert_eq!(imported, 1);
+        let lists = lists(&target);
+        assert_eq!(lists.len(), 1, "import replaces rather than merges");
+        assert_eq!(lists[0].name, "Social media");
+        assert_eq!(lists[0].websites.len(), 1);
+    }
+
+    #[test]
+    fn import_rejects_a_document_from_a_newer_format() {
+        let ctx = ctx();
+        let json = r#"{"version":99,"app":"Focuser","exported_at":"2026-07-27T00:00:00Z","block_lists":[]}"#;
+
+        let err = execute(
+            &ctx,
+            Command::ImportConfiguration {
+                json: json.to_string(),
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(err.code(), "validation");
+    }
+
+    #[test]
+    fn import_rejects_junk_without_touching_existing_lists() {
+        let ctx = ctx();
+        create(&ctx, "Keep me");
+
+        let err = execute(
+            &ctx,
+            Command::ImportConfiguration {
+                json: "not json at all".to_string(),
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(err.code(), "validation");
+        assert_eq!(
+            lists(&ctx).len(),
+            1,
+            "a failed import must not delete anything"
+        );
+    }
+
+    #[test]
+    fn import_and_delete_all_are_refused_while_a_list_is_locked() {
+        let ctx = ctx();
+        let list = create(&ctx, "Locked");
+        execute(
+            &ctx,
+            Command::EnableProtection {
+                list_id: list.id,
+                duration_minutes: 60,
+                prevent_uninstall: true,
+                prevent_service_stop: true,
+                prevent_modification: true,
+            },
+        )
+        .unwrap();
+
+        for cmd in [
+            Command::DeleteAllData,
+            Command::ImportConfiguration {
+                json: r#"{"version":1,"app":"Focuser","exported_at":"2026-07-27T00:00:00Z","block_lists":[]}"#.to_string(),
+            },
+        ] {
+            assert_eq!(execute(&ctx, cmd).unwrap_err().code(), "protected");
+        }
+
+        assert_eq!(lists(&ctx).len(), 1);
+    }
+
+    #[test]
+    fn delete_all_data_empties_lists_and_statistics() {
+        let ctx = ctx();
+        create(&ctx, "Gone");
+
+        execute(&ctx, Command::DeleteAllData).unwrap();
+
+        assert!(lists(&ctx).is_empty());
+    }
+
+    #[test]
+    fn check_domain_reports_blocked_only_for_enabled_lists() {
+        let ctx = ctx();
+        let list = create(&ctx, "Social media");
+        execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("reddit.com".into()),
+            },
+        )
+        .unwrap();
+
+        let blocked = |domain: &str| match execute(
+            &ctx,
+            Command::CheckDomain {
+                domain: domain.to_string(),
+            },
+        )
+        .unwrap()
+        {
+            CommandResult::Flag(b) => b,
+            other => panic!("expected a flag, got {other:?}"),
+        };
+
+        assert!(blocked("reddit.com"));
+        assert!(blocked("www.reddit.com"), "www should be stripped");
+        assert!(!blocked("example.com"));
+
+        execute(
+            &ctx,
+            Command::ToggleBlockList {
+                id: list.id,
+                enabled: false,
+            },
+        )
+        .unwrap();
+
+        assert!(!blocked("reddit.com"), "a disabled list blocks nothing");
+    }
+
+    #[test]
+    fn browser_status_lists_every_known_browser_as_absent_when_headless() {
+        let ctx = ctx();
+        let result = execute(&ctx, Command::GetBrowserStatus).unwrap();
+
+        let CommandResult::BrowserStatus(statuses) = result else {
+            panic!("expected browser status");
+        };
+        assert_eq!(
+            statuses.len(),
+            focuser_common::browser::KNOWN_BROWSERS.len()
+        );
+        assert!(
+            statuses
+                .iter()
+                .all(|s| !s.running && !s.extension_connected)
+        );
+    }
+
+    #[test]
+    fn app_version_is_the_crate_version() {
+        let ctx = ctx();
+        assert_eq!(
+            text(execute(&ctx, Command::AppVersion).unwrap()),
+            env!("CARGO_PKG_VERSION")
         );
     }
 }

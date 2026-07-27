@@ -224,6 +224,27 @@ pub enum Command {
         id: EntityId,
         days: u32,
     },
+
+    // ─── Whole-configuration and diagnostics ──────────────────
+    /// Serialise every block list to a portable JSON document.
+    ///
+    /// Returns the text rather than writing a file — where it goes is the
+    /// frontend's business (a save dialog in the GUI, a path in the CLI).
+    ExportConfiguration,
+    /// Replace every block list with the contents of an exported document.
+    /// Statistics and settings are untouched.
+    ImportConfiguration {
+        json: String,
+    },
+    /// Delete block lists, rules, schedules, statistics and settings.
+    DeleteAllData,
+    /// Would this domain be blocked right now?
+    CheckDomain {
+        domain: String,
+    },
+    /// Which known browsers are running, and which have the extension.
+    GetBrowserStatus,
+    AppVersion,
 }
 
 /// A buffered Pomodoro event, in wire form.
@@ -313,6 +334,18 @@ pub enum CommandResult {
     Allowances(Vec<AllowanceStatus>),
     AllowanceNotifications(Vec<AllowanceNotificationDto>),
     AllowanceHistory(Vec<AllowanceUsageEntry>),
+    /// Free text — an exported configuration document, or a version string.
+    Text(String),
+    BrowserStatus(Vec<BrowserStatus>),
+}
+
+/// One known browser and whether Focuser can see it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct BrowserStatus {
+    pub browser: String,
+    pub display_name: String,
+    pub running: bool,
+    pub extension_connected: bool,
 }
 
 impl CommandResult {

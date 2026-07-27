@@ -75,6 +75,29 @@ pub enum TopLevel {
     /// Daily allowances.
     #[command(subcommand)]
     Allowance(AllowanceCmd),
+    /// Whole-configuration export, import and wipe.
+    #[command(subcommand)]
+    Config(ConfigCmd),
+    /// Is this domain blocked right now?
+    Check { domain: String },
+    /// Which browsers are running, and which have the extension.
+    Browsers,
+    /// Print the application version.
+    Version,
+}
+
+#[derive(Subcommand)]
+pub enum ConfigCmd {
+    /// Write every block list to stdout as JSON.
+    Export,
+    /// Replace every block list with the contents of a file. `-` reads stdin.
+    Import { path: std::path::PathBuf },
+    /// Delete every block list, rule, schedule, statistic and setting.
+    Wipe {
+        /// Required. Without it nothing is deleted.
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 // ─── Block lists ────────────────────────────────────────────────────
@@ -506,6 +529,23 @@ impl TopLevel {
                 SettingCmd::Reset => Command::ResetSettings,
             },
 
+            TopLevel::Config(c) => match c {
+                ConfigCmd::Export => Command::ExportConfiguration,
+                ConfigCmd::Import { path } => Command::ImportConfiguration {
+                    json: read_source(&path)?,
+                },
+                ConfigCmd::Wipe { yes } => {
+                    if !yes {
+                        anyhow::bail!("refusing to wipe everything without --yes");
+                    }
+                    Command::DeleteAllData
+                }
+            },
+
+            TopLevel::Check { domain } => Command::CheckDomain { domain },
+            TopLevel::Browsers => Command::GetBrowserStatus,
+            TopLevel::Version => Command::AppVersion,
+
             TopLevel::Blocks(c) => match c {
                 BlocksCmd::Apply => Command::ApplyBlocks,
                 BlocksCmd::Remove => Command::RemoveBlocks,
@@ -573,17 +613,19 @@ impl TopLevel {
 
 /// Read one value per line, from a file or from stdin when the path is `-`.
 fn read_lines(path: &std::path::Path) -> anyhow::Result<Vec<String>> {
-    use std::io::Read;
-
-    let raw = if path == std::path::Path::new("-") {
-        let mut buf = String::new();
-        std::io::stdin().read_to_string(&mut buf)?;
-        buf
-    } else {
-        std::fs::read_to_string(path)?
-    };
-
     // Blank and comment lines are filtered downstream by BulkImportWebsites,
     // so they are deliberately passed through rather than stripped twice.
-    Ok(raw.lines().map(str::to_string).collect())
+    Ok(read_source(path)?.lines().map(str::to_string).collect())
+}
+
+/// Whole contents of a file, or of stdin when the path is `-`.
+fn read_source(path: &std::path::Path) -> anyhow::Result<String> {
+    use std::io::Read;
+
+    if path == std::path::Path::new("-") {
+        let mut buf = String::new();
+        std::io::stdin().read_to_string(&mut buf)?;
+        return Ok(buf);
+    }
+    Ok(std::fs::read_to_string(path)?)
 }

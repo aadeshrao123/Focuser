@@ -26,6 +26,20 @@ pub enum PomodoroEvent {
 /// makes command behaviour testable without touching a real hosts file.
 pub trait SystemSync: Send + Sync {
     fn sync_hosts(&self, domains: &[String]);
+
+    /// Browsers currently running, by `BrowserType` debug name.
+    ///
+    /// Process enumeration is per-OS and lives in the frontend crates, so the
+    /// default is "nothing detected" — which is the honest answer for a headless
+    /// context rather than a guess.
+    fn running_browsers(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// Browsers that have reported in from the extension recently.
+    fn connected_browsers(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// Does nothing. For tests and for headless contexts with no hosts access.
@@ -73,6 +87,14 @@ impl AppContext {
     /// empty list clears it.
     pub fn sync_hosts_with(&self, domains: &[String]) {
         self.system.sync_hosts(domains);
+    }
+
+    pub fn running_browsers(&self) -> Vec<String> {
+        self.system.running_browsers()
+    }
+
+    pub fn connected_browsers(&self) -> Vec<String> {
+        self.system.connected_browsers()
     }
 
     pub fn push_pomodoro_event(&self, event: PomodoroEvent) {

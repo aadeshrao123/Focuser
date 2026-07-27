@@ -120,6 +120,14 @@ export type BreakConfig =
 	track_active_only: boolean,
 } }) & { Pomodoro?: never };
 
+/**  One known browser and whether Focuser can see it. */
+export type BrowserStatus = {
+	browser: string,
+	display_name: string,
+	running: boolean,
+	extension_connected: boolean,
+};
+
 /**
  *  One application action.
  * 
@@ -273,7 +281,29 @@ export type Command =
 } } | { cmd: "allowance_drain_notifications" } | { cmd: "allowance_history"; args: {
 	id: string,
 	days: number,
-} };
+} } | 
+/**
+ *  Serialise every block list to a portable JSON document.
+ * 
+ *  Returns the text rather than writing a file — where it goes is the
+ *  frontend's business (a save dialog in the GUI, a path in the CLI).
+ */
+{ cmd: "export_configuration" } | 
+/**
+ *  Replace every block list with the contents of an exported document.
+ *  Statistics and settings are untouched.
+ */
+{ cmd: "import_configuration"; args: {
+	json: string,
+} } | 
+/**  Delete block lists, rules, schedules, statistics and settings. */
+{ cmd: "delete_all_data" } | 
+/**  Would this domain be blocked right now? */
+{ cmd: "check_domain"; args: {
+	domain: string,
+} } | 
+/**  Which known browsers are running, and which have the extension. */
+{ cmd: "get_browser_status" } | { cmd: "app_version" };
 
 /**
  *  The wire form of a failure: `{ "code": ..., "message": ... }`.
@@ -307,7 +337,9 @@ export type CommandResult =
 /**  A yes/no outcome — e.g. "was a session actually paused". */
 { kind: "flag"; data: boolean } | 
 /**  Current Pomodoro session, or `None` when idle. */
-{ kind: "pomodoro_status"; data: PomodoroStatus | null } | { kind: "pomodoro_session"; data: PomodoroSession } | { kind: "pomodoro_events"; data: PomodoroEventDto[] } | { kind: "pomodoro_history"; data: PomodoroHistoryEntry[] } | { kind: "allowance"; data: Allowance } | { kind: "allowances"; data: AllowanceStatus[] } | { kind: "allowance_notifications"; data: AllowanceNotificationDto[] } | { kind: "allowance_history"; data: AllowanceUsageEntry[] };
+{ kind: "pomodoro_status"; data: PomodoroStatus | null } | { kind: "pomodoro_session"; data: PomodoroSession } | { kind: "pomodoro_events"; data: PomodoroEventDto[] } | { kind: "pomodoro_history"; data: PomodoroHistoryEntry[] } | { kind: "allowance"; data: Allowance } | { kind: "allowances"; data: AllowanceStatus[] } | { kind: "allowance_notifications"; data: AllowanceNotificationDto[] } | { kind: "allowance_history"; data: AllowanceUsageEntry[] } | 
+/**  Free text — an exported configuration document, or a version string. */
+{ kind: "text"; data: string } | { kind: "browser_status"; data: BrowserStatus[] };
 
 export type ExceptionRule = {
 	id: string,
