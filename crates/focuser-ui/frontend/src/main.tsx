@@ -7,6 +7,7 @@ import "@/index.css";
 import { Apps } from "@/routes/apps";
 import { BlockLists } from "@/routes/block-lists";
 import { Placeholder } from "@/routes/placeholder";
+import { Schedule } from "@/routes/schedule";
 import { Websites } from "@/routes/websites";
 
 const queryClient = new QueryClient({
@@ -36,7 +37,7 @@ const router = createHashRouter([
       { path: "block-lists", element: <BlockLists /> },
       { path: "websites", element: <Websites /> },
       { path: "apps", element: <Apps /> },
-      { path: "schedule", element: <Placeholder title="Schedule" /> },
+      { path: "schedule", element: <Schedule /> },
       { path: "statistics", element: <Placeholder title="Statistics" /> },
       { path: "settings", element: <Placeholder title="Settings" /> },
     ],
