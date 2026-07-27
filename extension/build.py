@@ -13,6 +13,15 @@ DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 CHROME_DIR = os.path.join(DIST_DIR, "chrome")
 FIREFOX_DIR = os.path.join(DIST_DIR, "firefox")
 
+# The starter lists live with the app's frontend. background.js fetches them to
+# label a block page with the right category, and the manifest declares the file
+# web-accessible, but the build never copied it — so the lookup silently failed
+# and every blocked site fell back to the generic message. Copied from the one
+# source of truth rather than kept as a second copy here.
+PREMADE_LISTS = os.path.join(
+    SCRIPT_DIR, "..", "crates", "focuser-ui", "frontend", "public", "premade-lists.json"
+)
+
 SHARED_FILES = [
     "background.js",
     "blocked.css",
@@ -59,6 +68,10 @@ def copy_shared(dest):
         src = os.path.join(SCRIPT_DIR, "icons", f)
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(dest, "icons", f))
+
+    if not os.path.exists(PREMADE_LISTS):
+        raise SystemExit(f"missing starter lists: {PREMADE_LISTS}")
+    shutil.copy2(PREMADE_LISTS, os.path.join(dest, "premade-lists.json"))
 
 
 def make_zip(src_dir, zip_path):
