@@ -1,0 +1,95 @@
+import { Plus } from "lucide-react";
+import { type FormEvent, useState } from "react";
+import { ListPicker, resolveSelected } from "@/components/list-picker";
+import { Button } from "@/components/ui/button";
+import { EmptyState, PageHeader } from "@/components/ui/card";
+import { InlineError, QueryState } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { useAddAppRule, useBlockLists, useRemoveAppRule } from "@/lib/commands";
+import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
+import { RuleTable } from "./websites";
+
+const PLACEHOLDERS: Record<AppKind, string> = {
+  ExecutableName: "discord.exe",
+  ExecutablePath: "C:\\Program Files\\Steam\\steam.exe",
+  WindowTitle: "Solitaire",
+};
+
+export function Apps() {
+  const lists = useBlockLists();
+  const [rawSelected, setSelected] = useState("");
+  const [value, setValue] = useState("");
+  const [kind, setKind] = useState<AppKind>("ExecutableName");
+
+  const add = useAddAppRule();
+  const remove = useRemoveAppRule();
+
+  const all = lists.data ?? [];
+  const selected = resolveSelected(all, rawSelected);
+  const list = all.find((l) => l.id === selected);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!list || !trimmed) return;
+    add.mutate(
+      { listId: list.id, rule: appRule(kind, trimmed) },
+      { onSuccess: () => setValue("") },
+    );
+  }
+
+  return (
+    <div className="p-8">
+      <PageHeader
+        title="Applications"
+        description="Programs to close while blocking is active."
+        actions={<ListPicker lists={all} value={selected} onChange={setSelected} />}
+      />
+
+      <QueryState
+        isPending={lists.isPending}
+        error={lists.error}
+        onRetry={() => lists.refetch()}
+        isRetrying={lists.isFetching}
+      >
+        {!list ? (
+          <EmptyState
+            title="No block lists yet"
+            description="Create one on the Block Lists page first."
+          />
+        ) : (
+          <>
+            <form onSubmit={submit} className="mb-4 flex flex-wrap gap-2">
+              <Select value={kind} onValueChange={setKind} options={APP_KINDS} />
+              <Input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={PLACEHOLDERS[kind]}
+                aria-label="Application to block"
+                className="max-w-sm"
+              />
+              <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
+                Add
+              </Button>
+            </form>
+            <InlineError error={add.error} />
+
+            {list.applications.length === 0 ? (
+              <EmptyState
+                title="No applications blocked"
+                description="Add an executable name like discord.exe."
+              />
+            ) : (
+              <RuleTable
+                rows={list.applications.map((r) => ({ id: r.id, ...describeApp(r.match_type) }))}
+                onRemove={(ruleId) => remove.mutate({ listId: list.id, ruleId })}
+              />
+            )}
+            <InlineError error={remove.error} />
+          </>
+        )}
+      </QueryState>
+    </div>
+  );
+}

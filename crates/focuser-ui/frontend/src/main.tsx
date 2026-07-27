@@ -4,19 +4,23 @@ import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { AppLayout } from "@/app-layout";
 import "@/index.css";
+import { Apps } from "@/routes/apps";
 import { BlockLists } from "@/routes/block-lists";
 import { Placeholder } from "@/routes/placeholder";
+import { Websites } from "@/routes/websites";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // The backend is a local IPC call, not a network round-trip: retrying
-      // buys nothing, and a failure is a real error worth surfacing at once.
+      // Local IPC, not a network call — a failure is real, so surface it.
       retry: false,
-      // Data can change from outside the UI (background blocker loop, the CLI,
-      // the browser extension), so treat cached reads as immediately stale.
+
+      // State also changes from the blocker loop, the CLI and the extension.
+      // The engine re-reads the DB every ~3s; polling keeps the window in step.
       staleTime: 0,
+      refetchInterval: 2000,
       refetchOnWindowFocus: true,
+      refetchIntervalInBackground: false,
     },
   },
 });
@@ -30,8 +34,8 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Placeholder title="Dashboard" /> },
       { path: "block-lists", element: <BlockLists /> },
-      { path: "websites", element: <Placeholder title="Websites" /> },
-      { path: "apps", element: <Placeholder title="Applications" /> },
+      { path: "websites", element: <Websites /> },
+      { path: "apps", element: <Apps /> },
       { path: "schedule", element: <Placeholder title="Schedule" /> },
       { path: "statistics", element: <Placeholder title="Statistics" /> },
       { path: "settings", element: <Placeholder title="Settings" /> },
