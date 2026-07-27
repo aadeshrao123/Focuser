@@ -49,6 +49,11 @@ export function UsageChart({ data }: { data: DayTotal[] }) {
             // day, which read as a second, taller bar. `activeBar` below lights
             // up the one bar being pointed at instead.
             cursor={false}
+            // Recharts eases the tooltip to its new position over 400ms by
+            // default, so it trails the pointer and can be nowhere near it
+            // during a quick sweep. A tooltip should be where the cursor is.
+            isAnimationActive={false}
+            separator=": "
             labelFormatter={(label) => formatDay(String(label))}
             formatter={(value) => [value, "Blocked attempts"] as [typeof value, string]}
             contentStyle={tooltipStyle}
@@ -116,6 +121,11 @@ export function UsageTrend({ data }: { data: DayTotal[] }) {
           />
           <Tooltip
             cursor={{ stroke: "var(--color-border-strong)" }}
+            // Recharts eases the tooltip to its new position over 400ms by
+            // default, so it trails the pointer and can be nowhere near it
+            // during a quick sweep. A tooltip should be where the cursor is.
+            isAnimationActive={false}
+            separator=": "
             labelFormatter={(label) => formatDay(String(label))}
             formatter={(value) => [value, "Blocked attempts"] as [typeof value, string]}
             contentStyle={tooltipStyle}

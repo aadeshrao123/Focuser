@@ -88,14 +88,19 @@ export function ScheduleGrid({
 
   return (
     <div className="-mx-1 overflow-x-auto px-1 pb-1">
-      <table className="w-full min-w-[46rem] select-none border-separate border-spacing-[2px]">
+      {/* `table-fixed` is load-bearing. Auto layout sizes each column to its
+          own heading, so the hours showing "12am" came out wide and the ones
+          showing a dot came out narrow — 24 supposedly equal hours rendered at
+          two different widths. */}
+      <table className="w-full min-w-[52rem] table-fixed select-none border-separate border-spacing-[2px]">
         <caption className="sr-only">
           Weekly schedule, one column per hour. Use the day and hour headings to fill a whole row or
           column.
         </caption>
         <thead>
           <tr>
-            <th />
+            {/* Fixed layout takes every column width from the first row. */}
+            <th className="w-16" />
             {HOURS.map((hour) => (
               <th key={hour} scope="col" className="pb-1.5">
                 <button
@@ -124,7 +129,7 @@ export function ScheduleGrid({
             const on = hoursOn(selected, day);
             return (
               <tr key={day}>
-                <th scope="row" className="w-16 pr-2">
+                <th scope="row" className="pr-2">
                   <button
                     type="button"
                     disabled={disabled}
