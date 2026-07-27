@@ -275,7 +275,11 @@ export function useResetSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => run({ cmd: "reset_settings" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["setting"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["setting"] });
+      // Retention lives in the same table and is wiped too, but it has its own key.
+      qc.invalidateQueries({ queryKey: queryKeys.retention });
+    },
   });
 }
 

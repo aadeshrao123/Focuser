@@ -8,6 +8,7 @@ import { Apps } from "@/routes/apps";
 import { BlockLists } from "@/routes/block-lists";
 import { Placeholder } from "@/routes/placeholder";
 import { Schedule } from "@/routes/schedule";
+import { Settings } from "@/routes/settings";
 import { Websites } from "@/routes/websites";
 
 const queryClient = new QueryClient({
@@ -44,7 +45,7 @@ const router = createHashRouter([
         path: "statistics",
         lazy: async () => ({ Component: (await import("@/routes/statistics")).Statistics }),
       },
-      { path: "settings", element: <Placeholder title="Settings" /> },
+      { path: "settings", element: <Settings /> },
     ],
   },
 ]);

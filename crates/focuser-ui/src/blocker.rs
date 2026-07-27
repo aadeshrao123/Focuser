@@ -28,29 +28,6 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
     let mut grace_periods: HashMap<BrowserType, Instant> = HashMap::new();
     let mut was_using_hosts = true;
 
-    // Read settings
-    let (grace_secs, enforce_enabled) = {
-        let eng = state.engine.lock().unwrap();
-        let grace = eng
-            .db()
-            .get_setting_or_default("extension_grace_period", "60")
-            .unwrap_or_else(|_| "60".to_string())
-            .parse::<u64>()
-            .unwrap_or(DEFAULT_GRACE_PERIOD_SECS);
-        let enabled = eng
-            .db()
-            .get_setting_or_default("block_unsupported_browsers", "true")
-            .unwrap_or_else(|_| "true".to_string())
-            .parse::<bool>()
-            .unwrap_or(true);
-        (grace, enabled)
-    };
-    let grace_duration = Duration::from_secs(grace_secs);
-
-    if enforce_enabled {
-        info!(grace_secs, "Browser extension enforcement enabled");
-    }
-
     // Cleanup old events on startup (keep 30 days)
     if let Ok(eng) = state.engine.lock() {
         match eng.db().cleanup_old_events(30) {
@@ -152,13 +129,31 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
             // Also kill apps whose allowance is exhausted today.
             kill_allowance_blocked_apps(&state.allowance_tracker);
 
-            // Browser extension enforcement
+            // Browser extension enforcement. Settings are read on every heavy
+            // tick so a change in the UI applies without restarting the app.
+            let (grace_duration, enforce_enabled) = enforcement_settings(eng.db());
             if enforce_enabled {
                 let has_active_blocks = eng.block_lists().iter().any(|l| l.is_effectively_active());
                 enforce_browser_extension(has_active_blocks, grace_duration, &mut grace_periods);
             }
         }
     }
+}
+
+/// Grace period and whether unsupported browsers get closed at all.
+fn enforcement_settings(db: &focuser_core::db::Database) -> (Duration, bool) {
+    let grace = db
+        .get_setting_or_default("extension_grace_period", "60")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_GRACE_PERIOD_SECS);
+    let enabled = db
+        .get_setting_or_default("block_unsupported_browsers", "true")
+        .ok()
+        .and_then(|v| v.parse::<bool>().ok())
+        .unwrap_or(true);
+
+    (Duration::from_secs(grace), enabled)
 }
 
 /// Apply blocks to the system hosts file.
