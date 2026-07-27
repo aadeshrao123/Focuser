@@ -1,9 +1,9 @@
-import { FolderOpen, Plus } from "lucide-react";
+import { AppWindow, FolderOpen, Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { RuleTable } from "@/components/rule-table";
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageHeader } from "@/components/ui/card";
+import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -49,7 +49,7 @@ export function Apps() {
   }
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-5xl p-8">
       <PageHeader
         title="Applications"
         description="Programs to close while blocking is active."
@@ -69,36 +69,39 @@ export function Apps() {
           />
         ) : (
           <>
-            <form onSubmit={submit} className="mb-4 flex flex-wrap gap-2">
-              <Select value={kind} onValueChange={setKind} options={APP_KINDS} />
-              <Input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder={PLACEHOLDERS[kind]}
-                aria-label="Application to block"
-                className="max-w-sm"
-              />
-              <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
-                Add
-              </Button>
-              {isTauri() && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  icon={<FolderOpen />}
-                  onClick={browse}
-                  title="Pick an application from disk"
-                >
-                  Browse…
+            <Card className="mb-4" padding="md" elevation="raised">
+              <form onSubmit={submit} className="flex flex-wrap gap-2">
+                <Select value={kind} onValueChange={setKind} options={APP_KINDS} className="w-44" />
+                <Input
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder={PLACEHOLDERS[kind]}
+                  aria-label="Application to block"
+                  className="max-w-sm flex-1"
+                />
+                <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
+                  Add
                 </Button>
-              )}
-            </form>
-            <InlineError error={add.error} />
+                {isTauri() && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    icon={<FolderOpen />}
+                    onClick={browse}
+                    title="Pick an application from disk"
+                  >
+                    Browse…
+                  </Button>
+                )}
+              </form>
+              <InlineError error={add.error} />
+            </Card>
 
             {list.applications.length === 0 ? (
               <EmptyState
+                icon={<AppWindow />}
                 title="No applications blocked"
-                description="Add an executable name like discord.exe."
+                description="Add an executable name like discord.exe, or browse for one on disk."
               />
             ) : (
               <RuleTable

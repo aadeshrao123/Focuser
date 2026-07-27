@@ -1,16 +1,33 @@
 {
   "identifier": "default",
   "description": "Default capabilities for Focuser",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-close",
+    "core:window:allow-hide",
     "shell:allow-open",
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        { "name": "binaries/focuser-service", "sidecar": true },
-        { "name": "binaries/focuser-cli", "sidecar": true },
-        { "name": "binaries/focuser-native", "sidecar": true }
+        {
+          "name": "binaries/focuser-service",
+          "sidecar": true
+        },
+        {
+          "name": "binaries/focuser-cli",
+          "sidecar": true
+        },
+        {
+          "name": "binaries/focuser-native",
+          "sidecar": true
+        }
       ]
     },
     "autostart:allow-enable",

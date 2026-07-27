@@ -1,7 +1,8 @@
-import { Pause, Play, SkipForward, Square } from "lucide-react";
+import { Pause, Play, SkipForward, Square, Timer } from "lucide-react";
 import { useState } from "react";
 import type { BlockList } from "@/bindings";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
+import { LiveBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { InlineError } from "@/components/ui/feedback";
@@ -16,6 +17,7 @@ import {
   useStopPomodoro,
 } from "@/lib/commands";
 import { formatCountdown } from "@/lib/duration";
+import { cn } from "@/lib/utils";
 
 const PHASE_LABEL = {
   work: "Focus",
@@ -28,11 +30,41 @@ const DEFAULTS = { work: 25, shortBreak: 5, longBreak: 15, cycles: 4 };
 
 export function FocusSession({ lists }: { lists: BlockList[] }) {
   const status = usePomodoroStatus();
+  const running = status.data;
 
   return (
-    <Card padding="lg">
-      <h2 className="font-medium text-foreground text-sm">Focus session</h2>
-      {status.data ? <Running status={status.data} /> : <StartForm lists={lists} />}
+    <Card
+      padding="lg"
+      elevation="raised"
+      className={cn(
+        "edge-light relative overflow-hidden transition-colors",
+        // A running session earns a tinted border and a wash; idle stays quiet
+        // so it does not compete with the numbers above it.
+        running && "border-primary/30",
+      )}
+    >
+      {running && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-primary/10 blur-3xl"
+        />
+      )}
+
+      <div className="relative">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-medium text-foreground text-sm">
+            <Timer aria-hidden className="size-4 text-primary" />
+            Focus session
+          </h2>
+          {running && (
+            <LiveBadge tone={running.current_phase === "work" ? "primary" : "success"}>
+              {running.paused ? "Paused" : PHASE_LABEL[running.current_phase]}
+            </LiveBadge>
+          )}
+        </div>
+
+        {running ? <Running status={running} /> : <StartForm lists={lists} />}
+      </div>
     </Card>
   );
 }
@@ -52,15 +84,14 @@ function Running({
 
   return (
     <div className="mt-4">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-semibold text-3xl text-foreground tabular-nums tracking-tight">
+          <p className="font-semibold text-5xl text-foreground leading-none tabular-nums tracking-tight">
             {formatCountdown(status.remaining_secs)}
           </p>
-          <p className="mt-1 truncate text-muted-foreground text-sm">
-            {PHASE_LABEL[status.current_phase]} · {status.block_list_name} · cycle{" "}
-            {status.current_cycle}
-            {status.paused && " · paused"}
+          <p className="mt-2.5 truncate text-muted-foreground text-sm">
+            {status.block_list_name} · cycle {status.current_cycle} of{" "}
+            {status.config.cycles_until_long_break}
           </p>
         </div>
 

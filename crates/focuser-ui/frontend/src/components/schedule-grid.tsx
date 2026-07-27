@@ -137,9 +137,11 @@ function Cell({
         }}
         onPointerEnter={() => onEnter(key)}
         className={cn(
-          "block h-7 w-full rounded-[3px] transition-colors",
+          "block h-7 w-full rounded-[4px] transition-colors duration-100",
           "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
-          on ? "bg-primary hover:bg-primary-hover" : "bg-elevated hover:bg-hover",
+          on
+            ? "bg-primary shadow-(--shadow-depth-sm) hover:bg-primary-hover"
+            : "bg-elevated/70 hover:bg-hover",
           disabled && "cursor-not-allowed opacity-50",
         )}
       />

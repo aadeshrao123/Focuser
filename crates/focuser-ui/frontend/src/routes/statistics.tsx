@@ -1,6 +1,7 @@
-import { Ban, CalendarDays, Clock, Globe } from "lucide-react";
+import { Ban, BarChart3, CalendarDays, Clock, Globe } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Card, EmptyState, PageHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, EmptyState, PageHeader, Section } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Select } from "@/components/ui/select";
@@ -10,6 +11,7 @@ import { useClearStatistics, useStats } from "@/lib/commands";
 import { formatDay, RANGES, type RangeId, rangeFor } from "@/lib/date-range";
 import { formatDuration } from "@/lib/duration";
 import { summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
+import { count } from "@/lib/utils";
 
 const TOP_LIMIT = 10;
 
@@ -28,7 +30,7 @@ export function Statistics() {
   const totals = summarise(days, targets);
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-6xl p-8">
       <PageHeader
         title="Statistics"
         description="What Focuser has been keeping you away from."
@@ -84,28 +86,39 @@ export function Statistics() {
           />
         </StatGrid>
 
-        <Card className="mt-6" padding="lg">
-          <h2 className="mb-4 font-medium text-foreground text-sm">Blocked attempts per day</h2>
-          <UsageChart data={days} />
-        </Card>
+        <Section title="Blocked attempts per day">
+          <Card padding="lg" elevation="raised">
+            <UsageChart data={days} />
+          </Card>
+        </Section>
 
-        <section className="mt-6">
-          <h2 className="mb-3 font-medium text-foreground text-sm">Most blocked</h2>
+        <Section
+          title="Most blocked"
+          actions={
+            targets.length > 0 ? (
+              <Badge tone="neutral">{count(targets.length, "site or app", "sites and apps")}</Badge>
+            ) : undefined
+          }
+        >
           {targets.length === 0 ? (
             <EmptyState
+              icon={<BarChart3 />}
               title="Nothing recorded yet"
               description="Numbers appear here once a block list starts turning things away."
             />
           ) : (
-            <Card padding="none">
+            <Card padding="none" elevation="raised" className="overflow-hidden">
               <table className="w-full text-sm">
                 <caption className="sr-only">
                   Sites and apps by blocked attempts, busiest first
                 </caption>
                 <thead>
-                  <tr className="border-border border-b text-muted-foreground text-xs">
+                  <tr className="border-border border-b bg-elevated/40 text-muted-foreground text-xs">
                     <th scope="col" className="px-4 py-2 text-left font-normal">
                       Site or app
+                    </th>
+                    <th scope="col" className="px-4 py-2">
+                      <span className="sr-only">Share</span>
                     </th>
                     <th scope="col" className="px-4 py-2 text-right font-normal">
                       Attempts
@@ -116,10 +129,37 @@ export function Statistics() {
                   </tr>
                 </thead>
                 <tbody>
-                  {targets.slice(0, TOP_LIMIT).map((t) => (
-                    <tr key={t.target} className="border-border/60 border-b last:border-0">
-                      <td className="truncate px-4 py-2.5 text-foreground">{t.target}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{t.attempts}</td>
+                  {targets.slice(0, TOP_LIMIT).map((t, rank) => (
+                    <tr
+                      key={t.target}
+                      className="border-border/60 border-b transition-colors last:border-0 hover:bg-elevated/50"
+                    >
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-3">
+                          <span className="w-5 shrink-0 text-right font-medium text-faint-foreground text-xs tabular-nums">
+                            {rank + 1}
+                          </span>
+                          <span className="truncate text-foreground">{t.target}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {/* Bar relative to the busiest target, so the gap between
+                            first and fifth is visible without reading numbers. */}
+                        <div
+                          aria-hidden
+                          className="ml-auto h-1.5 w-24 overflow-hidden rounded-full bg-elevated"
+                        >
+                          <div
+                            className="h-full rounded-full bg-primary/70"
+                            style={{
+                              width: `${Math.max(4, (t.attempts / (targets[0]?.attempts || 1)) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-medium tabular-nums">
+                        {t.attempts}
+                      </td>
                       <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">
                         {formatDuration(t.seconds)}
                       </td>
@@ -134,7 +174,7 @@ export function Statistics() {
               Showing the top {TOP_LIMIT} of {targets.length}.
             </p>
           )}
-        </section>
+        </Section>
 
         <InlineError error={clear.error} />
       </QueryState>

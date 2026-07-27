@@ -8,30 +8,35 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ─── Raw tokens ──────────────────────────────────────────────────────
-   Ported from the v0.1.8 stylesheet. Kept as plain custom properties so
-   `.dark` can override them; `@theme inline` below is what exposes them
-   to utilities. A non-inline `@theme` would freeze the light values. */
+   Kept as plain custom properties so `.dark` can override them;
+   `@theme inline` below is what exposes them to utilities. A non-inline
+   `@theme` would freeze the light values.
+
+   The surface ramp is deliberately uneven. Even steps read as a flat wash;
+   a bigger jump from base to surface makes cards sit *on* the page, and
+   tighter steps above that keep controls inside a card from competing. */
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
-  /* Layered surfaces — deliberate contrast jumps between levels */
-  --deep: #07070a;
-  --base: #0d0d12;
-  --surface: #181820;
-  --elevated: #22222e;
-  --hover: #2a2a3a;
-  --active: #333346;
+  --deep: #06060a;
+  --base: #0b0b11;
+  --surface: #14141c;
+  --elevated: #1c1c27;
+  --hover: #252533;
+  --active: #2e2e3f;
 
-  --foreground: #f0f0f4;
-  --muted-foreground: #b4b4c8;
-  --faint-foreground: #6a6a82;
+  --foreground: #f2f2f7;
+  --muted-foreground: #a9a9bd;
+  --faint-foreground: #6e6e88;
 
   /* Violet accent — the product's identity colour */
   --primary: #8b5cf6;
-  --primary-hover: #a078ff;
+  --primary-hover: #9d76ff;
+  --primary-active: #7c4ef0;
   --primary-foreground: #ffffff;
   --primary-dim: rgb(139 92 246 / 0.14);
+  --primary-glow: rgb(139 92 246 / 0.35);
 
   --success: #34d399;
   --warning: #fbbf24;
@@ -39,8 +44,16 @@
   --info: #60a5fa;
 
   --border: rgb(255 255 255 / 0.07);
-  --border-strong: rgb(255 255 255 / 0.12);
+  --border-strong: rgb(255 255 255 / 0.13);
   --ring: #8b5cf6;
+
+  /* Charts. Distinct hues rather than one ramp, so adjacent series stay
+     tellable apart without relying on colour alone. */
+  --chart-1: #8b5cf6;
+  --chart-2: #22d3ee;
+  --chart-3: #fbbf24;
+  --chart-4: #f472b6;
+  --chart-5: #34d399;
 }
 
 /* ─── Tailwind theme ──────────────────────────────────────────────── */
@@ -59,6 +72,7 @@
 
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-dim: var(--primary-dim);
 
@@ -71,20 +85,33 @@
   --color-border-strong: var(--border-strong);
   --color-ring: var(--ring);
 
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.35);
 
-  /* Top-down lighting: inset highlight plus stacked ambient shadows */
+  /* Top-down lighting: an inset highlight along the top edge, then stacked
+     ambient shadows. The highlight is what stops a dark card reading as a
+     hole punched in the page. */
   --shadow-depth-sm:
-    inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 3px rgb(0 0 0 / 0.4), 0 4px 8px rgb(0 0 0 / 0.15);
+    inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.2);
   --shadow-depth-md:
-    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 4px 8px rgb(0 0 0 / 0.4), 0 12px 28px rgb(0 0 0 / 0.25);
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 4px 10px rgb(0 0 0 / 0.45),
+    0 12px 28px rgb(0 0 0 / 0.28);
   --shadow-depth-lg:
-    inset 0 1px 0 rgb(255 255 255 / 0.07), 0 8px 16px rgb(0 0 0 / 0.4),
-    0 24px 56px rgb(0 0 0 / 0.35);
+    inset 0 1px 0 rgb(255 255 255 / 0.08), 0 10px 20px rgb(0 0 0 / 0.5),
+    0 28px 64px rgb(0 0 0 / 0.4);
+  --shadow-glow: 0 0 0 1px var(--primary-glow), 0 6px 24px -6px var(--primary-glow);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -107,5 +134,80 @@
 
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
+  }
+
+  /* Thin, self-coloured scrollbars. The default light ones cut a bright
+     stripe down a dark window. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--hover) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--hover);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--active);
+  }
+}
+
+@layer utilities {
+  /* A faint violet wash from the top-left, so a full-screen window is not a
+     uniform slab. Two radial gradients, no repaint cost. */
+  .app-canvas {
+    background-image:
+      radial-gradient(60rem 40rem at 0% -10%, rgb(139 92 246 / 0.07), transparent 60%),
+      radial-gradient(50rem 34rem at 100% 0%, rgb(34 211 238 / 0.04), transparent 55%);
+  }
+
+  /* Hairline highlight along a panel's top edge. */
+  .edge-light {
+    position: relative;
+  }
+
+  .edge-light::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.09) 20%,
+      rgb(255 255 255 / 0.09) 80%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  /* Carries the accent without shouting it. */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--foreground), var(--primary-hover));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

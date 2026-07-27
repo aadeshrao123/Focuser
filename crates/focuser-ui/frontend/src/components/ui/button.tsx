@@ -1,3 +1,4 @@
+import { Slot } from "@radix-ui/react-slot";
 import { type VariantProps, cva } from "class-variance-authority";
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,11 @@ import { cn } from "@/lib/utils";
 const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2 whitespace-nowrap",
-    "rounded-md font-medium transition-colors",
+    "rounded-md font-medium",
+    // Press feedback: a small scale-down reads as physical without moving
+    // neighbours, which a translate or a border change would.
+    "transition-[background-color,border-color,color,box-shadow,transform] duration-150",
+    "active:scale-[0.97]",
     "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
     "disabled:pointer-events-none disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
@@ -25,9 +30,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        solid: "bg-primary text-primary-foreground hover:bg-primary-hover",
-        soft: "bg-primary-dim text-foreground hover:bg-hover",
-        outline: "border border-border-strong bg-transparent text-foreground hover:bg-hover",
+        solid: [
+          "bg-primary text-primary-foreground shadow-(--shadow-depth-sm)",
+          "hover:bg-primary-hover hover:shadow-(--shadow-glow)",
+          "active:bg-primary-active",
+        ],
+        soft: "bg-primary-dim text-foreground hover:bg-primary/25",
+        outline: [
+          "border border-border-strong bg-elevated/60 text-foreground",
+          "hover:border-primary/50 hover:bg-hover",
+        ],
         ghost: "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground",
         link: "bg-transparent text-primary underline-offset-4 hover:underline",
       },
@@ -82,6 +94,11 @@ export interface ButtonProps
   ref?: Ref<HTMLButtonElement>;
   /** Rendered before the label. */
   icon?: ReactNode;
+  /**
+   * Render the child element with the button's styling instead of a `<button>`.
+   * Used for links, which must stay anchors for middle-click and focus order.
+   */
+  asChild?: boolean;
 }
 
 export function Button({
@@ -93,21 +110,31 @@ export function Button({
   icon,
   children,
   type = "button",
+  asChild,
   ref,
   ...props
 }: ButtonProps) {
+  const Root = asChild ? Slot : "button";
+
   return (
-    <button
+    <Root
       ref={ref}
       // Defaulting to "button": inside a <form>, HTML's default of "submit"
       // causes accidental submits, which is a classic source of lost input.
-      type={type}
+      type={asChild ? undefined : type}
       className={cn(buttonVariants({ variant, tone, size, full }), className)}
       {...props}
     >
-      {icon}
-      {children}
-    </button>
+      {/* Slot forwards to a single child, so a link button wraps its own span. */}
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {icon}
+          {children}
+        </>
+      )}
+    </Root>
   );
 }
 

@@ -1,6 +1,7 @@
-import { Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import { AppWindow, Globe, Hourglass, Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import type { AllowanceStatus } from "@/bindings";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
@@ -9,6 +10,7 @@ import { NumberField } from "@/components/ui/number-field";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   useAllowances,
   useBrowserStatus,
@@ -54,7 +56,7 @@ export function Allowances() {
   }
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-5xl p-8">
       <PageHeader
         title="Allowances"
         description="A daily budget instead of an outright block. When it runs out, the site or app is blocked for the rest of the day."
@@ -121,8 +123,9 @@ export function Allowances() {
       >
         {allowances.data?.length === 0 ? (
           <EmptyState
+            icon={<Hourglass />}
             title="No allowances yet"
-            description="Add one above to put a daily cap on something instead of blocking it outright."
+            description="An allowance is a daily budget rather than a wall — thirty minutes of something, then it closes for the day."
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -160,13 +163,24 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
     <li>
       <Card>
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="truncate font-medium text-foreground text-sm">{a.target.value}</p>
-            <p className="text-faint-foreground text-xs">
-              {a.target.kind === "Domain" ? "Website" : "Application"}
-              {a.strict_mode && " · counted only while focused"}
-              {!a.enabled && " · paused"}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated text-muted-foreground">
+              {a.target.kind === "Domain" ? (
+                <Globe aria-hidden className="size-4" />
+              ) : (
+                <AppWindow aria-hidden className="size-4" />
+              )}
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="truncate font-medium text-foreground text-sm">{a.target.value}</p>
+                {exhausted && <Badge tone="destructive">Spent</Badge>}
+                {!a.enabled && <Badge tone="neutral">Paused</Badge>}
+              </div>
+              <p className="mt-0.5 text-faint-foreground text-xs">
+                {a.strict_mode ? "Counted only while focused" : "Counted whenever open"}
+              </p>
+            </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -183,14 +197,16 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
               onCheckedChange={(enabled) => save({ enabled })}
               aria-label={`Enable allowance for ${a.target.value}`}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Reset today's usage for ${a.target.value}`}
-              onClick={() => reset.mutate(a.id)}
-            >
-              <RotateCcw />
-            </Button>
+            <Tooltip content="Reset today's usage">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Reset today's usage for ${a.target.value}`}
+                onClick={() => reset.mutate(a.id)}
+              >
+                <RotateCcw />
+              </Button>
+            </Tooltip>
             <Button
               variant="ghost"
               tone="destructive"

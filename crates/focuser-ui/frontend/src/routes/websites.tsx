@@ -1,13 +1,14 @@
-import { Plus } from "lucide-react";
+import { Globe, Plus, ShieldCheck } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { RuleTable } from "@/components/rule-table";
 import { StarterLists } from "@/components/starter-lists";
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageHeader } from "@/components/ui/card";
+import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
 import {
   useAddException,
   useAddWebsiteRule,
@@ -26,7 +27,6 @@ import {
   type WebsiteKind,
   websiteRule,
 } from "@/lib/match-types";
-import { cn } from "@/lib/utils";
 
 type Tab = "blocked" | "exceptions" | "starter" | "import";
 
@@ -40,7 +40,7 @@ export function Websites() {
   const list = all.find((l) => l.id === selected);
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-5xl p-8">
       <PageHeader
         title="Websites"
         description="Domains, keywords and URL patterns to block."
@@ -60,7 +60,17 @@ export function Websites() {
           />
         ) : (
           <>
-            <Tabs value={tab} onChange={setTab} />
+            <Tabs
+              className="mb-5"
+              value={tab}
+              onChange={setTab}
+              items={[
+                { id: "blocked", label: "Blocked", count: list.websites.length },
+                { id: "exceptions", label: "Exceptions", count: list.exceptions.length },
+                { id: "starter", label: "Starter lists" },
+                { id: "import", label: "Bulk import" },
+              ]}
+            />
 
             {tab === "blocked" && <BlockedTab listId={list.id} rules={list.websites} />}
             {tab === "exceptions" && (
@@ -71,37 +81,6 @@ export function Websites() {
           </>
         )}
       </QueryState>
-    </div>
-  );
-}
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "blocked", label: "Blocked" },
-  { id: "exceptions", label: "Exceptions" },
-  { id: "starter", label: "Starter lists" },
-  { id: "import", label: "Bulk import" },
-];
-
-function Tabs({ value, onChange }: { value: Tab; onChange: (t: Tab) => void }) {
-  return (
-    <div role="tablist" className="mb-5 flex gap-1 border-border border-b">
-      {TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          aria-selected={value === t.id}
-          onClick={() => onChange(t.id)}
-          className={cn(
-            "-mb-px border-b-2 px-3 py-2 text-sm transition-colors",
-            value === t.id
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {t.label}
-        </button>
-      ))}
     </div>
   );
 }
@@ -127,23 +106,29 @@ function BlockedTab({
 
   return (
     <>
-      <form onSubmit={submit} className="mb-4 flex flex-wrap gap-2">
-        <Select value={kind} onValueChange={setKind} options={WEBSITE_KINDS} />
-        <Input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="reddit.com"
-          aria-label="Value to block"
-          className="max-w-sm"
-        />
-        <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
-          Add
-        </Button>
-      </form>
-      <InlineError error={add.error} />
+      <Card className="mb-4" padding="md" elevation="raised">
+        <form onSubmit={submit} className="flex flex-wrap gap-2">
+          <Select value={kind} onValueChange={setKind} options={WEBSITE_KINDS} className="w-40" />
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="reddit.com"
+            aria-label="Value to block"
+            className="max-w-sm flex-1"
+          />
+          <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
+            Add
+          </Button>
+        </form>
+        <InlineError error={add.error} />
+      </Card>
 
       {rules.length === 0 ? (
-        <EmptyState title="Nothing blocked yet" description="Add a domain above to get started." />
+        <EmptyState
+          icon={<Globe />}
+          title="Nothing blocked yet"
+          description="Add a domain above, or start from one of the curated Starter lists."
+        />
       ) : (
         <RuleTable
           rows={rules.map((r) => ({ id: r.id, ...describeWebsite(r.match_type) }))}
@@ -184,23 +169,29 @@ function ExceptionsTab({
         Exceptions stay reachable even when a rule above would block them.
       </p>
 
-      <form onSubmit={submit} className="mb-4 flex flex-wrap gap-2">
-        <Select value={kind} onValueChange={setKind} options={EXCEPTION_KINDS} />
-        <Input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="docs.example.com"
-          aria-label="Value to allow"
-          className="max-w-sm"
-        />
-        <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
-          Allow
-        </Button>
-      </form>
-      <InlineError error={add.error} />
+      <Card className="mb-4" padding="md" elevation="raised">
+        <form onSubmit={submit} className="flex flex-wrap gap-2">
+          <Select value={kind} onValueChange={setKind} options={EXCEPTION_KINDS} className="w-40" />
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="docs.example.com"
+            aria-label="Value to allow"
+            className="max-w-sm flex-1"
+          />
+          <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
+            Allow
+          </Button>
+        </form>
+        <InlineError error={add.error} />
+      </Card>
 
       {exceptions.length === 0 ? (
-        <EmptyState title="No exceptions" />
+        <EmptyState
+          icon={<ShieldCheck />}
+          title="No exceptions"
+          description="An exception stays reachable even when a rule above would block it."
+        />
       ) : (
         <RuleTable
           rows={exceptions.map((e) => ({ id: e.id, ...describeException(e.exception_type) }))}

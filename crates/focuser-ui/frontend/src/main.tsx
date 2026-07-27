@@ -3,6 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { AppLayout } from "@/app-layout";
+import { Toaster } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "@/index.css";
 import { Allowances } from "@/routes/allowances";
 import { Apps } from "@/routes/apps";
@@ -58,7 +60,10 @@ if (!rootEl) throw new Error("#root missing from index.html");
 createRoot(rootEl).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

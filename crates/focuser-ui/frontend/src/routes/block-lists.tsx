@@ -1,12 +1,15 @@
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { ListChecks, Lock, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useId, useState } from "react";
 import type { BlockList, ProtectionInfo } from "@/bindings";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { NumberField } from "@/components/ui/number-field";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   useBlockLists,
   useCreateBlockList,
@@ -16,7 +19,6 @@ import {
   useToggleBlockList,
 } from "@/lib/commands";
 import { formatDuration } from "@/lib/duration";
-import { transportKind } from "@/lib/transport";
 import { count } from "@/lib/utils";
 
 export function BlockLists() {
@@ -34,57 +36,55 @@ export function BlockLists() {
   }
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-5xl p-8">
       <PageHeader
         title="Block Lists"
-        description="Group the sites and apps you want blocked together."
-        actions={
-          <span
-            className="rounded-md bg-surface px-2 py-1 text-faint-foreground text-xs"
-            data-testid="transport-badge"
-          >
-            {transportKind}
-          </span>
-        }
+        description="Group the sites and apps you want blocked together. Each list can be scheduled and locked on its own."
       />
 
-      <form onSubmit={onSubmit} className="mb-6 flex gap-2">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="New block list name…"
-          aria-label="New block list name"
-          className="max-w-sm"
-        />
-        <Button type="submit" icon={<Plus />} disabled={!name.trim() || create.isPending}>
-          {create.isPending ? "Creating…" : "Create"}
-        </Button>
-      </form>
-      <InlineError error={create.error} />
-
-      <QueryState
-        isPending={lists.isPending}
-        error={lists.error}
-        onRetry={() => lists.refetch()}
-        isRetrying={lists.isFetching}
-      >
-        {lists.data?.length === 0 ? (
-          <EmptyState
-            title="No block lists yet"
-            description="Create one above, then add sites and apps to it."
+      <Card className="mb-6" padding="md" elevation="raised">
+        <form onSubmit={onSubmit} className="flex gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name a new block list — “Deep work”, “Evenings”…"
+            aria-label="New block list name"
           />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {lists.data?.map((list) => (
-              <ListRow
-                key={list.id}
-                list={list}
-                lock={locks.find((p) => p.block_list_id === list.id) ?? null}
-              />
-            ))}
-          </ul>
-        )}
-      </QueryState>
+          <Button type="submit" icon={<Plus />} disabled={!name.trim() || create.isPending}>
+            {create.isPending ? "Creating…" : "Create"}
+          </Button>
+        </form>
+        <InlineError error={create.error} />
+      </Card>
+
+      {lists.isPending ? (
+        <ListSkeleton rows={3} />
+      ) : (
+        <QueryState
+          isPending={false}
+          error={lists.error}
+          onRetry={() => lists.refetch()}
+          isRetrying={lists.isFetching}
+        >
+          {lists.data?.length === 0 ? (
+            <EmptyState
+              icon={<ListChecks />}
+              title="No block lists yet"
+              description="Create one above, then add the sites and apps that pull you away."
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {lists.data?.map((list) => (
+                <ListRow
+                  key={list.id}
+                  list={list}
+                  lock={locks.find((p) => p.block_list_id === list.id) ?? null}
+                />
+              ))}
+            </ul>
+          )}
+        </QueryState>
+      )}
     </div>
   );
 }
@@ -96,50 +96,73 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
 
   return (
     <li>
-      <Card data-testid="block-list-row">
-        <div className="flex items-center justify-between gap-4">
+      <Card data-testid="block-list-row" elevation="raised" padding="none">
+        <div className="flex items-center justify-between gap-4 px-4 py-3.5">
           <div className="min-w-0">
-            <p className="truncate font-medium text-foreground text-sm">{list.name}</p>
-            <p className="text-faint-foreground text-xs">
-              {count(list.websites.length, "site")} · {count(list.applications.length, "app")}
-              {lock && ` · locked for ${formatDuration(lock.remaining_seconds)}`}
+            <div className="flex items-center gap-2">
+              <p className="truncate font-medium text-foreground text-sm">{list.name}</p>
+              {lock ? (
+                <Badge tone="warning" icon={<Lock aria-hidden />} outlined>
+                  Locked · {formatDuration(lock.remaining_seconds)}
+                </Badge>
+              ) : (
+                <Badge tone={list.enabled ? "success" : "neutral"}>
+                  {list.enabled ? "Enabled" : "Off"}
+                </Badge>
+              )}
+              {list.schedule && <Badge tone="info">Scheduled</Badge>}
+            </div>
+            <p className="mt-1 text-faint-foreground text-xs">
+              {count(list.websites.length, "site")} · {count(list.applications.length, "app")} ·{" "}
+              {count(list.exceptions.length, "exception")}
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant={list.enabled ? "soft" : "outline"}
-              tone={list.enabled ? "success" : "default"}
-              size="sm"
-              onClick={() => toggle.mutate({ id: list.id, enabled: !list.enabled })}
-              aria-pressed={list.enabled}
-              // A lock exists to stop you turning blocking off mid-commitment.
-              disabled={lock !== null && list.enabled}
+          <div className="flex shrink-0 items-center gap-1">
+            <Tooltip
+              content={
+                lock ? "A lock is running — this cannot be turned off" : "Turn this list on or off"
+              }
             >
-              {list.enabled ? "Enabled" : "Disabled"}
-            </Button>
+              <span>
+                <Switch
+                  checked={list.enabled}
+                  onCheckedChange={(enabled) => toggle.mutate({ id: list.id, enabled })}
+                  disabled={lock !== null && list.enabled}
+                  aria-label={`Enable ${list.name}`}
+                />
+              </span>
+            </Tooltip>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Protect ${list.name}`}
-              aria-expanded={protecting}
-              disabled={lock !== null}
-              onClick={() => setProtecting(!protecting)}
-            >
-              <Lock />
-            </Button>
+            <Tooltip content={lock ? "Already locked" : "Lock this list on for a set time"}>
+              <span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Protect ${list.name}`}
+                  aria-expanded={protecting}
+                  disabled={lock !== null}
+                  onClick={() => setProtecting(!protecting)}
+                >
+                  <Lock />
+                </Button>
+              </span>
+            </Tooltip>
 
-            <Button
-              variant="ghost"
-              tone="destructive"
-              size="icon"
-              aria-label={`Delete ${list.name}`}
-              disabled={lock !== null}
-              onClick={() => remove.mutate(list.id)}
-            >
-              <Trash2 />
-            </Button>
+            <Tooltip content={lock ? "Locked lists cannot be deleted" : "Delete this list"}>
+              <span>
+                <Button
+                  variant="ghost"
+                  tone="destructive"
+                  size="icon"
+                  aria-label={`Delete ${list.name}`}
+                  disabled={lock !== null}
+                  onClick={() => remove.mutate(list.id)}
+                >
+                  <Trash2 />
+                </Button>
+              </span>
+            </Tooltip>
           </div>
         </div>
 
@@ -161,12 +184,16 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
   const [modification, setModification] = useState(true);
 
   return (
-    <div className="mt-4 border-border border-t pt-4">
-      <p className="text-muted-foreground text-sm">
-        Locks this list on for a set time. There is no way to cancel it early — that is the point.
+    <div className="animate-in border-border border-t bg-elevated/40 px-4 py-4 fade-in slide-in-from-top-1">
+      <p className="flex items-center gap-2 font-medium text-foreground text-sm">
+        <Lock aria-hidden className="size-4 text-warning" />
+        Lock this list on
+      </p>
+      <p className="mt-1 text-muted-foreground text-sm">
+        There is no way to cancel it early — that is the point.
       </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-2">
           <label htmlFor={id} className="text-muted-foreground text-sm">
             Lock for

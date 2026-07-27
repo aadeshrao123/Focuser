@@ -45,7 +45,7 @@ export function Schedule() {
   }
 
   return (
-    <div className="p-8">
+    <div className="mx-auto max-w-5xl p-8">
       <PageHeader
         title="Schedule"
         description="When this block list is active."
