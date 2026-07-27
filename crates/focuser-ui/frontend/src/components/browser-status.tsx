@@ -26,7 +26,7 @@ export function BrowserStatusList() {
 
 function BrowserRow({ browser }: { browser: Status }) {
   return (
-    <li className="flex items-center justify-between gap-4 px-4 py-3">
+    <li className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-hover/40">
       <div className="min-w-0">
         <p className="truncate font-medium text-foreground text-sm">{browser.display_name}</p>
         <p className="mt-0.5 flex items-center gap-1.5 text-xs">

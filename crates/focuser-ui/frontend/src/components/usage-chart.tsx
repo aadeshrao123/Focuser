@@ -45,7 +45,10 @@ export function UsageChart({ data }: { data: DayTotal[] }) {
             axisLine={false}
           />
           <Tooltip
-            cursor={{ fill: "var(--color-hover)" }}
+            // No cursor band: it painted a full-height rectangle over the whole
+            // day, which read as a second, taller bar. `activeBar` below lights
+            // up the one bar being pointed at instead.
+            cursor={false}
             labelFormatter={(label) => formatDay(String(label))}
             formatter={(value) => [value, "Blocked attempts"] as [typeof value, string]}
             contentStyle={tooltipStyle}
@@ -62,10 +65,17 @@ export function UsageChart({ data }: { data: DayTotal[] }) {
               <stop offset="0%" stopColor="var(--color-primary-hover)" stopOpacity={1} />
               <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0.55} />
             </linearGradient>
+            {/* Same ramp, brighter and fully opaque, so the hovered bar lifts
+                out of the row without changing size or position. */}
+            <linearGradient id="bar-primary-active" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-primary-active)" stopOpacity={1} />
+              <stop offset="100%" stopColor="var(--color-primary-hover)" stopOpacity={0.95} />
+            </linearGradient>
           </defs>
           <Bar
             dataKey="attempts"
             fill="url(#bar-primary)"
+            activeBar={{ fill: "url(#bar-primary-active)" }}
             radius={[4, 4, 2, 2]}
             maxBarSize={44}
             isAnimationActive={false}

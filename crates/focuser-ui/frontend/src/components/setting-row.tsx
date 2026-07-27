@@ -1,20 +1,33 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
 
+/**
+ * A titled group of settings.
+ *
+ * `flush` is for children that already draw their own row separators, so the
+ * card doesn't add a second set on top.
+ */
 export function SettingsSection({
   title,
   description,
+  flush,
   children,
 }: {
   title: string;
   description?: string;
+  flush?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className="mb-6">
-      <h2 className="font-medium text-foreground text-sm">{title}</h2>
+    <section className="mb-7">
+      <h2 className="font-semibold text-foreground text-sm">{title}</h2>
       {description && <p className="mt-1 text-muted-foreground text-sm">{description}</p>}
-      <Card className="mt-3 divide-y divide-border" padding="none">
+      <Card
+        className={cn("mt-3", !flush && "divide-y divide-border")}
+        padding="none"
+        elevation="raised"
+      >
         {children}
       </Card>
     </section>
@@ -34,7 +47,7 @@ export function SettingRow({
   control: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 px-4 py-3.5">
+    <div className="flex items-center justify-between gap-8 px-5 py-4 transition-colors hover:bg-hover/40">
       <div className="min-w-0">
         {htmlFor ? (
           <label htmlFor={htmlFor} className="font-medium text-foreground text-sm">
@@ -43,7 +56,11 @@ export function SettingRow({
         ) : (
           <p className="font-medium text-foreground text-sm">{label}</p>
         )}
-        {description && <p className="mt-0.5 text-muted-foreground text-sm">{description}</p>}
+        {description && (
+          <p className="mt-1 max-w-prose text-muted-foreground text-sm leading-relaxed">
+            {description}
+          </p>
+        )}
       </div>
       <div className="shrink-0">{control}</div>
     </div>
