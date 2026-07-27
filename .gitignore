@@ -77,3 +77,8 @@ internal-docs/
 
 # ─── Claude Code local config ────────────────────────────
 .claude/
+
+# WXT build output and generated types
+extension/.output/
+extension/.wxt/
+extension/stats.html

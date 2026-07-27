@@ -180,6 +180,9 @@ jobs:
   extension:
     name: Extension
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
 
     steps:
       - uses: actions/checkout@v4
@@ -187,11 +190,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run compile
 
       # The hostname rules here mirror focuser_common::host. If they drift,
       # which form the user typed starts to matter again.
       - name: Test
-        run: node --test extension/background.test.mjs
+        run: npm test
 
-      - name: Build
-        run: python extension/build.py
+      # Both targets, because the manifests differ and only a build catches a
+      # config that is valid for one browser and not the other.
+      - name: Build (Chrome)
+        run: npm run build
+
+      - name: Build (Firefox)
+        run: npm run build:firefox

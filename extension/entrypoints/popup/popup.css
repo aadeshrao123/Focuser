@@ -1,0 +1,9 @@
+/* A popup has no viewport of its own — the browser sizes it to the content,
+   so the width has to be stated here or Chrome renders a ~30px sliver. */
+html,
+body {
+  width: 21rem;
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}

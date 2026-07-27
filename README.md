@@ -94,7 +94,7 @@ That principle has teeth in places you might not expect. Application icons are r
 - **Tauri v2** - Desktop app framework (tiny bundle, native performance)
 - **SQLite** - Local database via rusqlite
 - **React 19 + TypeScript + Tailwind CSS 4** - Frontend, built with Vite
-- **WebExtensions API (Manifest V3)** - Browser extension for Chrome, Firefox, Edge, Brave, Opera
+- **WXT + React + TypeScript** - Browser extension (Manifest V3) for Chrome, Firefox, Edge, Brave, Opera
 
 ## Platform support
 
@@ -126,7 +126,7 @@ Focuser/
 │   └── focuser-ui/        # Tauri desktop app
 │       ├── src/           # Rust shell (blocker, extension API, native shims)
 │       └── frontend/      # React + TypeScript + Tailwind
-├── extension/             # Browser extension (Manifest V3)
+├── extension/             # Browser extension (WXT + React + TypeScript, MV3)
 └── assets/                # Icons, branding, screenshots
 ```
 
@@ -197,12 +197,17 @@ Install from the store (recommended):
 Or build and load it yourself:
 
 ```bash
-python extension/build.py            # produces extension/dist/{chrome,firefox}/
-node --test extension/background.test.mjs
+cd extension
+npm install
+npm run build                        # produces extension/.output/chrome-mv3/
+npm run build:firefox                # produces extension/.output/firefox-mv3/
+npm test
+npm run dev                          # live-reloading browser with the extension loaded
+npm run preview                      # the block page in an ordinary tab, for UI work
 ```
 
-- **Chrome**: `chrome://extensions` → Developer mode → Load unpacked → `extension/dist/chrome/`
-- **Firefox**: `about:debugging` → This Firefox → Load Temporary Add-on → `extension/dist/firefox/manifest.json` (session-only; permanent installation needs AMO signing)
+- **Chrome**: `chrome://extensions` → Developer mode → Load unpacked → `extension/.output/chrome-mv3/`
+- **Firefox**: `about:debugging` → This Firefox → Load Temporary Add-on → `extension/.output/firefox-mv3/manifest.json` (session-only; permanent installation needs AMO signing)
 
 Disable the store version first — same extension ID, and you'd be testing old code.
 
@@ -224,7 +229,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide, but the short version
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-node --test extension/background.test.mjs
+cd extension && npm test
 cd crates/focuser-ui/frontend && npm run typecheck && npm run lint && npm test
 ```
 

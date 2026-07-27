@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* ─── Tokens ───────────────────────────────────────────────────────────
+   Lifted from the desktop app's `frontend/src/index.css` so the extension
+   and the app are visibly the same product. Kept as a copy rather than an
+   import because the two build separately; if the app's palette moves,
+   move it here too. */
+
+@theme {
+  --color-deep: #06060a;
+  --color-background: #0b0b11;
+  --color-surface: #14141c;
+  --color-elevated: #1c1c27;
+  --color-hover: #252533;
+
+  --color-foreground: #f2f2f7;
+  --color-muted-foreground: #a9a9bd;
+  --color-faint-foreground: #6e6e88;
+
+  --color-primary: #8b5cf6;
+  --color-primary-hover: #9d76ff;
+  --color-primary-foreground: #ffffff;
+
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-destructive: #f87171;
+
+  --color-border: rgb(255 255 255 / 0.07);
+  --color-border-strong: rgb(255 255 255 / 0.13);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-lg: 0.75rem;
+
+  /* Top-down lighting: an inset highlight along the top edge stops a dark
+     card reading as a hole punched in the page. */
+  --shadow-depth-md:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 4px 10px rgb(0 0 0 / 0.45),
+    0 12px 28px rgb(0 0 0 / 0.28);
+  --shadow-depth-lg:
+    inset 0 1px 0 rgb(255 255 255 / 0.08), 0 10px 20px rgb(0 0 0 / 0.5),
+    0 28px 64px rgb(0 0 0 / 0.4);
+}
+
+@layer base {
+  :host,
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+}
