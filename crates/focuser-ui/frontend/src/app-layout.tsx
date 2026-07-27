@@ -9,6 +9,7 @@ import {
   Settings,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
+import { BlockingHealthBanner } from "@/components/blocking-health-banner";
 import { TitleBar } from "@/components/title-bar";
 import { AppIcon } from "@/components/ui/app-icon";
 import { LiveBadge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ export function AppLayout() {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="app-canvas min-w-0 flex-1 overflow-y-auto bg-background">
+          <BlockingHealthBanner />
           <Outlet />
         </main>
       </div>

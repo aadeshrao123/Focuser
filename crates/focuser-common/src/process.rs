@@ -47,6 +47,14 @@ pub fn terminate(pid: u32) -> bool {
     imp::terminate(pid)
 }
 
+/// The full command line a process was started with, if it can be read.
+///
+/// Costly on every platform — it shells out on Windows and macOS — so call it
+/// for specific suspects, never across a whole process list.
+pub fn cmdline(pid: u32) -> Option<String> {
+    imp::cmdline(pid)
+}
+
 #[cfg(windows)]
 mod imp {
     use super::Process;
@@ -97,6 +105,25 @@ mod imp {
         found
     }
 
+    pub fn cmdline(pid: u32) -> Option<String> {
+        // Win32 offers no supported way to read another process's command line
+        // short of walking its PEB, so this asks WMI. Deliberately not `wmic`:
+        // that tool is deprecated and already absent from recent Windows 11
+        // installs, whereas PowerShell's CIM cmdlets ship everywhere.
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &format!("(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"),
+            ])
+            .output()
+            .ok()?;
+
+        let line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        (!line.is_empty()).then_some(line)
+    }
+
     pub fn terminate(pid: u32) -> bool {
         // SAFETY: the handle is only used when OpenProcess succeeded, and is
         // closed before returning.
@@ -145,6 +172,15 @@ mod imp {
             pid,
             name: path.rsplit('/').next().unwrap_or(path).to_string(),
         })
+    }
+
+    pub fn cmdline(pid: u32) -> Option<String> {
+        let output = std::process::Command::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "args="])
+            .output()
+            .ok()?;
+        let line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        (!line.is_empty()).then_some(line)
     }
 
     pub fn terminate(pid: u32) -> bool {
@@ -203,6 +239,13 @@ mod imp {
                 })
             })
             .collect()
+    }
+
+    pub fn cmdline(pid: u32) -> Option<String> {
+        // /proc separates argv entries with NULs and usually trails one.
+        let raw = std::fs::read_to_string(format!("/proc/{pid}/cmdline")).ok()?;
+        let line = raw.replace(' ', " ").trim().to_string();
+        (!line.is_empty()).then_some(line)
     }
 
     pub fn terminate(pid: u32) -> bool {

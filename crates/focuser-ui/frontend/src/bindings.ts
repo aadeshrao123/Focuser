@@ -118,6 +118,23 @@ export type BlockedEvent = {
 	timestamp: string,
 };
 
+/**
+ *  Whether blocking is actually taking effect, for the UI to warn about.
+ * 
+ *  Focuser blocks websites two ways: the browser extension, and the OS hosts
+ *  file. The hosts path needs administrator or root, and when the write fails
+ *  there is nothing on screen to say so — the user sees rules that look armed
+ *  and sites that still load. This is what makes that visible.
+ */
+export type BlockingHealth = {
+	/**  Block lists that should be blocking at this moment. */
+	active_lists: number,
+	/**  An extension has checked in recently, so it is enforcing rules. */
+	extension_connected: boolean,
+	/**  The hosts file can be written — i.e. we have the privileges for it. */
+	hosts_writable: boolean,
+};
+
 export type BreakConfig = 
 /**  Pomodoro-style: work for X minutes, break for Y minutes. */
 ({ Pomodoro: {
@@ -261,6 +278,8 @@ export type Command =
 } } | 
 /**  Reset settings to defaults. Block lists and statistics are preserved. */
 { cmd: "reset_settings" } | 
+/**  Whether blocking is actually in force right now, and why not if it isn't. */
+{ cmd: "get_blocking_health" } | 
 /**  Push the current blocked-domain set to the hosts file now. */
 { cmd: "apply_blocks" } | 
 /**  Remove Focuser's hosts-file entries. */
@@ -360,7 +379,7 @@ export type CommandResult =
 /**  Succeeded, nothing to return. */
 { kind: "unit" } | { kind: "block_list"; data: BlockList } | { kind: "block_lists"; data: BlockList[] } | { kind: "website_rule"; data: WebsiteRule } | { kind: "app_rule"; data: AppRule } | { kind: "exception"; data: ExceptionRule } | 
 /**  A number of affected items — e.g. rules imported or cleared. */
-{ kind: "count"; data: number } | { kind: "stats"; data: UsageStat[] } | { kind: "blocked_events"; data: BlockedEvent[] } | { kind: "protection_status"; data: ProtectionInfo[] } | 
+{ kind: "count"; data: number } | { kind: "stats"; data: UsageStat[] } | { kind: "blocked_events"; data: BlockedEvent[] } | { kind: "protection_status"; data: ProtectionInfo[] } | { kind: "blocking_health"; data: BlockingHealth } | 
 /**  A setting value; `None` when unset and no default was supplied. */
 { kind: "setting"; data: string | null } | 
 /**  A yes/no outcome — e.g. "was a session actually paused". */

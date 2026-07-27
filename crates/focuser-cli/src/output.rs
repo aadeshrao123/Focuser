@@ -138,6 +138,29 @@ pub fn print_human(result: &CommandResult) {
             }
         }
 
+        CommandResult::BlockingHealth(h) => {
+            println!("active lists      {}", h.active_lists);
+            println!(
+                "extension         {}",
+                if h.extension_connected {
+                    "connected"
+                } else {
+                    "not connected"
+                }
+            );
+            println!(
+                "hosts file        {}",
+                if h.hosts_writable {
+                    "writable"
+                } else {
+                    "NOT writable — needs administrator/root"
+                }
+            );
+            if h.is_failing() {
+                println!("\nBlocking is NOT in force: no extension and no hosts access.");
+            }
+        }
+
         CommandResult::Allowance(a) => println!("{}  {}", a.id, a.target.display()),
 
         CommandResult::Allowances(statuses) if statuses.is_empty() => println!("No allowances."),

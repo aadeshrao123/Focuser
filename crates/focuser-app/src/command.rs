@@ -173,6 +173,8 @@ pub enum Command {
     ResetSettings,
 
     // ─── Enforcement ──────────────────────────────────────────────
+    /// Whether blocking is actually in force right now, and why not if it isn't.
+    GetBlockingHealth,
     /// Push the current blocked-domain set to the hosts file now.
     ApplyBlocks,
     /// Remove Focuser's hosts-file entries.
@@ -293,6 +295,32 @@ pub struct AllowanceNotificationDto {
     pub limit_secs: u32,
 }
 
+/// Whether blocking is actually taking effect, for the UI to warn about.
+///
+/// Focuser blocks websites two ways: the browser extension, and the OS hosts
+/// file. The hosts path needs administrator or root, and when the write fails
+/// there is nothing on screen to say so — the user sees rules that look armed
+/// and sites that still load. This is what makes that visible.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct BlockingHealth {
+    /// Block lists that should be blocking at this moment.
+    pub active_lists: u32,
+    /// An extension has checked in recently, so it is enforcing rules.
+    pub extension_connected: bool,
+    /// The hosts file can be written — i.e. we have the privileges for it.
+    pub hosts_writable: bool,
+}
+
+impl BlockingHealth {
+    /// True when the user expects blocking but neither mechanism can deliver.
+    ///
+    /// The extension alone is enough, and a writable hosts file alone is
+    /// enough. Only losing both is a failure worth interrupting anyone over.
+    pub fn is_failing(&self) -> bool {
+        self.active_lists > 0 && !self.extension_connected && !self.hosts_writable
+    }
+}
+
 /// An active protection window on a block list.
 ///
 /// Replaces the ad-hoc `serde_json::json!` object the old command built.
@@ -330,6 +358,7 @@ pub enum CommandResult {
     Stats(Vec<UsageStat>),
     BlockedEvents(Vec<BlockedEvent>),
     ProtectionStatus(Vec<ProtectionInfo>),
+    BlockingHealth(BlockingHealth),
     /// A setting value; `None` when unset and no default was supplied.
     Setting(Option<String>),
     /// A yes/no outcome — e.g. "was a session actually paused".
@@ -426,5 +455,40 @@ mod tests {
     fn unit_variant_serialises_without_args() {
         let json = serde_json::to_string(&Command::ListBlockLists).unwrap();
         assert_eq!(json, r#"{"cmd":"list_block_lists"}"#);
+    }
+}
+
+#[cfg(test)]
+mod health_tests {
+    use super::BlockingHealth;
+
+    fn health(
+        active_lists: u32,
+        extension_connected: bool,
+        hosts_writable: bool,
+    ) -> BlockingHealth {
+        BlockingHealth {
+            active_lists,
+            extension_connected,
+            hosts_writable,
+        }
+    }
+
+    #[test]
+    fn losing_both_mechanisms_with_active_lists_is_a_failure() {
+        assert!(health(1, false, false).is_failing());
+    }
+
+    #[test]
+    fn either_mechanism_alone_is_enough() {
+        assert!(!health(1, true, false).is_failing());
+        assert!(!health(1, false, true).is_failing());
+    }
+
+    #[test]
+    fn nothing_is_wrong_when_nothing_is_meant_to_be_blocked() {
+        // No active lists means no promise to keep, so a hosts file we cannot
+        // write is not worth warning anyone about.
+        assert!(!health(0, false, false).is_failing());
     }
 }

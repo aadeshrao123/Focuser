@@ -40,6 +40,16 @@ pub trait SystemSync: Send + Sync {
     fn connected_browsers(&self) -> Vec<String> {
         Vec::new()
     }
+
+    /// Whether the OS hosts file can actually be written right now.
+    ///
+    /// Writing it needs administrator or root. When it fails there is no error
+    /// anywhere the user can see, so this is what lets the UI say so. Defaults
+    /// to `true` because a headless context has nothing better to report and
+    /// should not invent a warning.
+    fn hosts_writable(&self) -> bool {
+        true
+    }
 }
 
 /// Does nothing. For tests and for headless contexts with no hosts access.
@@ -85,6 +95,11 @@ impl AppContext {
     /// Only used to write an empty set, which is how "unblock everything" is
     /// expressed — the sync replaces Focuser's hosts section wholesale, so an
     /// empty list clears it.
+    /// Whether the hosts file is writable. See [`SystemSync::hosts_writable`].
+    pub fn hosts_writable(&self) -> bool {
+        self.system.hosts_writable()
+    }
+
     pub fn sync_hosts_with(&self, domains: &[String]) {
         self.system.sync_hosts(domains);
     }

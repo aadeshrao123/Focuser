@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -10,6 +11,7 @@ use focuser_common::browser::identify_browser;
 use focuser_common::extension::BrowserType;
 use focuser_common::host::any_host_matches;
 use focuser_common::process;
+use focuser_common::uninstall;
 use tracing::{info, warn};
 
 use crate::AppState;
@@ -120,6 +122,13 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
             // Also kill apps whose allowance is exhausted today.
             kill_allowance_blocked_apps(&state.allowance_tracker);
 
+            // Uninstall protection. Only while a lock actually asks for it —
+            // scanning command lines is expensive and this is the one case
+            // that justifies it.
+            if eng.has_uninstall_protection() {
+                block_uninstall_attempts();
+            }
+
             // Browser extension enforcement. Settings are read on every heavy
             // tick so a change in the UI applies without restarting the app.
             let (grace_duration, enforce_enabled) = enforcement_settings(eng.db());
@@ -171,6 +180,21 @@ pub fn remove_hosts_blocks() -> Result<(), String> {
     Ok(())
 }
 
+/// Whether the OS hosts file can be written right now.
+///
+/// Opened for append and immediately dropped: that needs the same privileges
+/// as a real write but changes nothing, so it is safe to call on a timer.
+pub fn hosts_writable() -> bool {
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(hosts_path())
+        .is_ok()
+}
+
+/// Whether the last hosts write failed. Read by the blocking-health command so
+/// the UI can say that rules are armed but not actually in force.
+static HOSTS_WRITE_FAILED: AtomicBool = AtomicBool::new(false);
+
 fn sync_hosts_file(domains: &[String]) {
     let path = hosts_path();
     let content = match std::fs::read_to_string(&path) {
@@ -178,12 +202,42 @@ fn sync_hosts_file(domains: &[String]) {
         Err(_) => return,
     };
     let new_content = replace_section(&content, domains);
-    if content != new_content {
-        if let Err(e) = std::fs::write(&path, &new_content) {
-            // Silently fail if not admin — warn is done once above
-            let _ = e;
-        } else {
+    if content == new_content {
+        return;
+    }
+
+    match std::fs::write(&path, &new_content) {
+        Ok(()) => {
+            // Only log the recovery, not every successful write.
+            if HOSTS_WRITE_FAILED.swap(false, Ordering::Relaxed) {
+                info!("Hosts file is writable again");
+            }
             flush_dns();
+        }
+        Err(e) => {
+            // Almost always "not running as administrator". Logged once per
+            // spell rather than every three seconds, but no longer swallowed —
+            // this is the difference between blocking and only looking like it.
+            if !HOSTS_WRITE_FAILED.swap(true, Ordering::Relaxed) {
+                warn!(
+                    path = %path,
+                    error = %e,
+                    "Cannot write the hosts file — website blocking will not take effect                      without the browser extension. Run Focuser as administrator."
+                );
+            }
+        }
+    }
+}
+
+/// Close anything that looks like it is uninstalling Focuser.
+///
+/// Only reached while a lock has `prevent_uninstall` set. The detection is
+/// deliberately narrow — see [`focuser_common::uninstall`] — because the
+/// alternative is killing an uninstaller the user aimed at other software.
+fn block_uninstall_attempts() {
+    for pid in uninstall::detect(&process::list(), process::cmdline) {
+        if process::terminate(pid) {
+            warn!(pid, "Closed an uninstall attempt — a lock is active");
         }
     }
 }

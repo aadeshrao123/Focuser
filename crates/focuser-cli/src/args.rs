@@ -312,6 +312,8 @@ pub enum SettingCmd {
 
 #[derive(Subcommand)]
 pub enum BlocksCmd {
+    /// Report whether blocking is actually in force.
+    Health,
     /// Write the current blocked domains to the hosts file.
     Apply,
     /// Remove Focuser's hosts-file entries.
@@ -563,6 +565,7 @@ impl TopLevel {
             TopLevel::Version => Command::AppVersion,
 
             TopLevel::Blocks(c) => match c {
+                BlocksCmd::Health => Command::GetBlockingHealth,
                 BlocksCmd::Apply => Command::ApplyBlocks,
                 BlocksCmd::Remove => Command::RemoveBlocks,
             },

@@ -11,8 +11,8 @@ use focuser_common::types::{
 use focuser_core::{BlockEngine, pomodoro};
 
 use crate::command::{
-    AllowanceNotificationDto, AllowanceUsageEntry, AppIcon, BrowserStatus, Command, CommandResult,
-    PomodoroEventDto, PomodoroHistoryEntry, ProtectionInfo,
+    AllowanceNotificationDto, AllowanceUsageEntry, AppIcon, BlockingHealth, BrowserStatus, Command,
+    CommandResult, PomodoroEventDto, PomodoroHistoryEntry, ProtectionInfo,
 };
 use crate::context::{AppContext, PomodoroEvent};
 use crate::error::{CommandError, CommandOutcome};
@@ -342,6 +342,20 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         // ─── Enforcement ──────────────────────────────────────────
+        Command::GetBlockingHealth => {
+            let active_lists = engine
+                .block_lists()
+                .iter()
+                .filter(|l| l.is_effectively_active())
+                .count() as u32;
+
+            Ok(CommandResult::BlockingHealth(BlockingHealth {
+                active_lists,
+                extension_connected: !ctx.connected_browsers().is_empty(),
+                hosts_writable: ctx.hosts_writable(),
+            }))
+        }
+
         Command::ApplyBlocks => {
             ctx.sync_hosts(&engine);
             Ok(CommandResult::Unit)
@@ -778,6 +792,23 @@ mod tests {
         AppContext::new(
             BlockEngine::new(db).unwrap(),
             std::sync::Arc::new(Connected),
+        )
+    }
+
+    /// A context that looks like an unelevated machine with no extension.
+    fn ctx_without_hosts_access() -> AppContext {
+        struct Unprivileged;
+        impl crate::context::SystemSync for Unprivileged {
+            fn sync_hosts(&self, _domains: &[String]) {}
+            fn hosts_writable(&self) -> bool {
+                false
+            }
+        }
+
+        let db = Database::open_in_memory().unwrap();
+        AppContext::new(
+            BlockEngine::new(db).unwrap(),
+            std::sync::Arc::new(Unprivileged),
         )
     }
 
@@ -1825,5 +1856,56 @@ mod tests {
             blocked,
             "with no extension to measure usage the site must stay blocked"
         );
+    }
+
+    #[test]
+    fn blocking_health_reports_a_machine_that_cannot_block_at_all() {
+        let ctx = ctx_without_hosts_access();
+        let list = create(&ctx, "Social");
+        execute(
+            &ctx,
+            Command::ToggleBlockList {
+                id: list.id,
+                enabled: true,
+            },
+        )
+        .unwrap();
+
+        let CommandResult::BlockingHealth(health) =
+            execute(&ctx, Command::GetBlockingHealth).unwrap()
+        else {
+            panic!("expected blocking health");
+        };
+
+        assert_eq!(health.active_lists, 1);
+        assert!(!health.extension_connected);
+        assert!(!health.hosts_writable);
+        assert!(
+            health.is_failing(),
+            "an enabled list with neither mechanism available is a failure"
+        );
+    }
+
+    #[test]
+    fn blocking_health_is_calm_when_the_extension_is_doing_the_work() {
+        let ctx = ctx_with_extension();
+        let list = create(&ctx, "Social");
+        execute(
+            &ctx,
+            Command::ToggleBlockList {
+                id: list.id,
+                enabled: true,
+            },
+        )
+        .unwrap();
+
+        let CommandResult::BlockingHealth(health) =
+            execute(&ctx, Command::GetBlockingHealth).unwrap()
+        else {
+            panic!("expected blocking health");
+        };
+
+        assert!(health.extension_connected);
+        assert!(!health.is_failing());
     }
 }

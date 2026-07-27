@@ -15,7 +15,7 @@ use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
 };
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 /// Shared application state.
@@ -51,6 +51,10 @@ impl focuser_app::SystemSync for HostsSync {
             .iter()
             .map(|b| format!("{b:?}"))
             .collect()
+    }
+
+    fn hosts_writable(&self) -> bool {
+        blocker::hosts_writable()
     }
 }
 
@@ -165,11 +169,13 @@ fn main() {
 
             let icon = app.default_window_icon().cloned().unwrap();
 
+            let quit_state = Arc::clone(&state_for_blocker);
+
             let _tray = TrayIconBuilder::new()
                 .icon(icon)
                 .tooltip("Focuser — Blocking active")
                 .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
+                .on_menu_event(move |app, event| match event.id().as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
@@ -177,7 +183,19 @@ fn main() {
                         }
                     }
                     "quit" => {
-                        // Clean up hosts file before exiting
+                        // Quitting removes the hosts entries and stops the
+                        // blocking loop, so while a lock asks us to stay put
+                        // this is the whole product being switched off in two
+                        // clicks. Refuse and show what is holding it.
+                        if let Some(reason) = quit_blocked_by(&quit_state) {
+                            warn!(%reason, "Refused to quit — a lock is active");
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                let _ = window.eval(build_locked_modal_js(&reason));
+                            }
+                            return;
+                        }
                         let _ = crate::blocker::remove_hosts_blocks();
                         std::process::exit(0);
                     }
@@ -287,6 +305,98 @@ fn browser_launch_cmd(browser_name: &str) -> &'static str {
 }
 
 /// Build JavaScript to inject a themed modal into the Focuser UI.
+/// A small overlay explaining why Quit did nothing.
+///
+/// Injected rather than routed through the frontend because the tray menu can
+/// be used while the window has never been opened, so there may be no React
+/// tree listening yet.
+fn build_locked_modal_js(reason: &str) -> String {
+    // The reason carries a user-chosen list name, so it goes in as JSON rather
+    // than being pasted into the source.
+    let reason = serde_json::to_string(reason).unwrap_or_else(|_| "\"a lock is active\"".into());
+    format!(
+        r##"(function() {{
+  var id = 'focuser-locked-overlay';
+  var old = document.getElementById(id);
+  if (old) old.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = id;
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;' +
+    'align-items:center;justify-content:center;background:rgba(0,0,0,.55);' +
+    'backdrop-filter:blur(4px);font-family:system-ui,sans-serif';
+
+  var card = document.createElement('div');
+  card.style.cssText = 'max-width:26rem;margin:1.5rem;padding:1.5rem;border-radius:.75rem;' +
+    'background:#16181d;color:#e8eaed;border:1px solid #2c3038;box-shadow:0 18px 50px rgba(0,0,0,.5)';
+
+  var title = document.createElement('h2');
+  title.textContent = 'Focuser is locked';
+  title.style.cssText = 'margin:0 0 .5rem;font-size:1rem;font-weight:600';
+
+  var body = document.createElement('p');
+  body.textContent = 'You asked Focuser to stay running until this lock ends, so it will not quit yet: ' + {reason} + '.';
+  body.style.cssText = 'margin:0 0 1.25rem;font-size:.875rem;line-height:1.5;color:#9aa0aa';
+
+  var button = document.createElement('button');
+  button.textContent = 'OK';
+  button.style.cssText = 'padding:.45rem 1.1rem;border-radius:.4rem;border:0;cursor:pointer;' +
+    'background:#4f7cff;color:#fff;font-size:.875rem';
+  button.onclick = function() {{ overlay.remove(); }};
+
+  card.appendChild(title);
+  card.appendChild(body);
+  card.appendChild(button);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}})();"##
+    )
+}
+
+/// Why quitting is refused right now, or `None` if it is allowed.
+///
+/// Only locks that asked to prevent it count. A lock set without that box
+/// ticked is a commitment about the block list, not about the app staying up.
+fn quit_blocked_by(state: &Arc<AppState>) -> Option<String> {
+    let engine = state.engine.lock().ok()?;
+    let list = engine
+        .block_lists()
+        .iter()
+        .filter(|l| l.has_service_protection())
+        .max_by_key(|l| l.protection.as_ref().map_or(0, |p| p.remaining_seconds()))?;
+
+    let remaining = list.protection.as_ref()?.remaining_seconds();
+    Some(format!(
+        "{} — {} left",
+        list.name,
+        format_remaining(remaining)
+    ))
+}
+
+/// Coarse, human phrasing. The exact second does not matter to someone being
+/// told they cannot quit yet.
+fn format_remaining(secs: u64) -> String {
+    let mins = secs.div_ceil(60);
+    match mins {
+        0 => "less than a minute".into(),
+        1 => "1 minute".into(),
+        m if m < 60 => format!("{m} minutes"),
+        m => {
+            let (h, rem) = (m / 60, m % 60);
+            let hours = if h == 1 {
+                "1 hour".into()
+            } else {
+                format!("{h} hours")
+            };
+            if rem == 0 {
+                hours
+            } else {
+                format!("{hours} {rem} min")
+            }
+        }
+    }
+}
+
 fn build_extension_modal_js(browser_name: &str) -> String {
     let (store_url, store_type) = extension_store_url(browser_name);
     let browser_exe = browser_launch_cmd(browser_name);
@@ -403,5 +513,84 @@ fn is_elevated() -> bool {
 
         let _ = CloseHandle(token);
         result.is_ok() && elevation.TokenIsElevated != 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use focuser_common::types::{BlockList, Protection};
+    use focuser_core::Database;
+
+    fn state_with(list: BlockList) -> Arc<AppState> {
+        let db = Database::open_in_memory().unwrap();
+        db.create_block_list(&list).unwrap();
+        let engine = BlockEngine::new(db).unwrap();
+        Arc::new(AppState::new_headless(engine))
+    }
+
+    fn locked(prevent_service_stop: bool, minutes: i64) -> BlockList {
+        let mut list = BlockList::new("Deep Work");
+        list.enabled = true;
+        let now = chrono::Utc::now();
+        list.protection = Some(Protection {
+            prevent_uninstall: false,
+            prevent_service_stop,
+            prevent_modification: false,
+            started_at: now,
+            expires_at: now + chrono::Duration::minutes(minutes),
+        });
+        list
+    }
+
+    #[test]
+    fn quitting_is_refused_while_a_lock_asks_us_to_stay() {
+        let reason = quit_blocked_by(&state_with(locked(true, 45)));
+        let reason = reason.expect("an active lock should hold the app open");
+        assert!(
+            reason.contains("Deep Work"),
+            "should name the list: {reason}"
+        );
+        assert!(
+            reason.contains("45 minutes"),
+            "should say how long: {reason}"
+        );
+    }
+
+    #[test]
+    fn a_lock_that_did_not_ask_to_prevent_quitting_does_not() {
+        // Locking a list is a commitment about that list. Only the explicit
+        // checkbox turns it into a commitment about the app staying up.
+        assert!(quit_blocked_by(&state_with(locked(false, 45))).is_none());
+    }
+
+    #[test]
+    fn an_expired_lock_releases_the_app() {
+        assert!(quit_blocked_by(&state_with(locked(true, -1))).is_none());
+    }
+
+    #[test]
+    fn a_disabled_list_holds_nothing() {
+        let mut list = locked(true, 45);
+        list.enabled = false;
+        assert!(quit_blocked_by(&state_with(list)).is_none());
+    }
+
+    #[test]
+    fn with_no_lists_at_all_quitting_is_allowed() {
+        let db = Database::open_in_memory().unwrap();
+        let engine = BlockEngine::new(db).unwrap();
+        assert!(quit_blocked_by(&Arc::new(AppState::new_headless(engine))).is_none());
+    }
+
+    #[test]
+    fn remaining_time_reads_naturally_at_every_scale() {
+        assert_eq!(format_remaining(0), "less than a minute");
+        assert_eq!(format_remaining(30), "1 minute");
+        assert_eq!(format_remaining(60), "1 minute");
+        assert_eq!(format_remaining(90), "2 minutes");
+        assert_eq!(format_remaining(3600), "1 hour");
+        assert_eq!(format_remaining(5400), "1 hour 30 min");
+        assert_eq!(format_remaining(7200), "2 hours");
     }
 }

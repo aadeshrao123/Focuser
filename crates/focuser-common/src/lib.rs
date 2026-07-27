@@ -10,6 +10,7 @@ pub mod pomodoro;
 pub mod process;
 pub mod schedule;
 pub mod types;
+pub mod uninstall;
 
 pub use error::{FocuserError, Result};
 pub use types::*;

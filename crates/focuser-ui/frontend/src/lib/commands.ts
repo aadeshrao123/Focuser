@@ -376,6 +376,20 @@ export function usePomodoroStatus() {
 }
 
 /**
+ * Whether blocking is actually taking effect.
+ *
+ * Polled rather than fetched once: the extension can connect or drop, and the
+ * user can relaunch as administrator, without reloading the app.
+ */
+export function useBlockingHealth() {
+  return useQuery({
+    queryKey: ["blocking-health"] as const,
+    queryFn: async () => expect(await run({ cmd: "get_blocking_health" }), "blocking_health").data,
+    refetchInterval: 5000,
+  });
+}
+
+/**
  * The built-in duration presets, straight from Rust.
  *
  * They never change while the app is open, so this is fetched once and kept —
