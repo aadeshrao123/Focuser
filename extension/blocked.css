@@ -45,9 +45,11 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes pulse {
-  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 24px rgba(139,92,246,0.18), 0 0 50px rgba(139,92,246,0.08); }
-  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 32px rgba(139,92,246,0.30), 0 0 80px rgba(139,92,246,0.14); }
+/* Opacity on a pseudo-element, not box-shadow on the element. Animating a
+   shadow repaints it every frame, which is what made this stutter. */
+@keyframes glow {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
 }
 
 @keyframes float {
@@ -70,11 +72,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.shield::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 24px;
+  pointer-events: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 8px 24px rgba(139, 92, 246, 0.18),
-    0 0 50px rgba(139, 92, 246, 0.08);
-  animation: pulse 4s ease-in-out infinite, float 6s ease-in-out infinite;
+    0 8px 32px rgba(139, 92, 246, 0.3),
+    0 0 80px rgba(139, 92, 246, 0.14);
+  animation: glow 6s ease-in-out infinite;
+  will-change: opacity;
 }
 
 .shield svg {
@@ -90,10 +104,8 @@ h1 {
   margin-bottom: 12px;
   letter-spacing: -0.04em;
   line-height: 1.2;
-  background: linear-gradient(135deg, #fff 30%, #b4b4c8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  /* Solid, not a gradient fill — see content-block.js. */
+  color: #ffffff;
 }
 
 .domain {
@@ -223,4 +235,12 @@ h1 {
 .badge svg {
   color: #8b5cf6;
   filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container,
+  .shield,
+  .shield::after {
+    animation: none;
+  }
 }

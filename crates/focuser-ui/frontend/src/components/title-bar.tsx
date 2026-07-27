@@ -1,5 +1,6 @@
 import { Copy, Minus, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AppIcon } from "@/components/ui/app-icon";
 import { isTauri } from "@/lib/transport";
 import { cn } from "@/lib/utils";
 import { closeWindow, isMaximized, minimizeWindow, onResized, toggleMaximize } from "@/lib/window";
@@ -28,7 +29,7 @@ export function TitleBar() {
       className="flex h-9 shrink-0 items-center justify-between border-border/60 border-b bg-deep/80 pl-3 backdrop-blur"
     >
       <div data-tauri-drag-region className="flex items-center gap-2">
-        <Mark />
+        <AppIcon className="size-4" />
         <span data-tauri-drag-region className="font-medium text-foreground/90 text-xs">
           Focuser
         </span>
@@ -74,23 +75,5 @@ function ControlButton({
     >
       {children}
     </button>
-  );
-}
-
-/** The hourglass from the app icon, small enough to read at 14px. */
-function Mark() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden
-      className="size-3.5 text-primary"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 3h12M6 21h12M8 3v4a4 4 0 0 0 4 4 4 4 0 0 0 4-4V3M8 21v-4a4 4 0 0 1 4-4 4 4 0 0 1 4 4v4" />
-    </svg>
   );
 }

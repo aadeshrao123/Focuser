@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Focuser",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Website blocker \u2014 blocks distracting sites to help you stay focused",
   "permissions": [
     "activeTab",

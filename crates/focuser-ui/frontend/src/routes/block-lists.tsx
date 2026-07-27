@@ -7,6 +7,7 @@ import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { NumberField } from "@/components/ui/number-field";
+import { Page } from "@/components/ui/page";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -36,7 +37,7 @@ export function BlockLists() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <Page>
       <PageHeader
         title="Block Lists"
         description="Group the sites and apps you want blocked together. Each list can be scheduled and locked on its own."
@@ -85,7 +86,7 @@ export function BlockLists() {
           )}
         </QueryState>
       )}
-    </div>
+    </Page>
   );
 }
 

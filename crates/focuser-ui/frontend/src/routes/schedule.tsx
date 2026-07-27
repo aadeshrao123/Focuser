@@ -1,12 +1,16 @@
+import { Infinity as InfinityIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { ScheduleGrid } from "@/components/schedule-grid";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageHeader } from "@/components/ui/card";
+import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
+import { Page } from "@/components/ui/page";
+import { Tabs } from "@/components/ui/tabs";
 import { useBlockLists, useUpdateSchedule } from "@/lib/commands";
+import { formatDuration } from "@/lib/duration";
 import { type CellKey, cellsToSlots, PRESETS, slotsToCells } from "@/lib/schedule";
-import { cn } from "@/lib/utils";
 
 const sameCells = (a: Set<CellKey>, b: Set<CellKey>) =>
   a.size === b.size && [...a].every((k) => b.has(k));
@@ -45,7 +49,7 @@ export function Schedule() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <Page wide>
       <PageHeader
         title="Schedule"
         description="When this block list is active."
@@ -65,87 +69,88 @@ export function Schedule() {
           />
         ) : (
           <>
-            <div className="mb-5 flex gap-2">
-              <ModeButton active={mode === "always"} onClick={() => setMode("always")}>
-                Always active
-              </ModeButton>
-              <ModeButton active={mode === "scheduled"} onClick={() => setMode("scheduled")}>
-                On a schedule
-              </ModeButton>
-            </div>
+            <Tabs
+              className="mb-5"
+              value={mode}
+              onChange={setMode}
+              items={[
+                { id: "always", label: "Always active" },
+                { id: "scheduled", label: "On a schedule" },
+              ]}
+            />
 
             {mode === "always" ? (
-              <p className="mb-6 text-muted-foreground text-sm">
-                Blocking applies whenever this list is enabled.
-              </p>
+              <Card padding="lg" elevation="raised" className="flex items-center gap-4">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/25 ring-inset">
+                  <InfinityIcon aria-hidden className="size-5" />
+                </span>
+                <div>
+                  <p className="font-medium text-foreground text-sm">Blocking is always on</p>
+                  <p className="mt-0.5 text-muted-foreground text-sm">
+                    This list applies whenever it is enabled, at any hour of any day.
+                  </p>
+                </div>
+              </Card>
             ) : (
-              <>
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground text-sm">Presets</span>
-                  {PRESETS.map((p) => (
+              <Card padding="lg" elevation="raised" className="edge-light">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="mr-1 text-muted-foreground text-xs">Presets</span>
+                    {PRESETS.map((p) => (
+                      <Button
+                        key={p.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDraft(p.build())}
+                      >
+                        {p.label}
+                      </Button>
+                    ))}
                     <Button
-                      key={p.id}
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setDraft(p.build())}
+                      onClick={() => setDraft(new Set())}
+                      disabled={draft.size === 0}
                     >
-                      {p.label}
+                      Clear
                     </Button>
-                  ))}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDraft(new Set())}
-                    disabled={draft.size === 0}
-                  >
-                    Clear
-                  </Button>
+                  </div>
+
+                  <Badge tone={draft.size > 0 ? "primary" : "neutral"} size="md">
+                    {formatDuration(draft.size * 3600)} a week
+                  </Badge>
                 </div>
 
                 <ScheduleGrid selected={draft} onChange={setDraft} />
 
-                <p className="mt-3 text-faint-foreground text-xs">
-                  Click or drag to paint hours. {draft.size} of 168 selected.
-                </p>
-              </>
+                <div className="mt-4 flex items-center gap-4 text-faint-foreground text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2.5 rounded-[3px] bg-primary" />
+                    Blocking
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2.5 rounded-[3px] bg-elevated" />
+                    Off
+                  </span>
+                  <span className="ml-auto">Click or drag to paint hours</span>
+                </div>
+              </Card>
             )}
 
-            <div className="mt-6 flex items-center gap-3">
+            <div className="mt-5 flex items-center gap-3">
               <Button onClick={commit} disabled={!dirty || save.isPending}>
                 {save.isPending ? "Saving…" : "Save schedule"}
               </Button>
-              {dirty && <span className="text-muted-foreground text-sm">Unsaved changes</span>}
+              {dirty && (
+                <Badge tone="warning" size="md" outlined>
+                  Unsaved changes
+                </Badge>
+              )}
             </div>
             <InlineError error={save.error} />
           </>
         )}
       </QueryState>
-    </div>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "rounded-md border px-3 py-1.5 text-sm transition-colors",
-        active
-          ? "border-primary bg-primary-dim text-foreground"
-          : "border-border text-muted-foreground hover:bg-hover hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
+    </Page>
   );
 }

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, EmptyState, PageHeader, Section } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { InlineError, QueryState } from "@/components/ui/feedback";
+import { Page } from "@/components/ui/page";
 import { Select } from "@/components/ui/select";
 import { Stat, StatGrid } from "@/components/ui/stat";
 import { UsageChart } from "@/components/usage-chart";
@@ -30,7 +31,7 @@ export function Statistics() {
   const totals = summarise(days, targets);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <Page wide>
       <PageHeader
         title="Statistics"
         description="What Focuser has been keeping you away from."
@@ -178,6 +179,6 @@ export function Statistics() {
 
         <InlineError error={clear.error} />
       </QueryState>
-    </div>
+    </Page>
   );
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
+import { Page } from "@/components/ui/page";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import {
@@ -40,7 +41,7 @@ export function Websites() {
   const list = all.find((l) => l.id === selected);
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <Page>
       <PageHeader
         title="Websites"
         description="Domains, keywords and URL patterns to block."
@@ -81,7 +82,7 @@ export function Websites() {
           </>
         )}
       </QueryState>
-    </div>
+    </Page>
   );
 }
 

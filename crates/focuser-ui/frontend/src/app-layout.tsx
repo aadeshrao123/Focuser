@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { TitleBar } from "@/components/title-bar";
+import { AppIcon } from "@/components/ui/app-icon";
 import { LiveBadge } from "@/components/ui/badge";
 import { usePomodoroStatus } from "@/lib/commands";
 import { formatCountdown } from "@/lib/duration";
@@ -45,7 +46,7 @@ function Sidebar() {
   return (
     <nav
       aria-label="Main"
-      className="flex w-56 shrink-0 flex-col border-border/60 border-r bg-deep/60 p-3"
+      className="glass flex w-56 shrink-0 flex-col border-border/60 border-r p-3"
     >
       <Brand />
 
@@ -60,8 +61,10 @@ function Sidebar() {
                 "group relative flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-sm",
                 "transition-colors duration-150",
                 isActive
-                  ? "bg-primary-dim text-foreground"
-                  : "text-muted-foreground hover:bg-hover/60 hover:text-foreground",
+                  ? "bg-primary/12 text-foreground"
+                  : // A hairline tint on hover. The previous fill was a solid
+                    // block the width of the sidebar, which read as a selection.
+                    "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
               )
             }
           >
@@ -72,8 +75,9 @@ function Sidebar() {
                 <span
                   aria-hidden
                   className={cn(
-                    "-translate-y-1/2 absolute top-1/2 left-0 h-4 w-0.5 rounded-r-full bg-primary transition-opacity",
-                    isActive ? "opacity-100" : "opacity-0",
+                    "-translate-y-1/2 absolute top-1/2 left-0 w-[3px] rounded-r-full bg-primary",
+                    "transition-all duration-200",
+                    isActive ? "h-5 opacity-100" : "h-0 opacity-0",
                   )}
                 />
                 <Icon
@@ -97,10 +101,8 @@ function Sidebar() {
 
 function Brand() {
   return (
-    <div className="mb-4 flex items-center gap-2.5 px-3 py-3">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/30 ring-inset">
-        <Hourglass aria-hidden className="size-4 text-primary" />
-      </span>
+    <div className="mb-5 flex items-center gap-2.5 px-2 py-3">
+      <AppIcon className="size-8 rounded-lg" />
       <span className="font-semibold text-base text-foreground tracking-tight">Focuser</span>
     </div>
   );
@@ -119,7 +121,7 @@ function SessionPill() {
   const phase = status.data.current_phase === "work" ? "Focus" : "Break";
 
   return (
-    <div className="mt-auto rounded-lg border border-border bg-surface/80 p-3">
+    <div className="glass-strong mt-auto rounded-lg border border-primary/25 p-3">
       <div className="flex items-center justify-between gap-2">
         <LiveBadge tone={status.data.current_phase === "work" ? "primary" : "success"}>
           {status.data.paused ? "Paused" : phase}

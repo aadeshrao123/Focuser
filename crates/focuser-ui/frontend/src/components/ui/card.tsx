@@ -2,7 +2,7 @@ import { type VariantProps, cva } from "class-variance-authority";
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-const cardVariants = cva("rounded-xl border border-border bg-surface", {
+const cardVariants = cva("glass rounded-xl border border-border", {
   variants: {
     padding: {
       none: "",

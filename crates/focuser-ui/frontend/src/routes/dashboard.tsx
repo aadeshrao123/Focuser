@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader, Section } from "@/components/ui/card";
 import { InlineError } from "@/components/ui/feedback";
+import { Page } from "@/components/ui/page";
 import { ListSkeleton, StatGridSkeleton } from "@/components/ui/skeleton";
 import { Stat, StatGrid } from "@/components/ui/stat";
 import { Switch } from "@/components/ui/switch";
@@ -33,7 +34,7 @@ export function Dashboard() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <Page wide>
       <PageHeader title="Dashboard" description="Where things stand right now." />
 
       {lists.isPending ? (
@@ -153,7 +154,7 @@ export function Dashboard() {
         )}
         <InlineError error={lists.error ?? toggle.error} />
       </Section>
-    </div>
+    </Page>
   );
 }
 

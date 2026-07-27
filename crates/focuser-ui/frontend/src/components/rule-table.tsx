@@ -2,6 +2,7 @@ import { Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TargetIcon } from "@/components/ui/target-icon";
 import { count } from "@/lib/utils";
 
 export interface RuleRow {
@@ -62,18 +63,21 @@ export function RuleTable({
             <li
               key={row.id}
               data-testid="rule-row"
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2"
+              className="glass group flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-border-strong"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <span className="shrink-0 rounded bg-elevated px-1.5 py-0.5 text-faint-foreground text-xs">
-                  {row.kind}
-                </span>
-                <span className="truncate text-foreground text-sm">{row.value || "—"}</span>
+                <TargetIcon value={row.value || row.kind} />
+                <div className="min-w-0">
+                  <p className="truncate text-foreground text-sm">{row.value || "—"}</p>
+                  <p className="text-faint-foreground text-xs">{row.kind}</p>
+                </div>
               </div>
               <Button
                 variant="ghost"
                 tone="destructive"
                 size="icon"
+                // Revealed on hover so a long list is not a column of red bins.
+                className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                 aria-label={`Remove ${row.value || row.kind}`}
                 onClick={() => onRemove(row.id)}
               >

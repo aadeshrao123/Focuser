@@ -68,18 +68,25 @@
       '}' +
       '.c { text-align: center; max-width: 640px; padding: 40px 32px; animation: fadeUp 0.6s cubic-bezier(0.4,0,0.2,1); position: relative; z-index: 1; }' +
       '@keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }' +
-      '@keyframes pulse {' +
-        '0%,100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 24px ' + accentColor + '30, 0 0 50px ' + accentColor + '14; }' +
-        '50% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 32px ' + accentColor + '4d, 0 0 80px ' + accentColor + '22; }' +
-      '}' +
+      '@keyframes glow { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }' +
       '@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }' +
       '.shield {' +
-        'width: 88px; height: 88px; margin: 0 auto 32px;' +
+        'position: relative; width: 88px; height: 88px; margin: 0 auto 32px;' +
         'background: linear-gradient(180deg, ' + accentColor + '38 0%, ' + accentColor + '10 100%), rgba(20,20,32,0.6);' +
         'backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);' +
         'border: 1px solid ' + accentColor + '40; border-top-color: ' + accentColor + '5a;' +
         'border-radius: 24px; display: flex; align-items: center; justify-content: center;' +
-        'animation: pulse 4s ease-in-out infinite, float 6s ease-in-out infinite;' +
+        'box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);' +
+        // One period, not two at 4s and 6s drifting against each other.
+        'animation: float 6s ease-in-out infinite; will-change: transform;' +
+      '}' +
+      '.shield::after {' +
+        'content: ""; position: absolute; inset: -1px; border-radius: 24px; pointer-events: none;' +
+        'box-shadow: 0 8px 32px ' + accentColor + '4d, 0 0 80px ' + accentColor + '22;' +
+        'animation: glow 6s ease-in-out infinite; will-change: opacity;' +
+      '}' +
+      '@media (prefers-reduced-motion: reduce) {' +
+        '.c, .shield, .shield::after { animation: none !important; }' +
       '}' +
       '.shield svg { width: 44px; height: 44px; color: ' + accentColor + '; filter: drop-shadow(0 0 14px ' + accentColor + '99); }' +
       '.cat-label {' +
@@ -89,10 +96,12 @@
       '}' +
       '.cat-label .dot { width: 6px; height: 6px; border-radius: 50%; background: ' + accentColor + ';' +
         'box-shadow: 0 0 8px ' + accentColor + '80; }' +
+      // Solid white, deliberately. Gradient-filled text depends on
+      // background-clip:text surviving, and when it does not the glyphs
+      // disappear entirely — on the one line that must always be readable.
       'h1 {' +
         'font-size: 34px; font-weight: 700; margin-bottom: 14px; letter-spacing: -0.04em;' +
-        'background: linear-gradient(135deg, #fff 30%, #b4b4c8 100%);' +
-        '-webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;' +
+        'color: #ffffff;' +
       '}' +
       '.target-badge {' +
         'font-family: "JetBrains Mono", "Cascadia Code", monospace;' +
@@ -108,19 +117,19 @@
       '}' +
       '.attempt {' +
         'display: inline-flex; align-items: center; gap: 6px;' +
-        'font-size: 12px; font-weight: 500; color: #7a7a94; margin-bottom: 32px;' +
+        'font-size: 12px; font-weight: 500; color: #9a9ab4; margin-bottom: 32px;' +
         'padding: 6px 14px; border-radius: 20px;' +
         'background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);' +
       '}' +
       '.badge {' +
         'display: inline-flex; align-items: center; gap: 8px;' +
-        'font-size: 12px; font-weight: 500; color: #5e5e72;' +
+        'font-size: 12px; font-weight: 500; color: #8e8ea6;' +
         'background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%), rgba(14,14,22,0.5);' +
         'backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);' +
         'border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 18px;' +
         'transition: all 0.3s cubic-bezier(0.4,0,0.2,1);' +
       '}' +
-      '.badge:hover { border-color: ' + accentColor + '26; color: #8a8aa0; }' +
+      '.badge:hover { border-color: ' + accentColor + '40; color: #c8c8d8; }' +
       '.badge svg { color: ' + accentColor + '; filter: drop-shadow(0 0 6px ' + accentColor + '80); }' +
       '.glow { position: fixed; width: 500px; height: 500px; pointer-events: none; z-index: 0;' +
         'background: radial-gradient(circle, ' + accentColor + '0f 0%, transparent 60%);' +

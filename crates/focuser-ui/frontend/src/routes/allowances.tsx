@@ -1,4 +1,4 @@
-import { AppWindow, Globe, Hourglass, Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import { Hourglass, Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import type { AllowanceStatus } from "@/bindings";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,11 @@ import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { NumberField } from "@/components/ui/number-field";
+import { Page } from "@/components/ui/page";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { TargetIcon } from "@/components/ui/target-icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
   useAllowances,
@@ -56,7 +58,7 @@ export function Allowances() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <Page>
       <PageHeader
         title="Allowances"
         description="A daily budget instead of an outright block. When it runs out, the site or app is blocked for the rest of the day."
@@ -135,7 +137,7 @@ export function Allowances() {
           </ul>
         )}
       </QueryState>
-    </div>
+    </Page>
   );
 }
 
@@ -164,13 +166,7 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
       <Card>
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated text-muted-foreground">
-              {a.target.kind === "Domain" ? (
-                <Globe aria-hidden className="size-4" />
-              ) : (
-                <AppWindow aria-hidden className="size-4" />
-              )}
-            </span>
+            <TargetIcon value={a.target.value} className="size-9" />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="truncate font-medium text-foreground text-sm">{a.target.value}</p>

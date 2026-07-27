@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
+import { Page } from "@/components/ui/page";
 import { Select } from "@/components/ui/select";
 import { useAddAppRule, useBlockLists, useRemoveAppRule } from "@/lib/commands";
 import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
@@ -49,7 +50,7 @@ export function Apps() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <Page>
       <PageHeader
         title="Applications"
         description="Programs to close while blocking is active."
@@ -114,6 +115,6 @@ export function Apps() {
           </>
         )}
       </QueryState>
-    </div>
+    </Page>
   );
 }
