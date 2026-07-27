@@ -6,6 +6,7 @@
 use chrono::{Local, NaiveDate};
 use focuser_common::allowance::{Allowance, AllowanceMatch, AllowanceTick};
 use focuser_common::error::Result;
+use focuser_common::host::{canonical_host, hosts_entries};
 use focuser_common::types::EntityId;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
@@ -96,7 +97,7 @@ impl AllowanceTracker {
             if used >= a.daily_limit_secs {
                 match &a.target {
                     AllowanceMatch::Domain(d) => {
-                        inner.blocked_domains.insert(d.to_lowercase());
+                        inner.blocked_domains.insert(canonical_host(d));
                     }
                     AllowanceMatch::AppExecutable(e) => {
                         inner.blocked_apps.insert(e.to_lowercase());
@@ -150,7 +151,7 @@ impl AllowanceTracker {
         if pct >= 100 {
             match &a.target {
                 AllowanceMatch::Domain(d) => {
-                    if inner.blocked_domains.insert(d.to_lowercase())
+                    if inner.blocked_domains.insert(canonical_host(d))
                         && !inner.warned_today.contains(&(id_str.clone(), 100))
                     {
                         inner.warned_today.insert((id_str.clone(), 100));
@@ -220,7 +221,11 @@ impl AllowanceTracker {
     pub fn blocked_domains(&self) -> Vec<String> {
         let mut inner = self.inner.lock().expect("tracker mutex poisoned");
         self.reset_if_new_day(&mut inner);
-        inner.blocked_domains.iter().cloned().collect()
+        inner
+            .blocked_domains
+            .iter()
+            .flat_map(|d| hosts_entries(d))
+            .collect()
     }
 
     /// Domains with an *active, non-exhausted* allowance — these should be
@@ -248,16 +253,16 @@ impl AllowanceTracker {
                 continue;
             }
             if let AllowanceMatch::Domain(d) = &a.target {
-                let lc = d.to_ascii_lowercase();
+                let host = canonical_host(d);
                 // Already exhausted → not an exception, it's blocked.
-                if blocked.contains(&lc) {
+                if blocked.contains(&host) {
                     continue;
                 }
                 let Ok(used) = db.get_allowance_used_today(a.id) else {
                     continue;
                 };
                 if used < a.daily_limit_secs {
-                    out.push(lc);
+                    out.push(host);
                 }
             }
         }

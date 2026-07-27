@@ -97,6 +97,22 @@ impl AppContext {
         self.system.connected_browsers()
     }
 
+    /// Domains currently exempt from blocking because an allowance still has
+    /// time left today.
+    ///
+    /// **Empty when no browser extension is connected.** Browser time is
+    /// measured by the extension and nothing else — the desktop watcher only
+    /// sees processes, not tabs. Granting the exemption anyway would turn
+    /// "thirty minutes a day" into "unlimited", because the clock would never
+    /// start. Refusing it is the safe direction: the site stays blocked and the
+    /// UI says why.
+    pub fn allowance_exempt_domains(&self, engine: &BlockEngine) -> Vec<String> {
+        if self.connected_browsers().is_empty() {
+            return Vec::new();
+        }
+        self.allowance_tracker.active_allowance_domains(engine.db())
+    }
+
     pub fn push_pomodoro_event(&self, event: PomodoroEvent) {
         if let Ok(mut buf) = self.pomodoro_events.lock() {
             buf.push(event);

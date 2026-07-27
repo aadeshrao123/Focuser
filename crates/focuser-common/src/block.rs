@@ -1,3 +1,4 @@
+use crate::host::host_matches;
 use crate::types::{
     AppMatchType, AppRule, BlockList, ExceptionType, WebsiteMatchType, WebsiteRule,
 };
@@ -48,10 +49,7 @@ impl BlockList {
                 return false;
             }
             match &exc.exception_type {
-                ExceptionType::Domain(d) => {
-                    let d_lower = d.to_lowercase();
-                    domain == d_lower || domain.ends_with(&format!(".{d_lower}"))
-                }
+                ExceptionType::Domain(d) => host_matches(d, domain),
                 ExceptionType::Wildcard(pattern) => {
                     glob_match::glob_match(&pattern.to_lowercase(), domain)
                 }
@@ -65,24 +63,13 @@ impl WebsiteRule {
     /// Check if this rule matches a given domain.
     pub fn matches_domain(&self, domain: &str) -> bool {
         match &self.match_type {
-            WebsiteMatchType::Domain(d) => {
-                let d_lower = d.to_lowercase();
-                domain == d_lower || domain.ends_with(&format!(".{d_lower}"))
-            }
+            WebsiteMatchType::Domain(d) => host_matches(d, domain),
             WebsiteMatchType::Wildcard(pattern) => {
                 glob_match::glob_match(&pattern.to_lowercase(), domain)
             }
             WebsiteMatchType::Keyword(kw) => domain.contains(&kw.to_lowercase()),
-            WebsiteMatchType::UrlPath(path) => {
-                // For domain-only checks, match the domain portion
-                let path_lower = path.to_lowercase();
-                if let Some(slash_pos) = path_lower.find('/') {
-                    let path_domain = &path_lower[..slash_pos];
-                    domain == path_domain || domain.ends_with(&format!(".{path_domain}"))
-                } else {
-                    domain == path_lower || domain.ends_with(&format!(".{path_lower}"))
-                }
-            }
+            // Domain-only check, so only the host part of the pattern applies.
+            WebsiteMatchType::UrlPath(path) => host_matches(path, domain),
             WebsiteMatchType::EntireInternet => true,
         }
     }
@@ -92,10 +79,10 @@ impl WebsiteRule {
         let url_lower = url.to_lowercase();
 
         match &self.match_type {
-            WebsiteMatchType::Domain(d) => {
-                let d_lower = d.to_lowercase();
-                url_lower.contains(&d_lower)
-            }
+            // Compare hosts rather than searching the raw URL: `contains` would
+            // also fire on notyoutube.com and on the domain appearing in a query
+            // string.
+            WebsiteMatchType::Domain(d) => host_matches(d, &url_lower),
             WebsiteMatchType::Wildcard(pattern) => {
                 glob_match::glob_match(&pattern.to_lowercase(), &url_lower)
             }

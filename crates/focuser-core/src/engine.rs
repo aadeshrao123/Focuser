@@ -1,5 +1,6 @@
 use focuser_common::error::Result;
 use focuser_common::extension::ExtensionRuleSet;
+use focuser_common::host::hosts_entries;
 use focuser_common::ipc::ProtectionInfo;
 use focuser_common::platform::RunningProcess;
 use focuser_common::types::{BlockList, EntityId, ExceptionType, WebsiteMatchType};
@@ -88,11 +89,8 @@ impl BlockEngine {
                 }
                 match &rule.match_type {
                     focuser_common::types::WebsiteMatchType::Domain(d) => {
-                        domains.push(d.clone());
-                        // Also add www. variant if not already present
-                        if !d.starts_with("www.") {
-                            domains.push(format!("www.{d}"));
-                        }
+                        // A hosts file has no wildcards, so both forms are listed.
+                        domains.extend(hosts_entries(d));
                     }
                     _ => {
                         // Wildcard, keyword, URL path, and entire internet
@@ -141,10 +139,7 @@ impl BlockEngine {
                 }
                 match &rule.match_type {
                     WebsiteMatchType::Domain(d) => {
-                        rules.blocked_domains.push(d.clone());
-                        if !d.starts_with("www.") {
-                            rules.blocked_domains.push(format!("www.{d}"));
-                        }
+                        rules.blocked_domains.extend(hosts_entries(d));
                     }
                     WebsiteMatchType::Keyword(kw) => {
                         rules.blocked_keywords.push(kw.clone());
@@ -168,7 +163,9 @@ impl BlockEngine {
                 }
                 match &exc.exception_type {
                     ExceptionType::Domain(d) => {
-                        rules.allowed_domains.push(d.clone());
+                        // Both forms, for the same reason as blocked domains —
+                        // an exception must release whichever one is listed.
+                        rules.allowed_domains.extend(hosts_entries(d));
                     }
                     ExceptionType::Wildcard(pat) => {
                         rules.allowed_wildcards.push(pat.clone());
@@ -183,11 +180,7 @@ impl BlockEngine {
         // Inject allowance-exempt domains as exceptions — the domain is
         // accessible until today's quota runs out.
         for d in extra_allowed_domains {
-            let lc = d.to_ascii_lowercase();
-            rules.allowed_domains.push(lc.clone());
-            if !lc.starts_with("www.") {
-                rules.allowed_domains.push(format!("www.{lc}"));
-            }
+            rules.allowed_domains.extend(hosts_entries(d));
         }
 
         rules.blocked_domains.sort();
@@ -405,5 +398,67 @@ mod tests {
         db.create_block_list(&list).unwrap();
         let engine = BlockEngine::new(db).unwrap();
         assert!(engine.has_extension_only_rules());
+    }
+
+    fn engine_blocking(domain: &str) -> BlockEngine {
+        let db = Database::open_in_memory().unwrap();
+        let mut list = BlockList::new("Videos");
+        list.websites.push(WebsiteRule::domain(domain));
+        db.create_block_list(&list).unwrap();
+        BlockEngine::new(db).unwrap()
+    }
+
+    #[test]
+    fn hosts_and_extension_rules_list_both_www_forms_whichever_was_typed() {
+        for typed in ["youtube.com", "www.youtube.com"] {
+            let engine = engine_blocking(typed);
+
+            let hosts = engine.collect_blocked_domains();
+            assert!(
+                hosts.contains(&"youtube.com".to_string()),
+                "typed {typed:?}"
+            );
+            assert!(
+                hosts.contains(&"www.youtube.com".to_string()),
+                "typed {typed:?}"
+            );
+
+            let rules = engine.compile_extension_rules();
+            assert!(rules.blocked_domains.contains(&"youtube.com".to_string()));
+            assert!(
+                rules
+                    .blocked_domains
+                    .contains(&"www.youtube.com".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn an_exception_releases_both_www_forms() {
+        let mut engine = engine_blocking("youtube.com");
+        {
+            let mut list = engine.block_lists()[0].clone();
+            list.exceptions.push(focuser_common::types::ExceptionRule {
+                id: focuser_common::types::new_id(),
+                exception_type: focuser_common::types::ExceptionType::Domain(
+                    "www.youtube.com".into(),
+                ),
+                enabled: true,
+            });
+            engine.db().update_block_list(&list).unwrap();
+        }
+        engine.refresh().unwrap();
+
+        let rules = engine.compile_extension_rules();
+        assert!(rules.allowed_domains.contains(&"youtube.com".to_string()));
+        assert!(
+            rules
+                .allowed_domains
+                .contains(&"www.youtube.com".to_string())
+        );
+
+        // And the engine itself stops blocking either form.
+        assert!(engine.check_domain("youtube.com").is_none());
+        assert!(engine.check_domain("www.youtube.com").is_none());
     }
 }

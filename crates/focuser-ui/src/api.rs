@@ -17,6 +17,8 @@ use focuser_common::extension::BrowserType;
 use tracing::{debug, error, info};
 
 use crate::AppState;
+use focuser_common::host::{any_host_matches, canonical_host};
+
 use crate::blocker;
 
 /// Flag to request the main window to show itself.
@@ -300,7 +302,7 @@ fn api_lists(state: &AppState) -> (&'static str, String) {
 
 fn api_rules(state: &AppState) -> (&'static str, String) {
     let eng = state.engine.lock().unwrap();
-    let allowance_exceptions = state.allowance_tracker.active_allowance_domains(eng.db());
+    let allowance_exceptions = state.allowance_exempt_domains(&eng);
     let rules = eng.compile_extension_rules_with_exceptions(&allowance_exceptions);
 
     let mut domain_categories: HashMap<String, String> = HashMap::new();
@@ -308,7 +310,7 @@ fn api_rules(state: &AppState) -> (&'static str, String) {
         let category = normalize_category(&list.name);
         for rule in &list.websites {
             if let focuser_common::types::WebsiteMatchType::Domain(ref d) = rule.match_type {
-                domain_categories.insert(d.to_lowercase(), category.clone());
+                domain_categories.insert(canonical_host(d), category.clone());
             }
         }
     }
@@ -374,13 +376,8 @@ fn api_check_domain(path: &str, state: &AppState) -> (&'static str, String) {
         .unwrap_or("");
 
     let eng = state.engine.lock().unwrap();
-    let exemptions = state.allowance_tracker.active_allowance_domains(eng.db());
-    let lc = domain.to_ascii_lowercase();
-    let stripped = lc.strip_prefix("www.").unwrap_or(&lc);
-    let blocked = if exemptions
-        .iter()
-        .any(|ex| ex == stripped || stripped.ends_with(&format!(".{ex}")))
-    {
+    let exemptions = state.allowance_exempt_domains(&eng);
+    let blocked = if any_host_matches(&exemptions, domain) {
         false
     } else {
         eng.check_domain(domain).is_some()

@@ -554,13 +554,8 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         Command::CheckDomain { domain } => {
             // A domain with allowance time left is reachable even though it
             // appears in a block list, so check that before the rules.
-            let lower = domain.to_ascii_lowercase();
-            let host = lower.strip_prefix("www.").unwrap_or(&lower);
-            let allowed = ctx
-                .allowance_tracker
-                .active_allowance_domains(engine.db())
-                .iter()
-                .any(|d| host == d || host.ends_with(&format!(".{d}")));
+            let exemptions = ctx.allowance_exempt_domains(&engine);
+            let allowed = focuser_common::host::any_host_matches(&exemptions, &domain);
 
             Ok(CommandResult::Flag(
                 !allowed && engine.check_domain(&domain).is_some(),
@@ -742,6 +737,24 @@ mod tests {
     fn ctx() -> AppContext {
         let db = Database::open_in_memory().unwrap();
         AppContext::new_headless(BlockEngine::new(db).unwrap())
+    }
+
+    /// A context that behaves like a machine with the extension installed.
+    /// Website allowances only count — and only exempt — when one is connected.
+    fn ctx_with_extension() -> AppContext {
+        struct Connected;
+        impl crate::context::SystemSync for Connected {
+            fn sync_hosts(&self, _domains: &[String]) {}
+            fn connected_browsers(&self) -> Vec<String> {
+                vec!["Chrome".to_string()]
+            }
+        }
+
+        let db = Database::open_in_memory().unwrap();
+        AppContext::new(
+            BlockEngine::new(db).unwrap(),
+            std::sync::Arc::new(Connected),
+        )
     }
 
     fn create(ctx: &AppContext, name: &str) -> BlockList {
@@ -1578,6 +1591,152 @@ mod tests {
         assert_eq!(
             text(execute(&ctx, Command::AppVersion).unwrap()),
             env!("CARGO_PKG_VERSION")
+        );
+    }
+
+    // ─── www. and subdomains ──────────────────────────────────
+    //
+    // Blocking `youtube.com` used to leave `www.youtube.com` reachable in some
+    // paths, and an allowance on `www.youtube.com` released nothing at all,
+    // because every layer handled the prefix differently.
+
+    #[test]
+    fn a_domain_rule_covers_www_and_subdomains_whichever_form_was_typed() {
+        for typed in [
+            "youtube.com",
+            "www.youtube.com",
+            "https://www.youtube.com/feed",
+        ] {
+            let ctx = ctx();
+            let list = create(&ctx, "Videos");
+            execute(
+                &ctx,
+                Command::AddWebsiteRule {
+                    list_id: list.id,
+                    rule: WebsiteMatchType::Domain(typed.into()),
+                },
+            )
+            .unwrap();
+
+            for host in [
+                "youtube.com",
+                "www.youtube.com",
+                "m.youtube.com",
+                "music.youtube.com",
+                "WWW.YouTube.com",
+            ] {
+                let CommandResult::Flag(blocked) = execute(
+                    &ctx,
+                    Command::CheckDomain {
+                        domain: host.to_string(),
+                    },
+                )
+                .unwrap() else {
+                    panic!("expected a flag")
+                };
+                assert!(blocked, "rule {typed:?} should block {host:?}");
+            }
+
+            let CommandResult::Flag(unrelated) = execute(
+                &ctx,
+                Command::CheckDomain {
+                    domain: "notyoutube.com".to_string(),
+                },
+            )
+            .unwrap() else {
+                panic!("expected a flag")
+            };
+            assert!(!unrelated, "rule {typed:?} must not block notyoutube.com");
+        }
+    }
+
+    #[test]
+    fn an_allowance_releases_the_domain_whichever_form_either_side_used() {
+        // The reported bug: an allowance stored as `www.youtube.com` did not
+        // release a block on `youtube.com`.
+        for allowance_form in ["youtube.com", "www.youtube.com"] {
+            for rule_form in ["youtube.com", "www.youtube.com"] {
+                let ctx = ctx_with_extension();
+                let list = create(&ctx, "Videos");
+                execute(
+                    &ctx,
+                    Command::AddWebsiteRule {
+                        list_id: list.id,
+                        rule: WebsiteMatchType::Domain(rule_form.into()),
+                    },
+                )
+                .unwrap();
+                execute(
+                    &ctx,
+                    Command::AllowanceCreate {
+                        target: focuser_common::allowance::AllowanceMatch::Domain(
+                            allowance_form.into(),
+                        ),
+                        daily_limit_secs: 1800,
+                        strict_mode: true,
+                    },
+                )
+                .unwrap();
+
+                for host in ["youtube.com", "www.youtube.com", "music.youtube.com"] {
+                    let CommandResult::Flag(blocked) = execute(
+                        &ctx,
+                        Command::CheckDomain {
+                            domain: host.to_string(),
+                        },
+                    )
+                    .unwrap() else {
+                        panic!("expected a flag")
+                    };
+                    assert!(
+                        !blocked,
+                        "allowance on {allowance_form:?} should release {host:?}                          against a rule on {rule_form:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_unmeasurable_allowance_does_not_become_an_unlimited_pass() {
+        // Nothing measures browser time without the extension, so the usage
+        // clock never starts. Granting the exemption anyway would mean a
+        // 30-minute budget silently allowed the site all day.
+        let ctx = ctx();
+        let list = create(&ctx, "Videos");
+        execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("youtube.com".into()),
+            },
+        )
+        .unwrap();
+        execute(
+            &ctx,
+            Command::AllowanceCreate {
+                target: focuser_common::allowance::AllowanceMatch::Domain("youtube.com".into()),
+                daily_limit_secs: 1800,
+                strict_mode: true,
+            },
+        )
+        .unwrap();
+
+        // `ctx()` is headless — `connected_browsers()` is empty, like a machine
+        // with no extension installed.
+        let CommandResult::Flag(blocked) = execute(
+            &ctx,
+            Command::CheckDomain {
+                domain: "www.youtube.com".to_string(),
+            },
+        )
+        .unwrap() else {
+            panic!("expected a flag")
+        };
+
+        assert!(
+            blocked,
+            "with no extension to measure usage the site must stay blocked"
         );
     }
 }

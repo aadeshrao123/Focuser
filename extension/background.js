@@ -176,12 +176,12 @@ function applyRules(rules) {
   if (rulesJson === JSON.stringify(currentRules)) return;
 
   currentRules = rules;
-  blockedDomains = new Set((rules.blocked_domains || []).map(function(d) { return d.toLowerCase(); }));
+  blockedDomains = canonicalSet(rules.blocked_domains);
   blockedKeywords = (rules.blocked_keywords || []).map(function(k) { return k.toLowerCase(); });
   blockedWildcards = rules.blocked_wildcards || [];
   blockedUrlPaths = (rules.blocked_url_paths || []).map(function(p) { return p.toLowerCase(); });
   blockEntireInternet = rules.block_entire_internet || false;
-  allowedDomains = new Set((rules.allowed_domains || []).map(function(d) { return d.toLowerCase(); }));
+  allowedDomains = canonicalSet(rules.allowed_domains);
   domainCategories = rules.domain_categories || {};
 
   updateBadge(true);
@@ -189,20 +189,55 @@ function applyRules(rules) {
 }
 
 
+// ─── Hostname Canonicalisation ──────────────────────────────────────
+// Mirrors focuser_common::host — `www.` is never significant, and a rule
+// always covers its subdomains. Both sides go through this, so it does not
+// matter which form was typed or which form the tab is on.
+
+function canonicalHost(raw) {
+  var host = String(raw || '').trim().toLowerCase();
+  var scheme = host.indexOf('://');
+  if (scheme !== -1) host = host.slice(scheme + 3);
+  var at = host.indexOf('@');
+  if (at !== -1) host = host.slice(at + 1);
+  host = host.split(/[/?#]/)[0];
+  var colon = host.lastIndexOf(':');
+  if (colon > 0) host = host.slice(0, colon);
+  host = host.replace(/\.+$/, '');
+  return host.indexOf('www.') === 0 ? host.slice(4) : host;
+}
+
+/** Is `host` the domain in `set`, or a subdomain of one? */
+function setCovers(set, host) {
+  host = canonicalHost(host);
+  if (!host) return false;
+  if (set.has(host)) return true;
+  var parts = host.split('.');
+  for (var i = 1; i < parts.length; i++) {
+    if (set.has(parts.slice(i).join('.'))) return true;
+  }
+  return false;
+}
+
+function canonicalSet(list) {
+  var set = new Set();
+  (list || []).forEach(function(d) {
+    var host = canonicalHost(d);
+    if (host) set.add(host);
+  });
+  return set;
+}
+
 // ─── Domain Matching ────────────────────────────────────────────────
 
 function isDomainBlocked(hostname, url) {
-  hostname = (hostname || '').toLowerCase();
+  hostname = canonicalHost(hostname);
   url = (url || '').toLowerCase();
 
   if (isAllowed(hostname)) return false;
   if (blockEntireInternet) return true;
 
-  if (blockedDomains.has(hostname)) return true;
-  var parts = hostname.split('.');
-  for (var i = 1; i < parts.length; i++) {
-    if (blockedDomains.has(parts.slice(i).join('.'))) return true;
-  }
+  if (setCovers(blockedDomains, hostname)) return true;
 
   for (var k = 0; k < blockedKeywords.length; k++) {
     if (url.indexOf(blockedKeywords[k]) !== -1) return true;
@@ -226,12 +261,7 @@ function matchWildcard(pattern, str) {
 }
 
 function isAllowed(hostname) {
-  if (allowedDomains.has(hostname)) return true;
-  var parts = hostname.split('.');
-  for (var i = 1; i < parts.length; i++) {
-    if (allowedDomains.has(parts.slice(i).join('.'))) return true;
-  }
-  return false;
+  return setCovers(allowedDomains, hostname);
 }
 
 function isInternalUrl(protocol) {
@@ -370,7 +400,7 @@ function injectBlockPage(tabId, hostname, fullUrl) {
   var matchedKeyword = getMatchedKeyword(fullUrl);
   var category, trackingKey, blockedTarget, blockReason;
 
-  if (matchedKeyword && !blockedDomains.has(hostname.toLowerCase())) {
+  if (matchedKeyword && !setCovers(blockedDomains, hostname)) {
     category = getCategoryForKeyword(matchedKeyword);
     trackingKey = 'kw:' + matchedKeyword;
     blockedTarget = matchedKeyword;
@@ -517,8 +547,8 @@ function updateBadge(connected) {
   }
 
   var uniqueDomains = 0;
-  blockedDomains.forEach(function(d) {
-    if (!d.startsWith('www.') || !blockedDomains.has(d.substring(4))) uniqueDomains++;
+  blockedDomains.forEach(function() {
+    uniqueDomains++;
   });
   var count = uniqueDomains + blockedKeywords.length + blockedUrlPaths.length;
   if (blockEntireInternet) count = '∞';

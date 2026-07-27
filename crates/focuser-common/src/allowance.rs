@@ -38,14 +38,8 @@ impl AllowanceMatch {
     /// Does the given hostname match this allowance? For AppExecutable
     /// this always returns false (not a domain match).
     pub fn matches_hostname(&self, hostname: &str) -> bool {
-        let host = hostname.trim().to_ascii_lowercase();
-        let host = host.strip_prefix("www.").unwrap_or(&host);
         match self {
-            Self::Domain(d) => {
-                let d = d.trim().to_ascii_lowercase();
-                let d = d.strip_prefix("www.").unwrap_or(&d);
-                host == d || host.ends_with(&format!(".{d}"))
-            }
+            Self::Domain(d) => crate::host::host_matches(d, hostname),
             Self::AppExecutable(_) => false,
         }
     }

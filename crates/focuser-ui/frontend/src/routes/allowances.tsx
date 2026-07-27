@@ -1,4 +1,4 @@
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import type { AllowanceStatus } from "@/bindings";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   useAllowances,
+  useBrowserStatus,
   useCreateAllowance,
   useDeleteAllowance,
   useResetAllowanceToday,
@@ -26,6 +27,15 @@ const KINDS = [
 export function Allowances() {
   const allowances = useAllowances();
   const create = useCreateAllowance();
+  const browsers = useBrowserStatus();
+
+  // Browser time is measured by the extension and nothing else, so a website
+  // allowance without it would sit at "0s used" forever. Blocking stays on in
+  // that case rather than granting an unlimited pass, so say so plainly.
+  const extensionConnected = (browsers.data ?? []).some((b) => b.extension_connected);
+  const hasWebsiteAllowance = (allowances.data ?? []).some(
+    (a) => a.allowance.target.kind === "Domain",
+  );
 
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("Domain");
   const [value, setValue] = useState("");
@@ -49,6 +59,20 @@ export function Allowances() {
         title="Allowances"
         description="A daily budget instead of an outright block. When it runs out, the site or app is blocked for the rest of the day."
       />
+
+      {hasWebsiteAllowance && !extensionConnected && (
+        <Card className="mb-6 border-warning/40" padding="md">
+          <p className="flex items-center gap-2 font-medium text-sm text-warning">
+            <TriangleAlert aria-hidden className="size-4" />
+            Website allowances need the browser extension
+          </p>
+          <p className="mt-1 text-muted-foreground text-sm">
+            Only the extension can see which tab is open, so without it the timer never starts.
+            Those sites stay blocked in the meantime — an allowance that cannot be measured would
+            otherwise be an unlimited pass. Install it from Settings.
+          </p>
+        </Card>
+      )}
 
       <Card className="mb-6" padding="lg">
         <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">

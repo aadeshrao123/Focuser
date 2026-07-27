@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use focuser_common::browser::identify_browser;
 use focuser_common::extension::BrowserType;
+use focuser_common::host::any_host_matches;
 use tracing::{info, warn};
 
 use crate::AppState;
@@ -104,20 +105,9 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
                 // Remove domains that currently have an active (non-exhausted)
                 // allowance — they should be reachable until the daily quota
                 // runs out. Matches any subdomain too.
-                let exceptions: Vec<String> = state
-                    .allowance_tracker
-                    .active_allowance_domains(eng.db())
-                    .into_iter()
-                    .map(|d| d.to_ascii_lowercase())
-                    .collect();
+                let exceptions = state.allowance_exempt_domains(&eng);
                 if !exceptions.is_empty() {
-                    domains.retain(|d| {
-                        let lc = d.to_ascii_lowercase();
-                        let stripped = lc.strip_prefix("www.").unwrap_or(&lc).to_string();
-                        !exceptions
-                            .iter()
-                            .any(|ex| stripped == *ex || stripped.ends_with(&format!(".{ex}")))
-                    });
+                    domains.retain(|d| !any_host_matches(&exceptions, d));
                 }
                 domains.sort();
                 domains.dedup();
