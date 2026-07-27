@@ -39,7 +39,20 @@ const SIZES: [u32; 3] = [
 /// lock across the call costs nothing worth measuring.
 static SHELL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-pub fn load(target: &str) -> Option<Icon> {
+/// Nothing to carry between lookups: the shell keeps its own index.
+pub struct Loader;
+
+impl Loader {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn load(&self, target: &str) -> Option<Icon> {
+        load(target)
+    }
+}
+
+fn load(target: &str) -> Option<Icon> {
     let path = resolve(target)?;
 
     // A poisoned lock here means some other caller panicked mid-icon. That is

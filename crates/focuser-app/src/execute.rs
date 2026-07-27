@@ -585,13 +585,17 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
 
         Command::GetAppIcons { targets } => {
             // Deduplicated: the same executable can appear in several rules,
-            // and reading its icon twice is wasted shell work.
+            // and reading its icon twice is wasted work.
             let mut seen = std::collections::HashSet::new();
+            // One loader for the batch. On Linux it parses every installed
+            // desktop entry, which should happen once, not once per rule.
+            let loader = focuser_common::appicon::Loader::new();
+
             let icons = targets
                 .into_iter()
                 .filter(|target| seen.insert(target.clone()))
                 .map(|target| AppIcon {
-                    data_uri: focuser_common::appicon::icon_for(&target),
+                    data_uri: loader.icon_for(&target),
                     target,
                 })
                 .collect();

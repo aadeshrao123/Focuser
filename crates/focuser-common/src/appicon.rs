@@ -156,6 +156,114 @@ pub fn downscale(icon: &Icon, max_edge: u32) -> Icon {
     Icon::new(width, height, rgba).unwrap_or_else(|| icon.clone())
 }
 
+/// Decode a PNG into RGBA8.
+///
+/// Linux icon themes are mostly PNG files on disk, and ICNS stores its larger
+/// icons as embedded PNG. Palette, grayscale and 16-bit sources are normalised
+/// to 8-bit channels first, so callers only ever deal with one layout.
+pub fn decode_png(bytes: &[u8]) -> Option<Icon> {
+    // A Cursor, not the slice: the decoder wants `BufRead + Seek`.
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_transformations(png::Transformations::normalize_to_color8());
+
+    let mut reader = decoder.read_info().ok()?;
+    let mut buffer = vec![0u8; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buffer).ok()?;
+
+    let rgba = match info.color_type {
+        png::ColorType::Rgba => buffer[..info.buffer_size()].to_vec(),
+        png::ColorType::Rgb => buffer[..info.buffer_size()]
+            .chunks_exact(3)
+            .flat_map(|p| [p[0], p[1], p[2], 255])
+            .collect(),
+        png::ColorType::GrayscaleAlpha => buffer[..info.buffer_size()]
+            .chunks_exact(2)
+            .flat_map(|p| [p[0], p[0], p[0], p[1]])
+            .collect(),
+        png::ColorType::Grayscale => buffer[..info.buffer_size()]
+            .iter()
+            .flat_map(|&g| [g, g, g, 255])
+            .collect(),
+        // `normalize_to_color8` expands a palette, so this is unreachable in
+        // practice; refusing beats emitting garbled pixels if it ever is not.
+        png::ColorType::Indexed => return None,
+    };
+
+    Icon::new(info.width, info.height, rgba)
+}
+
+/// The `[Desktop Entry]` group of a freedesktop desktop entry file.
+///
+/// Only the keys needed to match a rule to an icon. Per the spec the entries
+/// are `Key=Value` with the whitespace around `=` ignored, `#` lines and blank
+/// lines are comments, and keys are case-sensitive. Localised keys carry a
+/// `[lang]` suffix and are skipped — an icon name is not translated.
+///
+/// Lives here rather than in the Linux module so its tests run on every
+/// platform, not only the one that uses it.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct DesktopEntry {
+    pub icon: Option<String>,
+    pub exec: Option<String>,
+    pub try_exec: Option<String>,
+    pub no_display: bool,
+}
+
+pub fn parse_desktop_entry(text: &str) -> DesktopEntry {
+    let mut entry = DesktopEntry::default();
+    let mut inside = false;
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        if let Some(group) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
+            // Other groups (desktop actions, for instance) carry their own
+            // Icon and Exec keys, which are not the application's.
+            inside = group == "Desktop Entry";
+            continue;
+        }
+
+        if !inside {
+            continue;
+        }
+
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let (key, value) = (key.trim(), value.trim());
+
+        match key {
+            "Icon" => entry.icon = Some(value.to_string()),
+            "Exec" => entry.exec = Some(value.to_string()),
+            "TryExec" => entry.try_exec = Some(value.to_string()),
+            "NoDisplay" => entry.no_display = value == "true",
+            _ => {}
+        }
+    }
+
+    entry
+}
+
+/// The program an `Exec=` line runs, without its arguments.
+///
+/// `Exec` is a command line, not a path: it carries arguments, `%f`-style field
+/// codes, and may quote a path containing spaces. Only the first word is the
+/// program.
+pub fn exec_program(exec: &str) -> Option<&str> {
+    let exec = exec.trim_start();
+
+    let program = if let Some(rest) = exec.strip_prefix('"') {
+        rest.split('"').next()?
+    } else {
+        exec.split_whitespace().next()?
+    };
+
+    (!program.is_empty()).then_some(program)
+}
+
 /// Encode as a PNG `data:` URI, ready to drop straight into an `<img src>`.
 pub fn to_data_uri(icon: &Icon) -> Option<String> {
     let mut png = Vec::new();
@@ -177,21 +285,81 @@ pub fn to_data_uri(icon: &Icon) -> Option<String> {
 /// title. `None` whenever there is nothing to show, which callers render as the
 /// usual monogram tile.
 pub fn icon_for(target: &str) -> Option<String> {
-    let icon = platform::load(target)?;
-    let trimmed = trim_transparent(&icon)?;
-    to_data_uri(&downscale(&trimmed, MAX_EDGE))
+    Loader::new().icon_for(target)
 }
+
+/// Icons for a whole list, in the order asked for.
+///
+/// Prefer this over calling [`icon_for`] in a loop. Linux has to search every
+/// installed desktop entry to connect a program to an icon name, and a loop
+/// would repeat that search once per rule; a loader does it once.
+pub fn icons_for<'a>(targets: impl IntoIterator<Item = &'a str>) -> Vec<Option<String>> {
+    let loader = Loader::new();
+    targets
+        .into_iter()
+        .map(|target| loader.icon_for(target))
+        .collect()
+}
+
+/// Holds whatever a platform wants to reuse across a batch of lookups.
+pub struct Loader(platform::Loader);
+
+impl Loader {
+    pub fn new() -> Self {
+        Self(platform::Loader::new())
+    }
+
+    pub fn icon_for(&self, target: &str) -> Option<String> {
+        let icon = self.0.load(target)?;
+        let trimmed = trim_transparent(&icon)?;
+        to_data_uri(&downscale(&trimmed, MAX_EDGE))
+    }
+}
+
+impl Default for Loader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// What the platform back-ends aim for before trimming and scaling.
+///
+/// Larger than [`MAX_EDGE`] so there is detail to throw away rather than
+/// upscale, and a size every convention actually stocks: an ICNS `ic08`, a
+/// hicolor `128x128` directory.
+///
+/// Windows has no use for it — the shell image list is addressed by symbolic
+/// size rather than by pixels.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub(crate) const TARGET_EDGE: u32 = 128;
 
 #[cfg(windows)]
 #[path = "appicon_windows.rs"]
 mod platform;
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+#[path = "appicon_macos.rs"]
+mod platform;
+
+#[cfg(target_os = "linux")]
+#[path = "appicon_linux.rs"]
+mod platform;
+
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 mod platform {
-    /// macOS keeps icons in the bundle's resource fork and Linux in a themed
-    /// icon directory. Both are worth doing; neither is this.
-    pub fn load(_target: &str) -> Option<super::Icon> {
-        None
+    /// The BSDs largely follow the freedesktop conventions, so the Linux
+    /// back-end would mostly work there — but "mostly" is not something to
+    /// claim without a machine to check it on.
+    pub struct Loader;
+
+    impl Loader {
+        pub fn new() -> Self {
+            Self
+        }
+
+        pub fn load(&self, _target: &str) -> Option<super::Icon> {
+            None
+        }
     }
 }
 
@@ -331,6 +499,129 @@ mod tests {
     }
 
     #[test]
+    fn a_png_round_trips_through_encode_and_decode() {
+        let original = spotted(16, 4, 4, 6, [12, 200, 90]);
+        let uri = to_data_uri(&original).unwrap();
+        let png = base64::engine::general_purpose::STANDARD
+            .decode(uri.trim_start_matches("data:image/png;base64,"))
+            .unwrap();
+
+        assert_eq!(decode_png(&png).unwrap(), original);
+    }
+
+    #[test]
+    fn a_png_without_an_alpha_channel_decodes_as_opaque() {
+        // 1x1 opaque red, 8-bit RGB — no tRNS, no alpha channel.
+        let mut png = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut png, 1, 1);
+            encoder.set_color(png::ColorType::Rgb);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().unwrap();
+            writer.write_image_data(&[255, 0, 0]).unwrap();
+        }
+
+        let icon = decode_png(&png).unwrap();
+
+        assert_eq!(icon.rgba, vec![255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn garbage_is_not_a_png() {
+        assert!(decode_png(b"not a png at all").is_none());
+        assert!(decode_png(&[]).is_none());
+    }
+
+    #[test]
+    fn a_desktop_entry_yields_the_keys_that_matter() {
+        let entry = parse_desktop_entry(
+            "# a comment\n\
+             \n\
+             [Desktop Entry]\n\
+             Type=Application\n\
+             Name=Steam\n\
+             Exec=/usr/bin/steam %U\n\
+             TryExec=/usr/bin/steam\n\
+             Icon=steam\n",
+        );
+
+        assert_eq!(entry.icon.as_deref(), Some("steam"));
+        assert_eq!(entry.exec.as_deref(), Some("/usr/bin/steam %U"));
+        assert_eq!(entry.try_exec.as_deref(), Some("/usr/bin/steam"));
+        assert!(!entry.no_display);
+    }
+
+    #[test]
+    fn the_spec_says_whitespace_around_the_equals_sign_is_ignored() {
+        let entry = parse_desktop_entry("[Desktop Entry]\nIcon =  firefox  \n");
+
+        assert_eq!(entry.icon.as_deref(), Some("firefox"));
+    }
+
+    // Desktop actions are separate groups carrying their own Icon and Exec.
+    // Reading them as the application's is how you end up showing the icon for
+    // "Open a New Private Window" instead of the browser.
+    #[test]
+    fn only_the_desktop_entry_group_is_read() {
+        let entry = parse_desktop_entry(
+            "[Desktop Entry]\n\
+             Icon=firefox\n\
+             Exec=firefox\n\
+             \n\
+             [Desktop Action new-private-window]\n\
+             Icon=private-browsing\n\
+             Exec=firefox --private-window\n",
+        );
+
+        assert_eq!(entry.icon.as_deref(), Some("firefox"));
+        assert_eq!(entry.exec.as_deref(), Some("firefox"));
+    }
+
+    #[test]
+    fn a_localised_key_does_not_override_the_plain_one() {
+        let entry = parse_desktop_entry("[Desktop Entry]\nIcon=steam\nIcon[de]=dampf\n");
+
+        assert_eq!(entry.icon.as_deref(), Some("steam"));
+    }
+
+    #[test]
+    fn keys_are_case_sensitive_as_the_spec_requires() {
+        assert!(
+            parse_desktop_entry("[Desktop Entry]\nICON=steam\n")
+                .icon
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn nodisplay_is_only_true_when_it_says_true() {
+        assert!(parse_desktop_entry("[Desktop Entry]\nNoDisplay=true\n").no_display);
+        assert!(!parse_desktop_entry("[Desktop Entry]\nNoDisplay=false\n").no_display);
+        assert!(!parse_desktop_entry("[Desktop Entry]\n").no_display);
+    }
+
+    #[test]
+    fn an_exec_line_reduces_to_its_program() {
+        assert_eq!(exec_program("/usr/bin/steam %U"), Some("/usr/bin/steam"));
+        assert_eq!(exec_program("firefox"), Some("firefox"));
+        assert_eq!(exec_program("  spotify  --uri=%U"), Some("spotify"));
+    }
+
+    #[test]
+    fn a_quoted_program_path_survives_its_spaces() {
+        assert_eq!(
+            exec_program("\"/opt/My App/bin/run\" --flag %f"),
+            Some("/opt/My App/bin/run")
+        );
+    }
+
+    #[test]
+    fn an_empty_exec_line_names_no_program() {
+        assert!(exec_program("").is_none());
+        assert!(exec_program("   ").is_none());
+    }
+
+    #[test]
     fn nothing_resolves_for_a_target_that_is_not_a_program() {
         assert!(icon_for("").is_none());
         assert!(icon_for("Solitaire").is_none());
@@ -340,7 +631,8 @@ mod tests {
     #[test]
     fn a_real_program_produces_a_small_png_data_uri() {
         let uri = icon_for("notepad.exe").expect("notepad should have an icon");
-        let icon = trim_transparent(&platform::load("notepad.exe").unwrap()).unwrap();
+        let raw = platform::Loader::new().load("notepad.exe").unwrap();
+        let icon = trim_transparent(&raw).unwrap();
         let scaled = downscale(&icon, MAX_EDGE);
 
         eprintln!(
