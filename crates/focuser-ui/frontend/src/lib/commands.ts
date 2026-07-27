@@ -15,6 +15,7 @@ import type {
   AppMatchType,
   BlockedEvent,
   BlockList,
+  BrowserStatus,
   Command,
   CommandResult,
   ExceptionType,
@@ -35,6 +36,7 @@ export type {
   AppMatchType,
   BlockedEvent,
   BlockList,
+  BrowserStatus,
   Command,
   CommandResult,
   ExceptionType,
@@ -70,6 +72,7 @@ export const queryKeys = {
   stats: (from: string, to: string) => ["stats", from, to] as const,
   events: (from: string, to: string) => ["events", from, to] as const,
   retention: ["stats-retention"] as const,
+  browsers: ["browsers"] as const,
   setting: (key: string) => ["setting", key] as const,
 };
 
@@ -221,6 +224,53 @@ export function useClearStatistics() {
       qc.invalidateQueries({ queryKey: ["stats"] });
       qc.invalidateQueries({ queryKey: ["events"] });
     },
+  });
+}
+
+// ─── Whole configuration ────────────────────────────────────────────
+
+/** The exported document as text. Where it is written is the caller's problem. */
+export function useExportConfiguration() {
+  return useMutation({
+    mutationFn: async () => expect(await run({ cmd: "export_configuration" }), "text").data,
+  });
+}
+
+export function useImportConfiguration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (json: string) =>
+      expect(await run({ cmd: "import_configuration", args: { json } }), "count").data,
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+/** Wipes everything, so every cached query is stale afterwards. */
+export function useDeleteAllData() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => run({ cmd: "delete_all_data" }),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+// ─── Diagnostics ────────────────────────────────────────────────────
+
+export function useBrowserStatus() {
+  return useQuery({
+    queryKey: queryKeys.browsers,
+    queryFn: async () => expect(await run({ cmd: "get_browser_status" }), "browser_status").data,
+    // Browsers start and stop while the window is open, but not every 2s.
+    refetchInterval: 10_000,
+  });
+}
+
+export function useAppVersion() {
+  return useQuery({
+    queryKey: ["app-version"] as const,
+    queryFn: async () => expect(await run({ cmd: "app_version" }), "text").data,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchInterval: false,
   });
 }
 

@@ -1,11 +1,20 @@
+import { BrowserStatusList } from "@/components/browser-status";
+import { ConfigTransfer } from "@/components/config-transfer";
 import { SettingRow, SettingsSection } from "@/components/setting-row";
-import { PageHeader } from "@/components/ui/card";
+import { Card, PageHeader } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { InlineError } from "@/components/ui/feedback";
 import { NumberField } from "@/components/ui/number-field";
 import { Switch } from "@/components/ui/switch";
+import { UpdateCheck } from "@/components/update-check";
 import { useAutostart } from "@/lib/autostart";
-import { useResetSettings, useSetStatsRetention, useStatsRetention } from "@/lib/commands";
+import {
+  useAppVersion,
+  useDeleteAllData,
+  useResetSettings,
+  useSetStatsRetention,
+  useStatsRetention,
+} from "@/lib/commands";
 import {
   MAX_RETENTION_DAYS,
   SETTING_KEYS,
@@ -21,6 +30,8 @@ export function Settings() {
   const retention = useStatsRetention();
   const setRetention = useSetStatsRetention();
   const reset = useResetSettings();
+  const deleteAll = useDeleteAllData();
+  const version = useAppVersion();
 
   return (
     <div className="max-w-3xl p-8">
@@ -79,6 +90,16 @@ export function Settings() {
         />
       </SettingsSection>
 
+      <section className="mb-6">
+        <h2 className="font-medium text-foreground text-sm">Extension</h2>
+        <p className="mt-1 text-muted-foreground text-sm">
+          Where the Focuser extension is installed.
+        </p>
+        <Card className="mt-3" padding="none">
+          <BrowserStatusList />
+        </Card>
+      </section>
+
       <SettingsSection title="Data">
         <SettingRow
           label="Keep statistics for"
@@ -97,6 +118,11 @@ export function Settings() {
           }
         />
         <SettingRow
+          label="Block lists file"
+          description="Export every block list to a file, or replace them from one. Statistics and settings are not included."
+          control={<ConfigTransfer />}
+        />
+        <SettingRow
           label="Reset settings"
           description="Puts everything on this page back to its default. Block lists and statistics are untouched."
           control={
@@ -105,6 +131,26 @@ export function Settings() {
             </ConfirmButton>
           }
         />
+        <SettingRow
+          label="Delete everything"
+          description="Block lists, rules, schedules, statistics and settings. This cannot be undone."
+          control={
+            <ConfirmButton
+              variant="outline"
+              size="sm"
+              confirmLabel="Click again to delete everything"
+              onConfirm={() => deleteAll.mutate()}
+              disabled={deleteAll.isPending}
+            >
+              Delete all data
+            </ConfirmButton>
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection title="About">
+        <SettingRow label="Version" control={<Version value={version.data} />} />
+        <SettingRow label="Updates" control={<UpdateCheck />} />
       </SettingsSection>
 
       <InlineError
@@ -113,9 +159,18 @@ export function Settings() {
           enforceBrowsers.error ??
           gracePeriod.error ??
           setRetention.error ??
-          reset.error
+          reset.error ??
+          deleteAll.error
         }
       />
     </div>
+  );
+}
+
+function Version({ value }: { value?: string }) {
+  return (
+    <span className="text-muted-foreground text-sm tabular-nums">
+      {value ? `Focuser ${value}` : "—"}
+    </span>
   );
 }

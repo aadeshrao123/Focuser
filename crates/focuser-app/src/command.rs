@@ -346,6 +346,10 @@ pub struct BrowserStatus {
     pub display_name: String,
     pub running: bool,
     pub extension_connected: bool,
+    /// Where to install the extension for this browser.
+    pub store_url: String,
+    /// Short name for launching this browser at a URL.
+    pub launch_name: String,
 }
 
 impl CommandResult {

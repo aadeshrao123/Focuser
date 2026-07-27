@@ -579,6 +579,8 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                         running: running.contains(&browser),
                         extension_connected: connected.contains(&browser),
                         display_name: info.display_name.to_string(),
+                        store_url: info.store_url().to_string(),
+                        launch_name: info.launch_name().to_string(),
                         browser,
                     }
                 })

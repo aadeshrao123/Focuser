@@ -1,6 +1,8 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
+import { RuleTable } from "@/components/rule-table";
+import { StarterLists } from "@/components/starter-lists";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
@@ -15,7 +17,6 @@ import {
   useRemoveWebsiteRule,
 } from "@/lib/commands";
 import {
-  APP_KINDS,
   describeException,
   describeWebsite,
   EXCEPTION_KINDS,
@@ -27,7 +28,7 @@ import {
 } from "@/lib/match-types";
 import { cn } from "@/lib/utils";
 
-type Tab = "blocked" | "exceptions" | "import";
+type Tab = "blocked" | "exceptions" | "starter" | "import";
 
 export function Websites() {
   const lists = useBlockLists();
@@ -65,6 +66,7 @@ export function Websites() {
             {tab === "exceptions" && (
               <ExceptionsTab listId={list.id} exceptions={list.exceptions} />
             )}
+            {tab === "starter" && <StarterLists listId={list.id} />}
             {tab === "import" && <ImportTab listId={list.id} />}
           </>
         )}
@@ -76,6 +78,7 @@ export function Websites() {
 const TABS: { id: Tab; label: string }[] = [
   { id: "blocked", label: "Blocked" },
   { id: "exceptions", label: "Exceptions" },
+  { id: "starter", label: "Starter lists" },
   { id: "import", label: "Bulk import" },
 ];
 
@@ -145,6 +148,7 @@ function BlockedTab({
         <RuleTable
           rows={rules.map((r) => ({ id: r.id, ...describeWebsite(r.match_type) }))}
           onRemove={(ruleId) => remove.mutate({ listId, ruleId })}
+          noun="rule"
         />
       )}
       <InlineError error={remove.error} />
@@ -201,6 +205,7 @@ function ExceptionsTab({
         <RuleTable
           rows={exceptions.map((e) => ({ id: e.id, ...describeException(e.exception_type) }))}
           onRemove={(exceptionId) => remove.mutate({ listId, exceptionId })}
+          noun="exception"
         />
       )}
       <InlineError error={remove.error} />
@@ -261,42 +266,3 @@ function ImportTab({ listId }: { listId: string }) {
     </form>
   );
 }
-
-/** Shared table for website rules, app rules and exceptions. */
-export function RuleTable({
-  rows,
-  onRemove,
-}: {
-  rows: { id: string; kind: string; value: string }[];
-  onRemove: (id: string) => void;
-}) {
-  return (
-    <ul className="flex flex-col gap-1.5">
-      {rows.map((row) => (
-        <li
-          key={row.id}
-          data-testid="rule-row"
-          className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2"
-        >
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="shrink-0 rounded bg-elevated px-1.5 py-0.5 text-faint-foreground text-xs">
-              {row.kind}
-            </span>
-            <span className="truncate text-foreground text-sm">{row.value || "—"}</span>
-          </div>
-          <Button
-            variant="ghost"
-            tone="destructive"
-            size="icon"
-            aria-label={`Remove ${row.value || row.kind}`}
-            onClick={() => onRemove(row.id)}
-          >
-            <Trash2 />
-          </Button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export { APP_KINDS };

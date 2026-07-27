@@ -126,6 +126,10 @@ export type BrowserStatus = {
 	display_name: string,
 	running: boolean,
 	extension_connected: boolean,
+	/**  Where to install the extension for this browser. */
+	store_url: string,
+	/**  Short name for launching this browser at a URL. */
+	launch_name: string,
 };
 
 /**

@@ -7,6 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension::BrowserType;
 
+/// Where the extension is published. Chromium browsers all install the same
+/// Chrome Web Store item.
+pub const CHROME_STORE_URL: &str =
+    "https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj";
+pub const FIREFOX_STORE_URL: &str =
+    "https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/";
+
 /// Information about a known browser.
 pub struct BrowserInfo {
     /// Which browser this is.
@@ -15,6 +22,28 @@ pub struct BrowserInfo {
     pub display_name: &'static str,
     /// Known executable/process names on the current platform.
     pub exe_names: &'static [&'static str],
+}
+
+impl BrowserInfo {
+    /// Where to send someone to install the extension for this browser.
+    pub fn store_url(&self) -> &'static str {
+        match self.browser_type {
+            BrowserType::Firefox => FIREFOX_STORE_URL,
+            _ => CHROME_STORE_URL,
+        }
+    }
+
+    /// Short name the OS launcher understands, for opening this browser at a URL.
+    pub fn launch_name(&self) -> &'static str {
+        match self.browser_type {
+            BrowserType::Chrome => "chrome",
+            BrowserType::Firefox => "firefox",
+            BrowserType::Edge => "msedge",
+            BrowserType::Brave => "brave",
+            BrowserType::Opera => "opera",
+            _ => "chrome",
+        }
+    }
 }
 
 /// Known browsers and their process names per platform.

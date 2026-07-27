@@ -1,6 +1,7 @@
-import { Plus } from "lucide-react";
+import { FolderOpen, Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
+import { RuleTable } from "@/components/rule-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { InlineError, QueryState } from "@/components/ui/feedback";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useAddAppRule, useBlockLists, useRemoveAppRule } from "@/lib/commands";
 import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
-import { RuleTable } from "./websites";
+import { isTauri, pickApplication } from "@/lib/native";
 
 const PLACEHOLDERS: Record<AppKind, string> = {
   ExecutableName: "discord.exe",
@@ -28,6 +29,14 @@ export function Apps() {
   const all = lists.data ?? [];
   const selected = resolveSelected(all, rawSelected);
   const list = all.find((l) => l.id === selected);
+
+  /** Picking from disk gives an executable name, which is the default rule kind. */
+  async function browse() {
+    const name = await pickApplication();
+    if (!name) return;
+    setKind("ExecutableName");
+    setValue(name);
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -72,6 +81,17 @@ export function Apps() {
               <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
                 Add
               </Button>
+              {isTauri() && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  icon={<FolderOpen />}
+                  onClick={browse}
+                  title="Pick an application from disk"
+                >
+                  Browse…
+                </Button>
+              )}
             </form>
             <InlineError error={add.error} />
 
@@ -84,6 +104,7 @@ export function Apps() {
               <RuleTable
                 rows={list.applications.map((r) => ({ id: r.id, ...describeApp(r.match_type) }))}
                 onRemove={(ruleId) => remove.mutate({ listId: list.id, ruleId })}
+                noun="application"
               />
             )}
             <InlineError error={remove.error} />
