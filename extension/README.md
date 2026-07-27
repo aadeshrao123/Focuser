@@ -28,9 +28,16 @@ npm test
 npm run preview          # block page in an ordinary tab, for UI work only
 ```
 
-`npm run preview` renders the block page's states side by side at
-<http://localhost:5199>. It has no `browser.*` access — it is for looks, not
-behaviour.
+`npm run preview` renders the block page and the popup at
+<http://localhost:5199>, one state at a time, switched from the bar at the top.
+The harness stubs `browser.*` and the desktop app's HTTP API so the popup can
+be seen connected, disconnected and with no lists — production code does not
+know it is being previewed.
+
+It shows how things **look**, not whether they **work**. To check the real
+built artifact — DOM replacement, shadow root, inlined CSS — build it and open
+`.output/chrome-mv3/block-page.js` from a throwaway HTML page that sets
+`window.__focuser` to a `BlockContext` JSON string.
 
 ## Layout
 
@@ -63,6 +70,18 @@ when it breaks is worse than one that occasionally misses.
 
 **The block UI lives in a shadow root.** The "page" being styled is an
 arbitrary site we just took over, so isolation goes both ways.
+
+**Tailwind's source paths are declared, not detected.** `assets/tailwind.css`
+names `../components`, `../entrypoints` and `../lib` with `@source`. Automatic
+detection is rooted at the build root, which differs between the WXT build and
+the preview — so without this the preview rendered every component with no CSS
+at all while the real build was fine. A preview that silently disagrees with
+the build is worse than no preview.
+
+**The replaced `<body>` gets its margin zeroed explicitly.** It is created
+fresh by the block script, so it carries the UA's 8px default, which puts a
+scrollbar on every block page. The preview's own HTML zeroes it already, so
+this is invisible there.
 
 **Messages escalate with the visit count.** A single fixed string stops being
 read after the second visit. Roughly 40% of them carry `{count}` / `{domain}`

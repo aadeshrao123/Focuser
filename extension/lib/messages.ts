@@ -21,7 +21,11 @@ export interface BlockContext {
 export type Message =
   | { type: "check-url"; hostname: string; url: string }
   | { type: "status" }
-  | { type: "refresh" };
+  | { type: "refresh" }
+  // Both are sent by the block page, which is a content script and so cannot
+  // close its own tab or reach the desktop app directly.
+  | { type: "close-tab" }
+  | { type: "open-app" };
 
 export type MessageReply =
   | { type: "check-url"; blocked: boolean }
@@ -32,7 +36,9 @@ export type MessageReply =
       ruleCount: number;
       blockEverything: boolean;
     }
-  | { type: "refresh"; ok: boolean };
+  | { type: "refresh"; ok: boolean }
+  | { type: "close-tab"; ok: boolean }
+  | { type: "open-app"; ok: boolean };
 
 /** Send a message and get the reply narrowed to its request type. */
 export async function send<T extends Message["type"]>(

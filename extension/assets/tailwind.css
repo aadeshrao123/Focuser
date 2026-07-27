@@ -1,10 +1,23 @@
 @import "tailwindcss";
 
+/* Tailwind v4 detects sources from the build root, which differs between the
+   WXT build (`extension/`) and the preview (`extension/preview/`). Naming them
+   explicitly makes both produce the same stylesheet. Without this the preview
+   rendered every component completely unstyled while the real build was fine,
+   which is a very convincing way to check the wrong thing. */
+@source "../components";
+@source "../entrypoints";
+@source "../lib";
+
 /* ─── Tokens ───────────────────────────────────────────────────────────
    Lifted from the desktop app's `frontend/src/index.css` so the extension
    and the app are visibly the same product. Kept as a copy rather than an
    import because the two build separately; if the app's palette moves,
-   move it here too. */
+   move it here too.
+
+   The surface ramp is deliberately uneven, as in the app: a bigger jump from
+   base to surface makes a card sit *on* the page, then tighter steps above
+   keep controls inside the card from competing with it. */
 
 @theme {
   --color-deep: #06060a;
@@ -12,6 +25,7 @@
   --color-surface: #14141c;
   --color-elevated: #1c1c27;
   --color-hover: #252533;
+  --color-active: #2e2e3f;
 
   --color-foreground: #f2f2f7;
   --color-muted-foreground: #a9a9bd;
@@ -19,27 +33,67 @@
 
   --color-primary: #8b5cf6;
   --color-primary-hover: #9d76ff;
+  --color-primary-active: #7c4ef0;
   --color-primary-foreground: #ffffff;
+  --color-primary-dim: rgb(139 92 246 / 0.14);
 
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-destructive: #f87171;
+  --color-info: #60a5fa;
 
   --color-border: rgb(255 255 255 / 0.07);
   --color-border-strong: rgb(255 255 255 / 0.13);
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Segoe UI / system stack rather than the app's bundled Inter: `@font-face`
+     declared inside a shadow root is ignored, and putting it in the host
+     document would run into the blocked site's `font-src` policy. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
 
-  /* Top-down lighting: an inset highlight along the top edge stops a dark
-     card reading as a hole punched in the page. */
+  /* Top-down lighting: an inset highlight along the top edge, then stacked
+     ambient shadows. The highlight is what stops a dark card reading as a
+     hole punched in the page. */
+  --shadow-depth-sm:
+    inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.2);
   --shadow-depth-md:
     inset 0 1px 0 rgb(255 255 255 / 0.06), 0 4px 10px rgb(0 0 0 / 0.45),
     0 12px 28px rgb(0 0 0 / 0.28);
   --shadow-depth-lg:
     inset 0 1px 0 rgb(255 255 255 / 0.08), 0 10px 20px rgb(0 0 0 / 0.5),
     0 28px 64px rgb(0 0 0 / 0.4);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Staggered entrance. The page appears under someone who was mid-reach for
+     a distraction, so it arrives calmly rather than snapping into place. */
+  --animate-rise: rise 0.55s var(--ease-out-quint) both;
+  --animate-halo: halo 6s ease-in-out infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes halo {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
 }
 
 @layer base {
@@ -47,6 +101,20 @@
   html {
     font-family: var(--font-sans);
     color: var(--color-foreground);
+    color-scheme: dark;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Motion is decoration here — every animation is an entrance or an ambient
+     loop, so removing it costs the page nothing. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

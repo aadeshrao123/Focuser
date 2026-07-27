@@ -40,7 +40,12 @@ export default defineUnlistedScript(() => {
   window.stop?.();
 
   document.documentElement.replaceChildren(document.createElement("head"), document.createElement("body"));
-  document.documentElement.style.cssText = "background:#0b0b11;visibility:visible";
+  document.documentElement.style.cssText =
+    "background:#0b0b11;visibility:visible;color-scheme:dark";
+  // The replacement body is brand new, so it carries the UA's 8px margin. With
+  // a `min-h-screen` layout inside, that margin is a scrollbar on every block
+  // page — invisible in the preview, whose own HTML already zeroes it.
+  document.body.style.cssText = "margin:0;padding:0;background:#0b0b11";
   document.title = `Blocked — ${context.hostname}`;
 
   const host = document.createElement("div");

@@ -7,6 +7,7 @@ import {
   reportBlocked,
   sendAllowanceTick,
   sendHeartbeat,
+  showApp,
 } from "@/lib/api";
 import {
   buildIndex,
@@ -218,10 +219,28 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener(
-    (raw: unknown, _sender, sendResponse: (reply: MessageReply) => void) => {
+    (raw: unknown, sender, sendResponse: (reply: MessageReply) => void) => {
       const message = raw as Message;
 
       switch (message.type) {
+        case "close-tab": {
+          // The block page cannot close itself: `window.close()` only works on
+          // tabs that script opened. The tab id has to come from the sender.
+          const tabId = sender.tab?.id;
+          if (tabId === undefined) {
+            sendResponse({ type: "close-tab", ok: false });
+            return false;
+          }
+          void browser.tabs
+            .remove(tabId)
+            .then(() => sendResponse({ type: "close-tab", ok: true }))
+            .catch(() => sendResponse({ type: "close-tab", ok: false }));
+          return true;
+        }
+        case "open-app": {
+          void showApp().then((ok) => sendResponse({ type: "open-app", ok }));
+          return true;
+        }
         case "check-url": {
           const hit = match(rules, message.hostname, message.url);
           if (hit && noteReport(message.hostname)) {
