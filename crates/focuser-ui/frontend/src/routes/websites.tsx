@@ -243,7 +243,7 @@ function BlockedTab({
         <RuleTable
           rows={rules.map((r) => ({ id: r.id, ...describeWebsite(r.match_type) }))}
           onRemove={(ruleId) => remove.mutate({ listId, ruleId })}
-          noun="rule"
+          noun={m.noun_rule()}
         />
       )}
       <InlineError error={remove.error} />
@@ -309,7 +309,7 @@ function ExceptionsTab({
         <RuleTable
           rows={exceptions.map((e) => ({ id: e.id, ...describeException(e.exception_type) }))}
           onRemove={(exceptionId) => remove.mutate({ listId, exceptionId })}
-          noun="exception"
+          noun={m.noun_exception()}
         />
       )}
       <InlineError error={remove.error} />

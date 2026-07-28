@@ -4,6 +4,7 @@ import { AppIcon } from "@/components/ui/app-icon";
 import { isTauri } from "@/lib/transport";
 import { cn } from "@/lib/utils";
 import { closeWindow, isMaximized, minimizeWindow, onResized, toggleMaximize } from "@/lib/window";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * The window's own title bar, drawn by the app rather than the OS.
@@ -36,13 +37,13 @@ export function TitleBar() {
       </div>
 
       <div className="flex h-full">
-        <ControlButton label="Minimise" onClick={minimizeWindow}>
+        <ControlButton label={m.titlebar_minimise()} onClick={minimizeWindow}>
           <Minus className="size-3.5" />
         </ControlButton>
         <ControlButton label={maximized ? "Restore" : "Maximise"} onClick={() => toggleMaximize()}>
           {maximized ? <Copy className="size-3" /> : <Square className="size-3" />}
         </ControlButton>
-        <ControlButton label="Close" destructive onClick={closeWindow}>
+        <ControlButton label={m.titlebar_close()} destructive onClick={closeWindow}>
           <X className="size-3.5" />
         </ControlButton>
       </div>

@@ -15,6 +15,7 @@ import { assignColors, colorFor, gradientId, SERIES_COLORS } from "@/lib/chart-c
 import { formatDay } from "@/lib/date-range";
 import { formatDuration } from "@/lib/duration";
 import type { TargetSeries } from "@/lib/stats";
+import { m } from "@/paraglide/messages.js";
 
 /** Beyond this the lines stop being followable and fold into "Other". */
 const OVERLAY_LIMIT = SERIES_COLORS.length;
@@ -175,15 +176,19 @@ export function TargetIndividual({
             onValueChange={onSelect}
             options={options}
             size="sm"
-            aria-label="Site or app"
+            aria-label={m.table_site_or_app()}
           />
         </div>
 
         <div className="flex items-end gap-6">
-          <Figure label="Blocked" value={series.attempts.toLocaleString()} accent={color} />
-          <Figure label="Time" value={formatDuration(series.seconds)} />
-          <Figure label="Share" value={`${share}%`} />
-          <Figure label="Busiest day" value={String(peak)} />
+          <Figure
+            label={m.table_blocked()}
+            value={series.attempts.toLocaleString()}
+            accent={color}
+          />
+          <Figure label={m.table_time()} value={formatDuration(series.seconds)} />
+          <Figure label={m.table_share()} value={`${share}%`} />
+          <Figure label={m.table_busiest_day()} value={String(peak)} />
         </div>
       </div>
 

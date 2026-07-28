@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "dev:backend": "cargo run --manifest-path ../../../Cargo.toml -p focuser-devserver -- --memory",
     "bindings": "cargo run --manifest-path ../../../Cargo.toml -p focuser-ui -- --export-bindings",
-    "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy baseLocale --output-structure message-modules --emit-ts-declarations",
+    "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy localStorage baseLocale --output-structure message-modules --emit-ts-declarations",
     "postinstall": "npm run paraglide"
   },
   "dependencies": {

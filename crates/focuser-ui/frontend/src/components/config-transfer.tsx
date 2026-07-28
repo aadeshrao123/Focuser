@@ -5,6 +5,7 @@ import { InlineError } from "@/components/ui/feedback";
 import { useExportConfiguration, useImportConfiguration } from "@/lib/commands";
 import { isTauri, pickConfigurationFile, saveConfiguration } from "@/lib/native";
 import { count } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Export and import every block list as a JSON document.
@@ -47,7 +48,7 @@ export function ConfigTransfer() {
           disabled={exporter.isPending}
           onClick={exportConfig}
         >
-          Export
+          {m.common_export()}
         </Button>
 
         <Button
@@ -64,7 +65,7 @@ export function ConfigTransfer() {
             if (json) await importConfig(json);
           }}
         >
-          Import
+          {m.common_import()}
         </Button>
 
         {/* Browser fallback for the native file dialog. */}

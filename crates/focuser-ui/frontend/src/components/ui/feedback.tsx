@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "./button";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Loading / error / content for any backend-backed view.
@@ -27,7 +28,7 @@ export function QueryState({
         aria-live="polite"
       >
         <Loader2 aria-hidden className="size-4 animate-spin" />
-        Loading…
+        {m.common_loading()}
       </div>
     );
   }
@@ -40,7 +41,7 @@ export function QueryState({
       >
         <p className="flex items-center gap-2 font-medium text-destructive text-sm">
           <AlertTriangle aria-hidden className="size-4" />
-          Something went wrong
+          {m.common_error()}
         </p>
         <p className="mt-1 text-muted-foreground text-sm">{error.message}</p>
         {onRetry && (

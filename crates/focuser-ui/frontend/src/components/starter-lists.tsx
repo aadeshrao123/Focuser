@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/select";
 import { useBulkImportWebsites } from "@/lib/commands";
 import { usePremadeLists } from "@/lib/premade";
 import { count } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Curated categories, added to the current list from one dropdown.
@@ -64,14 +65,14 @@ export function StarterLists({ listId }: { listId: string }) {
   return (
     <div className="mt-3 border-border border-t pt-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground text-sm">Or import a starter list</span>
+        <span className="text-muted-foreground text-sm">{m.starter_lists_label()}</span>
         <Select
           value={chosen?.id ?? ""}
           onValueChange={setId}
           options={options}
           size="sm"
           className="w-56"
-          aria-label="Starter list"
+          aria-label={m.starter_lists_picker_label()}
         />
         <Button
           variant="outline"
@@ -80,7 +81,7 @@ export function StarterLists({ listId }: { listId: string }) {
           disabled={!chosen || importer.isPending}
           onClick={add}
         >
-          Import
+          {m.starter_lists_import()}
         </Button>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { checkForUpdate, installUpdate, isTauri } from "@/lib/native";
+import { m } from "@/paraglide/messages.js";
 
 type State =
   | { status: "idle" }
@@ -15,7 +16,7 @@ export function UpdateCheck() {
   const [state, setState] = useState<State>({ status: "idle" });
 
   if (!isTauri()) {
-    return <span className="text-faint-foreground text-sm">Desktop app only</span>;
+    return <span className="text-faint-foreground text-sm">{m.update_desktop_only()}</span>;
   }
 
   async function check() {
@@ -43,7 +44,7 @@ export function UpdateCheck() {
   return (
     <div className="flex items-center gap-3">
       {state.status === "current" && (
-        <span className="text-muted-foreground text-sm">Up to date</span>
+        <span className="text-muted-foreground text-sm">{m.update_up_to_date()}</span>
       )}
       {state.status === "available" && (
         <span className="text-success text-sm">
@@ -58,7 +59,7 @@ export function UpdateCheck() {
 
       {state.status === "available" ? (
         <Button size="sm" onClick={install}>
-          Install and restart
+          {m.update_install_restart()}
         </Button>
       ) : (
         <Button

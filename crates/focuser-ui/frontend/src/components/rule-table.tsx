@@ -17,11 +17,14 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TargetIcon } from "@/components/ui/target-icon";
-import { count } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 export interface RuleRow {
   id: string;
+  /** The Rust variant name. Styling keys off this, so it never changes. */
   kind: string;
+  /** What the user reads. Translated, so it must not be used as a key. */
+  label: string;
   value: string;
 }
 
@@ -39,15 +42,15 @@ const KINDS: Record<string, { tone: BadgeProps["tone"]; icon: ReactNode; named: 
   Domain: { tone: "primary", icon: <Globe />, named: true },
   Keyword: { tone: "info", icon: <Hash />, named: false },
   Wildcard: { tone: "warning", icon: <Asterisk />, named: false },
-  "URL path": { tone: "success", icon: <Link2 />, named: false },
-  "Entire internet": { tone: "destructive", icon: <Ban />, named: false },
-  Executable: { tone: "primary", icon: <MonitorSmartphone />, named: true },
+  UrlPath: { tone: "success", icon: <Link2 />, named: false },
+  EntireInternet: { tone: "destructive", icon: <Ban />, named: false },
+  ExecutableName: { tone: "primary", icon: <MonitorSmartphone />, named: true },
   // A full path's first character is the drive letter or a slash, which says
   // nothing about what the rule is — the folder glyph carries more.
-  Path: { tone: "info", icon: <FolderOpen />, named: false },
-  "Window title": { tone: "warning", icon: <Captions />, named: false },
-  "Bundle ID": { tone: "info", icon: <Package />, named: true },
-  "Local files": { tone: "success", icon: <FileText />, named: false },
+  ExecutablePath: { tone: "info", icon: <FolderOpen />, named: false },
+  WindowTitle: { tone: "warning", icon: <Captions />, named: false },
+  BundleId: { tone: "info", icon: <Package />, named: true },
+  LocalFiles: { tone: "success", icon: <FileText />, named: false },
 };
 
 const styleFor = (kind: string) =>
@@ -57,7 +60,7 @@ const styleFor = (kind: string) =>
 export function RuleTable({
   rows,
   onRemove,
-  noun = "rule",
+  noun = "",
   icons,
 }: {
   rows: RuleRow[];
@@ -74,16 +77,16 @@ export function RuleTable({
   // Only worth offering when the list actually mixes kinds.
   const kinds = useMemo(() => {
     const tally = new Map<string, number>();
-    for (const r of rows) tally.set(r.kind, (tally.get(r.kind) ?? 0) + 1);
+    for (const r of rows) tally.set(r.label, (tally.get(r.label) ?? 0) + 1);
     return [...tally].sort((a, b) => b[1] - a[1]);
   }, [rows]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return rows.filter((r) => {
-      if (kindFilter && r.kind !== kindFilter) return false;
+      if (kindFilter && r.label !== kindFilter) return false;
       if (!needle) return true;
-      return r.value.toLowerCase().includes(needle) || r.kind.toLowerCase().includes(needle);
+      return r.value.toLowerCase().includes(needle) || r.label.toLowerCase().includes(needle);
     });
   }, [rows, query, kindFilter]);
 
@@ -103,8 +106,8 @@ export function RuleTable({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${count(rows.length, noun)}…`}
-                aria-label={`Search ${noun}s`}
+                placeholder={m.table_search_placeholder({ count: rows.length, noun })}
+                aria-label={m.table_search_label({ noun })}
                 className="pl-8"
               />
             </div>
@@ -113,7 +116,7 @@ export function RuleTable({
           {kinds.length > 1 && (
             <div className="flex flex-wrap items-center gap-1.5">
               <Chip active={kindFilter === null} onClick={() => setKindFilter(null)}>
-                All
+                {m.common_all()}
                 <span className="ml-1 tabular-nums opacity-60">{rows.length}</span>
               </Chip>
               {kinds.map(([kind, n]) => (
@@ -133,7 +136,9 @@ export function RuleTable({
 
       {visible.length === 0 ? (
         <p className="rounded-lg border border-border border-dashed px-4 py-6 text-center text-muted-foreground text-sm">
-          Nothing matches {query.trim() ? `“${query.trim()}”` : "that filter"}.
+          {query.trim()
+            ? m.table_no_match_query({ query: query.trim() })
+            : m.table_no_match_filter()}
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
@@ -150,7 +155,7 @@ export function RuleTable({
                 ].join(" ")}
               >
                 <TargetIcon
-                  value={row.value || row.kind}
+                  value={row.value || row.label}
                   glyph={named ? undefined : icon}
                   src={icons?.get(row.value)}
                 />
@@ -160,7 +165,7 @@ export function RuleTable({
                 </p>
 
                 <Badge tone={tone} icon={icon} outlined>
-                  {row.kind}
+                  {row.label}
                 </Badge>
 
                 <Button
@@ -169,7 +174,7 @@ export function RuleTable({
                   size="icon"
                   // Revealed on hover so a long list is not a column of red bins.
                   className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                  aria-label={`Remove ${row.value || row.kind}`}
+                  aria-label={m.table_remove({ target: row.value || row.label })}
                   onClick={() => onRemove(row.id)}
                 >
                   <Trash2 />
@@ -182,7 +187,7 @@ export function RuleTable({
 
       {filtered && visible.length > 0 && (
         <p className="mt-2 text-faint-foreground text-xs">
-          Showing {visible.length} of {count(rows.length, noun)}.
+          {m.table_showing({ visible: visible.length, total: rows.length, noun })}
         </p>
       )}
     </>

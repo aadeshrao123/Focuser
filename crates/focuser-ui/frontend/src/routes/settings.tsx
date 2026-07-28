@@ -6,6 +6,7 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { InlineError } from "@/components/ui/feedback";
 import { NumberField } from "@/components/ui/number-field";
 import { Page } from "@/components/ui/page";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { UpdateCheck } from "@/components/update-check";
 import { useAutostart } from "@/lib/autostart";
@@ -16,17 +17,20 @@ import {
   useSetStatsRetention,
   useStatsRetention,
 } from "@/lib/commands";
+import { useLanguage } from "@/lib/language";
 import {
   MAX_RETENTION_DAYS,
   SETTING_KEYS,
   useBooleanSetting,
   useNumberSetting,
 } from "@/lib/settings";
+import { m } from "@/paraglide/messages.js";
 
 export function Settings() {
   const autostart = useAutostart();
   const enforceBrowsers = useBooleanSetting(SETTING_KEYS.blockUnsupportedBrowsers, true);
   const gracePeriod = useNumberSetting(SETTING_KEYS.extensionGracePeriod, 60);
+  const language = useLanguage();
 
   const retention = useStatsRetention();
   const setRetention = useSetStatsRetention();
@@ -38,47 +42,47 @@ export function Settings() {
     // One column, not two. Splitting settings left/right meant a setting's
     // position on the page carried no meaning — you had to scan both sides.
     <Page>
-      <PageHeader title="Settings" description="How Focuser behaves on this machine." />
+      <PageHeader title={m.settings_title()} description={m.settings_description()} />
 
-      <SettingsSection title="Startup">
+      <SettingsSection title={m.settings_section_startup()}>
         <SettingRow
-          label="Launch at login"
+          label={m.settings_autostart()}
           description={
             autostart.supported
-              ? "Focuser starts with your computer, so blocks are in place before you can talk yourself out of them."
-              : "Only available in the desktop app."
+              ? m.settings_autostart_description()
+              : m.settings_autostart_unsupported()
           }
           control={
             <Switch
               checked={autostart.value}
               onCheckedChange={autostart.set}
               disabled={!autostart.supported || autostart.isPending || autostart.isSaving}
-              aria-label="Launch at login"
+              aria-label={m.settings_autostart()}
             />
           }
         />
       </SettingsSection>
 
       <SettingsSection
-        title="Browsers"
-        description="The extension blocks pages properly. Without it, only whole domains can be stopped."
+        title={m.settings_section_browsers()}
+        description={m.settings_browsers_description()}
       >
         <SettingRow
-          label="Close browsers without the extension"
-          description="Applies while a block list is active."
+          label={m.settings_close_browsers()}
+          description={m.settings_close_browsers_description()}
           control={
             <Switch
               checked={enforceBrowsers.value}
               onCheckedChange={enforceBrowsers.set}
               disabled={enforceBrowsers.isPending || enforceBrowsers.isSaving}
-              aria-label="Close browsers without the extension"
+              aria-label={m.settings_close_browsers()}
             />
           }
         />
         <SettingRow
-          label="Grace period"
+          label={m.settings_grace_period()}
           htmlFor="grace-period"
-          description="How long to wait before closing one, so there is time to install it."
+          description={m.settings_grace_period_description()}
           control={
             <NumberField
               id="grace-period"
@@ -87,7 +91,7 @@ export function Settings() {
               min={5}
               max={3600}
               step={5}
-              suffix="seconds"
+              suffix={m.settings_seconds_suffix()}
               disabled={!enforceBrowsers.value || gracePeriod.isPending}
             />
           }
@@ -95,18 +99,18 @@ export function Settings() {
       </SettingsSection>
 
       <SettingsSection
-        title="Extension"
-        description="Where the Focuser extension is installed."
+        title={m.settings_section_extension()}
+        description={m.settings_extension_description()}
         flush
       >
         <BrowserStatusList />
       </SettingsSection>
 
-      <SettingsSection title="Data">
+      <SettingsSection title={m.settings_section_data()}>
         <SettingRow
-          label="Keep statistics for"
+          label={m.settings_retention()}
           htmlFor="retention"
-          description="Older records are removed automatically."
+          description={m.settings_retention_description()}
           control={
             <NumberField
               id="retention"
@@ -114,45 +118,64 @@ export function Settings() {
               onCommit={(days) => setRetention.mutate(days)}
               min={1}
               max={MAX_RETENTION_DAYS}
-              suffix="days"
+              suffix={m.settings_days_suffix()}
               disabled={retention.isPending}
             />
           }
         />
         <SettingRow
-          label="Block lists file"
-          description="Export every block list to a file, or replace them from one. Statistics and settings are not included."
+          label={m.settings_config_file()}
+          description={m.settings_config_file_description()}
           control={<ConfigTransfer />}
         />
         <SettingRow
-          label="Reset settings"
-          description="Puts everything on this page back to its default. Block lists and statistics are untouched."
+          label={m.settings_reset()}
+          description={m.settings_reset_description()}
           control={
             <ConfirmButton variant="outline" size="sm" onConfirm={() => reset.mutate()}>
-              Reset
+              {m.settings_reset_action()}
             </ConfirmButton>
           }
         />
         <SettingRow
-          label="Delete everything"
-          description="Block lists, rules, schedules, statistics and settings. This cannot be undone."
+          label={m.settings_delete_all()}
+          description={m.settings_delete_all_description()}
           control={
             <ConfirmButton
               variant="outline"
               size="sm"
-              confirmLabel="Click again to delete everything"
+              confirmLabel={m.config_confirm_delete()}
               onConfirm={() => deleteAll.mutate()}
               disabled={deleteAll.isPending}
             >
-              Delete all data
+              {m.settings_delete_all_action()}
             </ConfirmButton>
           }
         />
       </SettingsSection>
 
-      <SettingsSection title="About">
-        <SettingRow label="Version" control={<Version value={version.data} />} />
-        <SettingRow label="Updates" control={<UpdateCheck />} />
+      <SettingsSection title={m.settings_section_language()}>
+        <SettingRow
+          label={m.settings_language()}
+          htmlFor="language"
+          description={m.settings_language_description()}
+          control={
+            <Select
+              id="language"
+              value={language.value}
+              onValueChange={language.set}
+              options={language.options}
+              size="sm"
+              disabled={language.isPending}
+              aria-label={m.settings_language()}
+            />
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection title={m.settings_section_about()}>
+        <SettingRow label={m.settings_version()} control={<Version value={version.data} />} />
+        <SettingRow label={m.settings_updates()} control={<UpdateCheck />} />
       </SettingsSection>
 
       <InlineError

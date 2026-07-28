@@ -12,6 +12,7 @@ import { useSetSetting, useSetting } from "./commands";
 export const SETTING_KEYS = {
   blockUnsupportedBrowsers: "block_unsupported_browsers",
   extensionGracePeriod: "extension_grace_period",
+  language: "language",
 } as const;
 
 export const MAX_RETENTION_DAYS = 36_500;

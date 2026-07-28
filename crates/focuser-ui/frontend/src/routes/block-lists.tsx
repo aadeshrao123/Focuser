@@ -20,7 +20,7 @@ import {
   useToggleBlockList,
 } from "@/lib/commands";
 import { formatDuration } from "@/lib/duration";
-import { count } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 export function BlockLists() {
   const [name, setName] = useState("");
@@ -38,21 +38,18 @@ export function BlockLists() {
 
   return (
     <Page>
-      <PageHeader
-        title="Block Lists"
-        description="Group the sites and apps you want blocked together. Each list can be scheduled and locked on its own."
-      />
+      <PageHeader title={m.lists_title()} description={m.lists_description()} />
 
       <Card className="mb-6" padding="md" elevation="raised">
         <form onSubmit={onSubmit} className="flex gap-2">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Name a new block list — “Deep work”, “Evenings”…"
-            aria-label="New block list name"
+            placeholder={m.lists_new_placeholder()}
+            aria-label={m.lists_new_label()}
           />
           <Button type="submit" icon={<Plus />} disabled={!name.trim() || create.isPending}>
-            {create.isPending ? "Creating…" : "Create"}
+            {create.isPending ? m.lists_creating() : m.lists_create()}
           </Button>
         </form>
         <InlineError error={create.error} />
@@ -70,8 +67,8 @@ export function BlockLists() {
           {lists.data?.length === 0 ? (
             <EmptyState
               icon={<ListChecks />}
-              title="No block lists yet"
-              description="Create one above, then add the sites and apps that pull you away."
+              title={m.lists_empty_title()}
+              description={m.lists_empty_description()}
             />
           ) : (
             <ul className="flex flex-col gap-2">
@@ -108,39 +105,36 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
                 </Badge>
               ) : (
                 <Badge tone={list.enabled ? "success" : "neutral"}>
-                  {list.enabled ? "Enabled" : "Off"}
+                  {list.enabled ? m.lists_badge_enabled() : m.lists_badge_off()}
                 </Badge>
               )}
-              {list.schedule && <Badge tone="info">Scheduled</Badge>}
+              {list.schedule && <Badge tone="info">{m.lists_badge_scheduled()}</Badge>}
             </div>
             <p className="mt-1 text-faint-foreground text-xs">
-              {count(list.websites.length, "site")} · {count(list.applications.length, "app")} ·{" "}
-              {count(list.exceptions.length, "exception")}
+              {m.count_sites({ count: list.websites.length })} ·{" "}
+              {m.count_apps({ count: list.applications.length })} ·{" "}
+              {m.count_exceptions({ count: list.exceptions.length })}
             </p>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <Tooltip
-              content={
-                lock ? "A lock is running — this cannot be turned off" : "Turn this list on or off"
-              }
-            >
+            <Tooltip content={lock ? m.lists_toggle_locked() : m.lists_toggle_hint()}>
               <span>
                 <Switch
                   checked={list.enabled}
                   onCheckedChange={(enabled) => toggle.mutate({ id: list.id, enabled })}
                   disabled={lock !== null && list.enabled}
-                  aria-label={`Enable ${list.name}`}
+                  aria-label={m.lists_enable({ name: list.name })}
                 />
               </span>
             </Tooltip>
 
-            <Tooltip content={lock ? "Already locked" : "Lock this list on for a set time"}>
+            <Tooltip content={lock ? m.lists_protect_already() : m.lists_protect_hint()}>
               <span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Protect ${list.name}`}
+                  aria-label={m.lists_protect({ name: list.name })}
                   aria-expanded={protecting}
                   disabled={lock !== null}
                   onClick={() => setProtecting(!protecting)}
@@ -150,13 +144,13 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
               </span>
             </Tooltip>
 
-            <Tooltip content={lock ? "Locked lists cannot be deleted" : "Delete this list"}>
+            <Tooltip content={lock ? m.lists_delete_locked() : m.lists_delete_hint()}>
               <span>
                 <Button
                   variant="ghost"
                   tone="destructive"
                   size="icon"
-                  aria-label={`Delete ${list.name}`}
+                  aria-label={m.lists_delete({ name: list.name })}
                   disabled={lock !== null}
                   onClick={() => remove.mutate(list.id)}
                 >
@@ -188,16 +182,14 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
     <div className="animate-in border-border border-t bg-elevated/40 px-4 py-4 fade-in slide-in-from-top-1">
       <p className="flex items-center gap-2 font-medium text-foreground text-sm">
         <Lock aria-hidden className="size-4 text-warning" />
-        Lock this list on
+        {m.lists_lock_heading()}
       </p>
-      <p className="mt-1 text-muted-foreground text-sm">
-        There is no way to cancel it early — that is the point.
-      </p>
+      <p className="mt-1 text-muted-foreground text-sm">{m.lists_lock_warning()}</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-2">
           <label htmlFor={id} className="text-muted-foreground text-sm">
-            Lock for
+            {m.lists_lock_for()}
           </label>
           <NumberField
             id={id}
@@ -209,9 +201,9 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
           />
         </div>
 
-        <Guard label="Block uninstalling" checked={uninstall} onChange={setUninstall} />
-        <Guard label="Block stopping the service" checked={serviceStop} onChange={setServiceStop} />
-        <Guard label="Block editing the list" checked={modification} onChange={setModification} />
+        <Guard label={m.lists_guard_uninstall()} checked={uninstall} onChange={setUninstall} />
+        <Guard label={m.lists_guard_service()} checked={serviceStop} onChange={setServiceStop} />
+        <Guard label={m.lists_guard_edit()} checked={modification} onChange={setModification} />
       </div>
 
       <div className="mt-4 flex items-center gap-2">
@@ -232,10 +224,12 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
             )
           }
         >
-          {protect.isPending ? "Locking…" : `Lock for ${formatDuration(minutes * 60)}`}
+          {protect.isPending
+            ? m.lists_locking()
+            : m.lists_lock_action({ duration: formatDuration(minutes * 60) })}
         </Button>
         <Button variant="ghost" size="sm" onClick={onDone}>
-          Cancel
+          {m.lists_cancel()}
         </Button>
       </div>
 

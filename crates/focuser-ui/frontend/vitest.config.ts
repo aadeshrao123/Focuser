@@ -8,6 +8,10 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: "jsdom",
+      // jsdom defaults to `about:blank`, which is an opaque origin, and reading
+      // `localStorage` from one throws. Paraglide reads it to resolve the
+      // locale, so every render would fail without a real URL here.
+      environmentOptions: { jsdom: { url: "http://localhost/" } },
       globals: true,
       setupFiles: ["./src/test/setup.ts"],
     },

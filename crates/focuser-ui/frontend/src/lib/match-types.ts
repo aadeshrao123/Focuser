@@ -1,4 +1,5 @@
 import type { AppMatchType, ExceptionType, WebsiteMatchType } from "@/bindings";
+import { m } from "@/paraglide/messages.js";
 
 /** Externally-tagged Rust enums arrive as `{ Variant: value }` or a bare string. */
 function tagged(v: unknown): { label: string; value: string } {
@@ -10,40 +11,53 @@ function tagged(v: unknown): { label: string; value: string } {
   return { label: key, value: String(value) };
 }
 
-const WEBSITE_LABELS: Record<string, string> = {
-  Domain: "Domain",
-  Keyword: "Keyword",
-  Wildcard: "Wildcard",
-  UrlPath: "URL path",
-  EntireInternet: "Entire internet",
+// Functions, not strings: a module-level lookup of message *values* would
+// freeze the locale that was active when this file was first imported.
+const WEBSITE_LABELS: Record<string, () => string> = {
+  Domain: m.websites_kind_domain,
+  Keyword: m.websites_kind_keyword,
+  Wildcard: m.websites_kind_wildcard,
+  UrlPath: m.websites_kind_url_path,
+  EntireInternet: m.websites_kind_entire_internet,
 };
 
-const APP_LABELS: Record<string, string> = {
-  ExecutableName: "Executable",
-  ExecutablePath: "Path",
-  WindowTitle: "Window title",
-  BundleId: "Bundle ID",
+const APP_LABELS: Record<string, () => string> = {
+  ExecutableName: m.apps_kind_executable_name,
+  ExecutablePath: m.apps_kind_executable_path,
+  WindowTitle: m.apps_kind_window_title,
+  BundleId: m.apps_kind_bundle_id,
 };
 
-const EXCEPTION_LABELS: Record<string, string> = {
-  Domain: "Domain",
-  Wildcard: "Wildcard",
-  LocalFiles: "Local files",
+const EXCEPTION_LABELS: Record<string, () => string> = {
+  Domain: m.websites_kind_domain,
+  Wildcard: m.websites_kind_wildcard,
+  LocalFiles: m.exceptions_kind_local_files,
 };
 
-export function describeWebsite(m: WebsiteMatchType) {
-  const { label, value } = tagged(m);
-  return { kind: WEBSITE_LABELS[label] ?? label, value };
+/**
+ * `kind` is the Rust variant name and never changes; `label` is what the user
+ * reads. They are separate because the rule table picks an icon and a colour by
+ * kind, and keying that off translated text would leave every row unstyled in
+ * any language but English.
+ */
+function describe(
+  match: unknown,
+  labels: Record<string, () => string>,
+): { kind: string; label: string; value: string } {
+  const { label, value } = tagged(match);
+  return { kind: label, label: labels[label]?.() ?? label, value };
 }
 
-export function describeApp(m: AppMatchType) {
-  const { label, value } = tagged(m);
-  return { kind: APP_LABELS[label] ?? label, value };
+export function describeWebsite(match: WebsiteMatchType) {
+  return describe(match, WEBSITE_LABELS);
 }
 
-export function describeException(m: ExceptionType) {
-  const { label, value } = tagged(m);
-  return { kind: EXCEPTION_LABELS[label] ?? label, value };
+export function describeApp(match: AppMatchType) {
+  return describe(match, APP_LABELS);
+}
+
+export function describeException(match: ExceptionType) {
+  return describe(match, EXCEPTION_LABELS);
 }
 
 /** Bulk import takes a value per line, so the whole-internet rule has no place. */

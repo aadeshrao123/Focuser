@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { useAddAppRule, useAppIcons, useBlockLists, useRemoveAppRule } from "@/lib/commands";
 import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
 import { isTauri, pickApplication } from "@/lib/native";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Examples in the shape this machine actually reports.
@@ -50,6 +51,17 @@ function hostPlatform(): keyof typeof EXAMPLES {
 
 const PLACEHOLDERS = EXAMPLES[hostPlatform()];
 
+const APP_KIND_LABEL: Record<AppKind, () => string> = {
+  ExecutableName: m.apps_kind_executable_name,
+  ExecutablePath: m.apps_kind_executable_path,
+  WindowTitle: m.apps_kind_window_title,
+};
+
+/** Built during render so the labels follow the current language. */
+function appKindOptions() {
+  return APP_KINDS.map((k) => ({ value: k.value, label: APP_KIND_LABEL[k.value]() }));
+}
+
 export function Apps() {
   const lists = useBlockLists();
   const [rawSelected, setSelected] = useState("");
@@ -84,8 +96,8 @@ export function Apps() {
   return (
     <Page>
       <PageHeader
-        title="Applications"
-        description="Programs to close while blocking is active."
+        title={m.apps_title()}
+        description={m.apps_description()}
         actions={<ListPicker lists={all} value={selected} onChange={setSelected} />}
       />
 
@@ -97,23 +109,28 @@ export function Apps() {
       >
         {!list ? (
           <EmptyState
-            title="No block lists yet"
-            description="Create one on the Block Lists page first."
+            title={m.websites_no_lists_title()}
+            description={m.websites_no_lists_description()}
           />
         ) : (
           <>
             <Card className="mb-4" padding="md" elevation="raised">
               <form onSubmit={submit} className="flex flex-wrap gap-2">
-                <Select value={kind} onValueChange={setKind} options={APP_KINDS} className="w-44" />
+                <Select
+                  value={kind}
+                  onValueChange={setKind}
+                  options={appKindOptions()}
+                  className="w-44"
+                />
                 <Input
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   placeholder={PLACEHOLDERS[kind]}
-                  aria-label="Application to block"
+                  aria-label={m.apps_value_label()}
                   className="max-w-sm flex-1"
                 />
                 <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
-                  Add
+                  {m.apps_add()}
                 </Button>
                 {isTauri() && (
                   <Button
@@ -121,9 +138,9 @@ export function Apps() {
                     variant="outline"
                     icon={<FolderOpen />}
                     onClick={browse}
-                    title="Pick an application from disk"
+                    title={m.apps_browse_title()}
                   >
-                    Browse…
+                    {m.apps_browse()}
                   </Button>
                 )}
               </form>
@@ -133,8 +150,8 @@ export function Apps() {
             {list.applications.length === 0 ? (
               <EmptyState
                 icon={<AppWindow />}
-                title="No applications blocked"
-                description={`Add an executable name like ${PLACEHOLDERS.ExecutableName}, or browse for one on disk.`}
+                title={m.apps_empty_title()}
+                description={m.apps_empty_description({ example: PLACEHOLDERS.ExecutableName })}
               />
             ) : (
               <AppRules
@@ -170,6 +187,12 @@ function AppRules({
   const icons = useAppIcons(rows.map((r) => r.value).filter(Boolean));
 
   return (
-    <RuleTable key={listId} rows={rows} onRemove={onRemove} noun="application" icons={icons.data} />
+    <RuleTable
+      key={listId}
+      rows={rows}
+      onRemove={onRemove}
+      noun={m.noun_application()}
+      icons={icons.data}
+    />
   );
 }

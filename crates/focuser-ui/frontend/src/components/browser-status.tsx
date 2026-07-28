@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { QueryState } from "@/components/ui/feedback";
 import { useBrowserStatus } from "@/lib/commands";
 import { isTauri, openInBrowser } from "@/lib/native";
+import { m } from "@/paraglide/messages.js";
 
 export function BrowserStatusList() {
   const browsers = useBrowserStatus();
@@ -33,15 +34,15 @@ function BrowserRow({ browser }: { browser: Status }) {
           {browser.extension_connected ? (
             <>
               <Check aria-hidden className="size-3.5 text-success" />
-              <span className="text-success">Extension connected</span>
+              <span className="text-success">{m.browser_extension_connected()}</span>
             </>
           ) : browser.running ? (
             <>
               <CircleAlert aria-hidden className="size-3.5 text-warning" />
-              <span className="text-warning">Running without the extension</span>
+              <span className="text-warning">{m.browser_running_without()}</span>
             </>
           ) : (
-            <span className="text-faint-foreground">Not running</span>
+            <span className="text-faint-foreground">{m.browser_not_running()}</span>
           )}
         </p>
       </div>
@@ -53,7 +54,7 @@ function BrowserRow({ browser }: { browser: Status }) {
           icon={<ExternalLink />}
           onClick={() => openInBrowser(browser.launch_name, browser.store_url)}
         >
-          Install
+          {m.common_install()}
         </Button>
       )}
     </li>

@@ -1,7 +1,10 @@
 # Translating Focuser
 
-Focuser ships in English. If you speak another language well, you can add it, and you will
-do a better job of it than machine translation or than the maintainer guessing.
+Focuser ships in English and Spanish. If you speak another language well, you can add it,
+and you will do a better job of it than machine translation or than the maintainer guessing.
+
+**The Spanish is a first draft and has not been reviewed by a native speaker.** If you are
+one, corrections are more welcome than a new language.
 
 You do not need to know Rust. You do not need to run the app. Editing one JSON file is
 enough.

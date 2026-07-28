@@ -20,11 +20,12 @@ import {
 } from "@/lib/commands";
 import { formatDuration } from "@/lib/duration";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 const PHASE_LABEL = {
-  work: "Focus",
-  short_break: "Short break",
-  long_break: "Long break",
+  work: m.focus_dial_focus,
+  short_break: m.focus_dial_short_break,
+  long_break: m.focus_dial_long_break,
 } as const;
 
 /** One colour per phase, reused by the dials, the timeline and the running
@@ -61,11 +62,11 @@ export function FocusSession({ lists }: { lists: BlockList[] }) {
         <div className="flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 font-medium text-foreground text-sm">
             <Timer aria-hidden className="size-4 text-primary" />
-            Focus session
+            {m.focus_session_heading()}
           </h2>
           {running && (
             <LiveBadge tone={running.current_phase === "work" ? "primary" : "success"}>
-              {running.paused ? "Paused" : PHASE_LABEL[running.current_phase]}
+              {running.paused ? m.session_paused() : PHASE_LABEL[running.current_phase]()}
             </LiveBadge>
           )}
         </div>
@@ -103,11 +104,11 @@ function Running({
         <div className="flex shrink-0 gap-2">
           {status.paused ? (
             <Button size="sm" icon={<Play />} onClick={() => resume.mutate()}>
-              Resume
+              {m.focus_resume()}
             </Button>
           ) : (
             <Button variant="outline" size="sm" icon={<Pause />} onClick={() => pause.mutate()}>
-              Pause
+              {m.focus_pause()}
             </Button>
           )}
           <Button
@@ -115,9 +116,9 @@ function Running({
             size="sm"
             icon={<SkipForward />}
             onClick={() => skip.mutate()}
-            aria-label="Skip to the next phase"
+            aria-label={m.focus_skip_label()}
           >
-            Skip
+            {m.focus_skip()}
           </Button>
           <Button
             variant="ghost"
@@ -126,12 +127,12 @@ function Running({
             icon={<Square />}
             onClick={() => stop.mutate()}
           >
-            Stop
+            {m.focus_stop()}
           </Button>
         </div>
       </div>
 
-      <Progress className="mt-4" value={progress} label="Phase progress" />
+      <Progress className="mt-4" value={progress} label={m.focus_phase_progress()} />
 
       <InlineError error={pause.error ?? resume.error ?? skip.error ?? stop.error} />
     </div>
@@ -169,17 +170,13 @@ function StartForm({ lists }: { lists: BlockList[] }) {
   const selected = resolveSelected(lists, rawSelected);
 
   if (lists.length === 0) {
-    return (
-      <p className="mt-3 text-muted-foreground text-sm">
-        Create a block list first — a session needs something to block.
-      </p>
-    );
+    return <p className="mt-3 text-muted-foreground text-sm">{m.focus_no_lists()}</p>;
   }
 
   if (!presets.data) {
     return (
       <>
-        <p className="mt-3 text-muted-foreground text-sm">Loading presets…</p>
+        <p className="mt-3 text-muted-foreground text-sm">{m.focus_loading_presets()}</p>
         <InlineError error={presets.error} />
       </>
     );
@@ -194,9 +191,7 @@ function StartForm({ lists }: { lists: BlockList[] }) {
 
   return (
     <>
-      <p className="mt-1 text-muted-foreground text-sm">
-        Turns a block list on while you work and off during breaks.
-      </p>
+      <p className="mt-1 text-muted-foreground text-sm">{m.focus_session_description()}</p>
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {presets.data.map((preset) => {
@@ -222,7 +217,7 @@ function StartForm({ lists }: { lists: BlockList[] }) {
 
       <div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-6">
         <Dial
-          label="Focus"
+          label={m.focus_dial_focus()}
           suffix="min"
           value={values.work}
           onChange={(work) => set({ work })}
@@ -231,7 +226,7 @@ function StartForm({ lists }: { lists: BlockList[] }) {
           color={PHASE_COLOR.work}
         />
         <Dial
-          label="Short break"
+          label={m.focus_dial_short_break()}
           suffix="min"
           value={values.shortBreak}
           onChange={(shortBreak) => set({ shortBreak })}
@@ -240,7 +235,7 @@ function StartForm({ lists }: { lists: BlockList[] }) {
           color={PHASE_COLOR.short_break}
         />
         <Dial
-          label="Long break"
+          label={m.focus_dial_long_break()}
           suffix="min"
           value={values.longBreak}
           onChange={(longBreak) => set({ longBreak })}
@@ -251,13 +246,13 @@ function StartForm({ lists }: { lists: BlockList[] }) {
 
         <div className="flex min-w-56 flex-1 flex-col gap-4">
           <div>
-            <p className="mb-2 text-muted-foreground text-xs">Cycles before a long break</p>
+            <p className="mb-2 text-muted-foreground text-xs">{m.focus_cycles()}</p>
             <Cycles value={values.cycles} onChange={(cycles) => set({ cycles })} />
           </div>
 
           <div>
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <p className="text-muted-foreground text-xs">One session</p>
+              <p className="text-muted-foreground text-xs">{m.focus_one_session()}</p>
               <p className="font-medium text-foreground text-sm tabular-nums">
                 {formatDuration(sessionSeconds(values))}
               </p>
@@ -284,7 +279,7 @@ function StartForm({ lists }: { lists: BlockList[] }) {
             })
           }
         >
-          {start.isPending ? "Starting…" : "Start"}
+          {start.isPending ? m.focus_starting() : m.focus_start()}
         </Button>
       </div>
 

@@ -15,20 +15,28 @@ import { AppIcon } from "@/components/ui/app-icon";
 import { LiveBadge } from "@/components/ui/badge";
 import { usePomodoroStatus } from "@/lib/commands";
 import { formatCountdown } from "@/lib/duration";
+import { useApplySavedLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
+// `label` is a function, not a string: a message read at module scope would
+// freeze the locale that was active when this file was imported.
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/block-lists", label: "Block Lists", icon: ListChecks },
-  { to: "/websites", label: "Websites", icon: Globe },
-  { to: "/apps", label: "Applications", icon: AppWindow },
-  { to: "/schedule", label: "Schedule", icon: CalendarClock },
-  { to: "/allowances", label: "Allowances", icon: Hourglass },
-  { to: "/statistics", label: "Statistics", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: m.nav_dashboard, icon: LayoutDashboard, end: true },
+  { to: "/block-lists", label: m.nav_block_lists, icon: ListChecks },
+  { to: "/websites", label: m.nav_websites, icon: Globe },
+  { to: "/apps", label: m.nav_applications, icon: AppWindow },
+  { to: "/schedule", label: m.nav_schedule, icon: CalendarClock },
+  { to: "/allowances", label: m.nav_allowances, icon: Hourglass },
+  { to: "/statistics", label: m.nav_statistics, icon: BarChart3 },
+  { to: "/settings", label: m.nav_settings, icon: Settings },
 ] as const;
 
 export function AppLayout() {
+  // Wraps every route, so this is the one place the saved language reaches the
+  // whole app rather than only the page that happens to read it.
+  useApplySavedLanguage();
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-deep">
       <TitleBar />
@@ -47,7 +55,7 @@ export function AppLayout() {
 function Sidebar() {
   return (
     <nav
-      aria-label="Main"
+      aria-label={m.nav_landmark()}
       className="glass flex w-56 shrink-0 flex-col border-border/60 border-r p-3"
     >
       <Brand />
@@ -89,7 +97,7 @@ function Sidebar() {
                     isActive ? "text-primary" : "text-faint-foreground group-hover:text-foreground",
                   )}
                 />
-                {label}
+                {label()}
               </>
             )}
           </NavLink>
@@ -120,13 +128,13 @@ function SessionPill() {
   const status = usePomodoroStatus();
   if (!status.data) return null;
 
-  const phase = status.data.current_phase === "work" ? "Focus" : "Break";
+  const phase = status.data.current_phase === "work" ? m.session_focus() : m.session_break();
 
   return (
     <div className="glass-strong mt-auto rounded-lg border border-primary/25 p-3">
       <div className="flex items-center justify-between gap-2">
         <LiveBadge tone={status.data.current_phase === "work" ? "primary" : "success"}>
-          {status.data.paused ? "Paused" : phase}
+          {status.data.paused ? m.session_paused() : phase}
         </LiveBadge>
         <span className="font-semibold text-foreground text-sm tabular-nums">
           {formatCountdown(status.data.remaining_secs)}

@@ -22,10 +22,11 @@ export default defineConfig({
       // Must match the `paraglide` script in package.json or the two produce
       // different trees depending on which ran last.
       outputStructure: "message-modules",
-      // The app owns the language, so there is nothing to sniff: no URL
-      // segment, no Accept-Language, no cookie. It reads the saved setting and
-      // calls setLocale itself.
-      strategy: ["baseLocale"],
+      // localStorage first so a reload keeps the chosen language without a
+      // flash of English, then the base locale. Nothing is sniffed from the
+      // URL or Accept-Language: the app owns the choice and the Settings page
+      // is the only thing that makes it.
+      strategy: ["localStorage", "baseLocale"],
     }),
   ],
 

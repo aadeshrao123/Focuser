@@ -15,6 +15,7 @@ import { formatDay, RANGES, type RangeId, rangeFor } from "@/lib/date-range";
 import { formatDuration } from "@/lib/duration";
 import { seriesByTarget, summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
 import { count } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 const TOP_LIMIT = 10;
 
@@ -39,8 +40,8 @@ export function Statistics() {
   return (
     <Page wide>
       <PageHeader
-        title="Statistics"
-        description="What Focuser has been keeping you away from."
+        title={m.statistics_title()}
+        description={m.statistics_description()}
         actions={
           <>
             <Select
@@ -48,7 +49,7 @@ export function Statistics() {
               onValueChange={setRangeId}
               options={RANGES}
               size="sm"
-              aria-label="Date range"
+              aria-label={m.statistics_date_range()}
             />
             <ConfirmButton
               variant="outline"
@@ -56,7 +57,7 @@ export function Statistics() {
               onConfirm={() => clear.mutate()}
               disabled={clear.isPending}
             >
-              Clear history
+              {m.statistics_clear_history()}
             </ConfirmButton>
           </>
         }
@@ -70,39 +71,43 @@ export function Statistics() {
       >
         <StatGrid>
           <Stat
-            label="Blocked attempts"
+            label={m.statistics_blocked_attempts()}
             value={totals.attempts.toLocaleString()}
             icon={<Ban aria-hidden className="size-3.5" />}
             tone="primary"
           />
           <Stat
-            label="Time recorded"
+            label={m.statistics_time_recorded()}
             value={formatDuration(totals.seconds)}
             icon={<Clock aria-hidden className="size-3.5" />}
           />
           <Stat
-            label="Sites and apps"
+            label={m.statistics_sites_and_apps()}
             value={totals.targets}
             icon={<Globe aria-hidden className="size-3.5" />}
           />
           <Stat
-            label="Busiest day"
+            label={m.statistics_busiest_day()}
             value={totals.busiestDay ? formatDay(totals.busiestDay.date) : "—"}
-            hint={totals.busiestDay ? `${totals.busiestDay.attempts} blocked attempts` : undefined}
+            hint={
+              totals.busiestDay
+                ? m.statistics_busiest_day_hint({ count: totals.busiestDay.attempts })
+                : undefined
+            }
             icon={<CalendarDays aria-hidden className="size-3.5" />}
           />
         </StatGrid>
 
         <Section
-          title="Blocked attempts per day"
+          title={m.statistics_per_day()}
           actions={
             <Tabs
               value={view}
               onChange={setView}
               items={[
-                { id: "bars", label: "Bars" },
-                { id: "individual", label: "Individual" },
-                { id: "detailed", label: "Detailed" },
+                { id: "bars", label: m.statistics_view_bars() },
+                { id: "individual", label: m.statistics_view_individual() },
+                { id: "detailed", label: m.statistics_view_detailed() },
               ]}
             />
           }
@@ -114,8 +119,8 @@ export function Statistics() {
           ) : series.length === 0 ? (
             <EmptyState
               icon={<BarChart3 />}
-              title="Nothing recorded yet"
-              description="Sites and apps get their own charts here once something is blocked."
+              title={m.statistics_chart_empty_title()}
+              description={m.statistics_chart_empty_description()}
             />
           ) : view === "individual" ? (
             <TargetIndividual
@@ -130,7 +135,7 @@ export function Statistics() {
         </Section>
 
         <Section
-          title="Most blocked"
+          title={m.statistics_most_blocked()}
           actions={
             targets.length > 0 ? (
               <Badge tone="neutral">{count(targets.length, "site or app", "sites and apps")}</Badge>
@@ -140,28 +145,26 @@ export function Statistics() {
           {targets.length === 0 ? (
             <EmptyState
               icon={<BarChart3 />}
-              title="Nothing recorded yet"
-              description="Numbers appear here once a block list starts turning things away."
+              title={m.statistics_table_empty_title()}
+              description={m.statistics_table_empty_description()}
             />
           ) : (
             <Card padding="none" elevation="raised" className="overflow-hidden">
               <table className="w-full text-sm">
-                <caption className="sr-only">
-                  Sites and apps by blocked attempts, busiest first
-                </caption>
+                <caption className="sr-only">{m.table_caption()}</caption>
                 <thead>
                   <tr className="border-border border-b bg-elevated/40 text-muted-foreground text-xs">
                     <th scope="col" className="px-4 py-2 text-left font-normal">
-                      Site or app
+                      {m.table_site_or_app()}
                     </th>
                     <th scope="col" className="px-4 py-2">
-                      <span className="sr-only">Share</span>
+                      <span className="sr-only">{m.table_share()}</span>
                     </th>
                     <th scope="col" className="px-4 py-2 text-right font-normal">
-                      Attempts
+                      {m.table_attempts()}
                     </th>
                     <th scope="col" className="px-4 py-2 text-right font-normal">
-                      Time
+                      {m.table_time()}
                     </th>
                   </tr>
                 </thead>

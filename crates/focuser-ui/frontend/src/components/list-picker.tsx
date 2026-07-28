@@ -1,6 +1,7 @@
 import { useId } from "react";
 import type { BlockList } from "@/bindings";
 import { Select } from "@/components/ui/select";
+import { m } from "@/paraglide/messages.js";
 
 /** Choose which block list a page is editing. */
 export function ListPicker({
@@ -17,7 +18,7 @@ export function ListPicker({
 
   return (
     <div className="flex items-center gap-2 text-muted-foreground text-sm">
-      <label htmlFor={id}>Block list</label>
+      <label htmlFor={id}>{m.common_block_list()}</label>
       <Select
         id={id}
         value={value}

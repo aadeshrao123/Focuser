@@ -11,6 +11,7 @@ import {
   toggleHour,
 } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * 7×24 hour grid with click-and-drag painting.
@@ -93,10 +94,7 @@ export function ScheduleGrid({
           showing a dot came out narrow — 24 supposedly equal hours rendered at
           two different widths. */}
       <table className="w-full min-w-[60rem] table-fixed select-none border-separate border-spacing-[3px]">
-        <caption className="sr-only">
-          Weekly schedule, one column per hour. Use the day and hour headings to fill a whole row or
-          column.
-        </caption>
+        <caption className="sr-only">{m.grid_aria()}</caption>
         <thead>
           <tr>
             {/* Fixed layout takes every column width from the first row. */}

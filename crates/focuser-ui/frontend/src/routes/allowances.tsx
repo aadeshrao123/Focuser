@@ -23,11 +23,17 @@ import {
   useUpdateAllowance,
 } from "@/lib/commands";
 import { formatDuration } from "@/lib/duration";
+import { m } from "@/paraglide/messages.js";
 
-const KINDS = [
-  { value: "Domain", label: "Website" },
-  { value: "AppExecutable", label: "Application" },
-] as const;
+const KINDS = [{ value: "Domain" }, { value: "AppExecutable" }] as const;
+
+/** Built during render so the labels follow the current language. */
+function kindOptions() {
+  return [
+    { value: "Domain" as const, label: m.allowances_kind_website() },
+    { value: "AppExecutable" as const, label: m.allowances_kind_application() },
+  ];
+}
 
 export function Allowances() {
   const allowances = useAllowances();
@@ -69,21 +75,16 @@ export function Allowances() {
 
   return (
     <Page>
-      <PageHeader
-        title="Allowances"
-        description="A daily budget instead of an outright block. When it runs out, the site or app is blocked for the rest of the day."
-      />
+      <PageHeader title={m.allowances_title()} description={m.allowances_description()} />
 
       {hasWebsiteAllowance && !extensionConnected && (
         <Card className="mb-6 border-warning/40" padding="md">
           <p className="flex items-center gap-2 font-medium text-sm text-warning">
             <TriangleAlert aria-hidden className="size-4" />
-            Website allowances need the browser extension
+            {m.allowances_extension_needed_title()}
           </p>
           <p className="mt-1 text-muted-foreground text-sm">
-            Only the extension can see which tab is open, so without it the timer never starts.
-            Those sites stay blocked in the meantime — an allowance that cannot be measured would
-            otherwise be an unlimited pass. Install it from Settings.
+            {m.allowances_extension_needed_body()}
           </p>
         </Card>
       )}
@@ -92,23 +93,24 @@ export function Allowances() {
         <Card className="mb-6 border-warning/40" padding="md">
           <p className="flex items-center gap-2 font-medium text-sm text-warning">
             <TriangleAlert aria-hidden className="size-4" />
-            Application allowances cannot be measured on Wayland
+            {m.allowances_wayland_title()}
           </p>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Wayland has no way for one program to ask which window is in front, so the timer never
-            starts. Those apps stay blocked in the meantime. Logging in with an Xorg session makes
-            it work. Website allowances are unaffected.
-          </p>
+          <p className="mt-1 text-muted-foreground text-sm">{m.allowances_wayland_body()}</p>
         </Card>
       )}
 
       <Card className="mb-6" padding="lg">
         <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
-          <Labelled label="Type">
-            <Select value={kind} onValueChange={setKind} options={KINDS} size="sm" />
+          <Labelled label={m.allowances_field_type()}>
+            <Select value={kind} onValueChange={setKind} options={kindOptions()} size="sm" />
           </Labelled>
 
-          <Labelled label={kind === "Domain" ? "Domain" : "Executable"} htmlFor="allowance-target">
+          <Labelled
+            label={
+              kind === "Domain" ? m.allowances_field_domain() : m.allowances_field_executable()
+            }
+            htmlFor="allowance-target"
+          >
             <Input
               id="allowance-target"
               size="sm"
@@ -119,7 +121,7 @@ export function Allowances() {
             />
           </Labelled>
 
-          <Labelled label="Daily limit" htmlFor="allowance-minutes">
+          <Labelled label={m.allowances_field_daily_limit()} htmlFor="allowance-minutes">
             <NumberField
               id="allowance-minutes"
               value={minutes}
@@ -130,12 +132,16 @@ export function Allowances() {
             />
           </Labelled>
 
-          <Labelled label="Only while focused">
-            <Switch checked={strict} onCheckedChange={setStrict} aria-label="Only while focused" />
+          <Labelled label={m.allowances_field_only_focused()}>
+            <Switch
+              checked={strict}
+              onCheckedChange={setStrict}
+              aria-label={m.allowances_field_only_focused()}
+            />
           </Labelled>
 
           <Button type="submit" icon={<Plus />} disabled={!value.trim() || create.isPending}>
-            {create.isPending ? "Adding…" : "Add"}
+            {create.isPending ? m.allowances_adding() : m.allowances_add()}
           </Button>
         </form>
         <InlineError error={create.error} />
@@ -150,8 +156,8 @@ export function Allowances() {
         {allowances.data?.length === 0 ? (
           <EmptyState
             icon={<Hourglass />}
-            title="No allowances yet"
-            description="An allowance is a daily budget rather than a wall — thirty minutes of something, then it closes for the day."
+            title={m.allowances_empty_title()}
+            description={m.allowances_empty_description()}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -194,11 +200,11 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="truncate font-medium text-foreground text-sm">{a.target.value}</p>
-                {exhausted && <Badge tone="destructive">Spent</Badge>}
-                {!a.enabled && <Badge tone="neutral">Paused</Badge>}
+                {exhausted && <Badge tone="destructive">{m.allowances_badge_spent()}</Badge>}
+                {!a.enabled && <Badge tone="neutral">{m.allowances_badge_paused()}</Badge>}
               </div>
               <p className="mt-0.5 text-faint-foreground text-xs">
-                {a.strict_mode ? "Counted only while focused" : "Counted whenever open"}
+                {a.strict_mode ? m.allowances_counted_focused() : m.allowances_counted_open()}
               </p>
             </div>
           </div>
@@ -215,13 +221,13 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
             <Switch
               checked={a.enabled}
               onCheckedChange={(enabled) => save({ enabled })}
-              aria-label={`Enable allowance for ${a.target.value}`}
+              aria-label={m.allowances_enable({ target: a.target.value })}
             />
-            <Tooltip content="Reset today's usage">
+            <Tooltip content={m.allowances_reset_tooltip()}>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={`Reset today's usage for ${a.target.value}`}
+                aria-label={m.allowances_reset_for({ target: a.target.value })}
                 onClick={() => reset.mutate(a.id)}
               >
                 <RotateCcw />
@@ -231,7 +237,7 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
               variant="ghost"
               tone="destructive"
               size="icon"
-              aria-label={`Delete allowance for ${a.target.value}`}
+              aria-label={m.allowances_delete_for({ target: a.target.value })}
               onClick={() => remove.mutate(a.id)}
             >
               <Trash2 />
@@ -243,12 +249,12 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
           className="mt-3"
           value={ratio}
           tone={exhausted ? "destructive" : ratio > 0.75 ? "warning" : "success"}
-          label={`Usage for ${a.target.value}`}
+          label={m.allowances_usage_for({ target: a.target.value })}
         />
         <p id={`allowance-${a.id}-usage`} className="mt-1.5 text-faint-foreground text-xs">
           {exhausted
-            ? `Used all ${formatDuration(a.daily_limit_secs)} — blocked for the rest of today`
-            : `${formatDuration(used)} used · ${formatDuration(left)} left`}
+            ? m.allowances_used_all({ limit: formatDuration(a.daily_limit_secs) })
+            : m.allowances_used_left({ used: formatDuration(used), left: formatDuration(left) })}
         </p>
 
         <InlineError error={update.error ?? reset.error ?? remove.error} />

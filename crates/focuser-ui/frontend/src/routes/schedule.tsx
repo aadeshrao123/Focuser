@@ -30,6 +30,7 @@ import {
   slotsToCells,
 } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 const sameCells = (a: Set<CellKey>, b: Set<CellKey>) =>
   a.size === b.size && [...a].every((k) => b.has(k));
@@ -80,8 +81,8 @@ export function Schedule() {
   return (
     <Page wide>
       <PageHeader
-        title="Schedule"
-        description="When this block list is active."
+        title={m.schedule_title()}
+        description={m.schedule_description()}
         actions={<ListPicker lists={all} value={selected} onChange={setSelected} />}
       />
 
@@ -93,8 +94,8 @@ export function Schedule() {
       >
         {!list ? (
           <EmptyState
-            title="No block lists yet"
-            description="Create one on the Block Lists page first."
+            title={m.websites_no_lists_title()}
+            description={m.websites_no_lists_description()}
           />
         ) : (
           <>
@@ -103,8 +104,8 @@ export function Schedule() {
               value={mode}
               onChange={setMode}
               items={[
-                { id: "always", label: "Always active" },
-                { id: "scheduled", label: "On a schedule" },
+                { id: "always", label: m.schedule_mode_always() },
+                { id: "scheduled", label: m.schedule_mode_scheduled() },
               ]}
             />
 
@@ -141,11 +142,11 @@ function AlwaysPanel() {
           <InfinityIcon aria-hidden className="size-6" />
         </span>
         <div className="min-w-0">
-          <p className="font-medium text-foreground">Blocking is always on</p>
+          <p className="font-medium text-foreground">{m.schedule_always_heading()}</p>
           <p className="mt-1 text-muted-foreground text-sm leading-relaxed">
-            This list applies whenever it is enabled, at any hour of any day. Switch to{" "}
-            <span className="text-foreground">On a schedule</span> to limit it to certain hours —
-            useful when you only want to be blocked during work, or only in the evenings.
+            {m.schedule_always_body_before()}{" "}
+            <span className="text-foreground">{m.schedule_mode_scheduled()}</span>{" "}
+            {m.schedule_always_body_after()}
           </p>
         </div>
       </div>
@@ -177,7 +178,7 @@ function GridPanel({
   return (
     <Card padding="lg" elevation="raised" className="edge-light">
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-muted-foreground text-xs">Presets</span>
+        <span className="mr-1 text-muted-foreground text-xs">{m.grid_presets()}</span>
         {PRESETS.map((p) => (
           <Button
             key={p.id}
@@ -197,7 +198,7 @@ function GridPanel({
           disabled={draft.size === 0}
           className="ml-auto"
         >
-          Clear
+          {m.common_clear()}
         </Button>
       </div>
 
@@ -206,15 +207,13 @@ function GridPanel({
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-faint-foreground text-xs">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-[3px] bg-primary" />
-          Blocking
+          {m.grid_legend_blocking()}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-[3px] bg-elevated" />
-          Off
+          {m.grid_legend_off()}
         </span>
-        <span className="ml-auto">
-          Drag to paint · click a day or hour heading to fill the whole row or column
-        </span>
+        <span className="ml-auto">{m.grid_hint()}</span>
       </div>
     </Card>
   );
@@ -241,7 +240,7 @@ function WeekSummary({
         <div>
           <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <CalendarRange aria-hidden className="size-3.5" />
-            Blocking each week
+            {m.schedule_weekly_total()}
           </span>
           <p className="mt-1.5 flex items-baseline gap-2.5">
             <span className="font-semibold text-3xl text-foreground tabular-nums">
@@ -253,7 +252,7 @@ function WeekSummary({
 
         <div className="min-w-48 flex-1">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-faint-foreground text-xs">Coverage</span>
+            <span className="text-faint-foreground text-xs">{m.schedule_coverage()}</span>
             <Badge tone={total > 0 ? "primary" : "neutral"}>{share}%</Badge>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-elevated">
@@ -267,11 +266,11 @@ function WeekSummary({
         <div className="ml-auto flex items-center gap-2">
           {dirty && (
             <Badge tone="warning" outlined>
-              Unsaved
+              {m.schedule_unsaved()}
             </Badge>
           )}
           <Button onClick={onSave} disabled={!dirty || saving} icon={dirty ? undefined : <Check />}>
-            {saving ? "Saving…" : dirty ? "Save schedule" : "Saved"}
+            {saving ? m.schedule_saving() : dirty ? m.schedule_save() : m.schedule_saved()}
           </Button>
         </div>
       </div>
@@ -281,7 +280,7 @@ function WeekSummary({
       <div className="grid grid-cols-2 gap-px border-border border-t bg-border sm:grid-cols-4 lg:grid-cols-7">
         {DAYS.map((day) => {
           const on = cells ? hoursOn(cells, day) : HOURS.length;
-          const text = cells ? describeDay(cells, day) : "All day";
+          const text = cells ? describeDay(cells, day) : m.schedule_all_day();
           return (
             <div key={day} className="bg-surface px-4 py-3">
               <div className="flex items-baseline justify-between gap-2">

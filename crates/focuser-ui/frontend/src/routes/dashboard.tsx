@@ -13,7 +13,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useBlockLists, useProtectionStatus, useStats, useToggleBlockList } from "@/lib/commands";
 import { rangeFor } from "@/lib/date-range";
 import { formatDuration } from "@/lib/duration";
-import { count } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 export function Dashboard() {
   const lists = useBlockLists();
@@ -35,37 +35,45 @@ export function Dashboard() {
 
   return (
     <Page wide>
-      <PageHeader title="Dashboard" description="Where things stand right now." />
+      <PageHeader title={m.dashboard_title()} description={m.dashboard_description()} />
 
       {lists.isPending ? (
         <StatGridSkeleton />
       ) : (
         <StatGrid>
           <Stat
-            label="Blocked today"
+            label={m.dashboard_blocked_today()}
             value={blockedToday.toLocaleString()}
             icon={<Ban aria-hidden />}
             tone="primary"
-            hint={blockedToday === 0 ? "Nothing turned away yet" : "Attempts stopped"}
+            hint={
+              blockedToday === 0
+                ? m.dashboard_blocked_today_none()
+                : m.dashboard_blocked_today_hint()
+            }
           />
           <Stat
-            label="Lists enabled"
-            value={`${enabled.length} of ${all.length}`}
+            label={m.dashboard_lists_enabled()}
+            value={m.dashboard_lists_enabled_value({ enabled: enabled.length, total: all.length })}
             icon={<ListChecks aria-hidden />}
             footer={<EnabledBar enabled={enabled.length} total={all.length} />}
           />
           <Stat
-            label="Rules in force"
+            label={m.dashboard_rules_in_force()}
             value={rules.toLocaleString()}
             icon={<ShieldCheck aria-hidden />}
-            hint="Sites and apps across enabled lists"
+            hint={m.dashboard_rules_in_force_hint()}
           />
           <Stat
-            label="Protected"
+            label={m.dashboard_protected()}
             value={locked.length}
             icon={<Lock aria-hidden />}
             tone={locked.length > 0 ? "warning" : "default"}
-            hint={soonest !== null ? `Unlocks in ${formatDuration(soonest)}` : "No locks running"}
+            hint={
+              soonest !== null
+                ? m.dashboard_protected_unlocks({ duration: formatDuration(soonest) })
+                : m.dashboard_protected_none()
+            }
           />
         </StatGrid>
       )}
@@ -75,13 +83,13 @@ export function Dashboard() {
       </div>
 
       <Section
-        title="Block lists"
-        description="Turn a list on or off without leaving this page."
+        title={m.dashboard_lists_title()}
+        description={m.dashboard_lists_description()}
         actions={
           <Button asChild variant="outline" size="sm">
             <Link to="/block-lists">
               <ListPlus aria-hidden className="size-4" />
-              Manage
+              {m.dashboard_manage()}
             </Link>
           </Button>
         }
@@ -91,13 +99,13 @@ export function Dashboard() {
         ) : all.length === 0 ? (
           <EmptyState
             icon={<ListChecks />}
-            title="No block lists yet"
-            description="A block list groups the sites and apps you want out of the way. Create one to start."
+            title={m.dashboard_no_lists_title()}
+            description={m.dashboard_no_lists_description()}
             action={
               <Button asChild>
                 <Link to="/block-lists">
                   <ListPlus aria-hidden className="size-4" />
-                  Create a block list
+                  {m.dashboard_create_list()}
                 </Link>
               </Button>
             }
@@ -121,22 +129,22 @@ export function Dashboard() {
                           {formatDuration(lock.remaining_seconds)}
                         </Badge>
                       )}
-                      {list.schedule && <Badge tone="info">Scheduled</Badge>}
+                      {list.schedule && <Badge tone="info">{m.dashboard_scheduled()}</Badge>}
                     </div>
                     <p className="mt-0.5 text-faint-foreground text-xs">
-                      {count(list.websites.length, "site")} ·{" "}
-                      {count(list.applications.length, "app")}
+                      {m.count_sites({ count: list.websites.length })} ·{" "}
+                      {m.count_apps({ count: list.applications.length })}
                     </p>
                   </div>
 
                   {lock ? (
-                    <Tooltip content="Locked until the protection window expires">
+                    <Tooltip content={m.dashboard_locked_tooltip()}>
                       <span>
                         <Switch
                           checked={list.enabled}
                           onCheckedChange={() => {}}
                           disabled
-                          aria-label={`Enable ${list.name}`}
+                          aria-label={m.dashboard_enable_list({ name: list.name })}
                         />
                       </span>
                     </Tooltip>
@@ -144,7 +152,7 @@ export function Dashboard() {
                     <Switch
                       checked={list.enabled}
                       onCheckedChange={(next) => toggle.mutate({ id: list.id, enabled: next })}
-                      aria-label={`Enable ${list.name}`}
+                      aria-label={m.dashboard_enable_list({ name: list.name })}
                     />
                   )}
                 </Card>

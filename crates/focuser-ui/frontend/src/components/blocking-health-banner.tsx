@@ -1,5 +1,6 @@
 import { ShieldAlert } from "lucide-react";
 import { useBlockingHealth } from "@/lib/commands";
+import { m } from "@/paraglide/messages.js";
 
 /**
  * Warns when block lists are on but nothing can actually enforce them.
@@ -25,12 +26,8 @@ export function BlockingHealthBanner() {
     >
       <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
       <div className="min-w-0 text-sm">
-        <p className="font-medium text-foreground">Blocking is not in force</p>
-        <p className="mt-0.5 text-muted-foreground">
-          Focuser cannot write the system hosts file, and no browser extension is connected — so
-          your rules are saved but nothing is being blocked. Install the browser extension, or
-          restart Focuser as administrator.
-        </p>
+        <p className="font-medium text-foreground">{m.health_title()}</p>
+        <p className="mt-0.5 text-muted-foreground">{m.health_body()}</p>
       </div>
     </div>
   );
