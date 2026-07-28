@@ -1,0 +1,87 @@
+name: Publish extension
+
+# Submitting to a store is not something to do by accident, so this is its own
+# workflow rather than a step in the release build. Tagging publishes; the
+# manual trigger defaults to a dry run that only checks credentials.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Check credentials without uploading'
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    name: Submit to Chrome and Firefox
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - run: npm ci
+
+      # Never submit something that does not typecheck or pass its tests. A
+      # store review takes days; a failed build should cost seconds.
+      - run: npm run compile
+      - run: npm test
+
+      - name: Build and zip both stores
+        run: |
+          npm run zip
+          npm run zip:firefox
+
+      - name: Check which store credentials are present
+        id: creds
+        env:
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+        run: |
+          echo "chrome=${CHROME_CLIENT_ID:+yes}" >> "$GITHUB_OUTPUT"
+          echo "firefox=${FIREFOX_JWT_ISSUER:+yes}" >> "$GITHUB_OUTPUT"
+          if [ -z "$CHROME_CLIENT_ID" ] && [ -z "$FIREFOX_JWT_ISSUER" ]; then
+            echo "::warning::No store credentials configured, so nothing was submitted."
+          fi
+
+      - name: Submit to the Chrome Web Store
+        if: steps.creds.outputs.chrome == 'yes'
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          npx wxt submit ${{ inputs.dry_run && '--dry-run' || '' }} \
+            --chrome-zip .output/*-chrome.zip
+
+      # Firefox needs the sources too: the code is bundled, and AMO rejects a
+      # bundled submission that does not ship the source to build it from.
+      - name: Submit to Firefox Add-ons
+        if: steps.creds.outputs.firefox == 'yes'
+        env:
+          FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+        run: |
+          npx wxt submit ${{ inputs.dry_run && '--dry-run' || '' }} \
+            --firefox-zip .output/*-firefox.zip \
+            --firefox-sources-zip .output/*-sources.zip
+
+      - name: Keep the submitted zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zips
+          path: extension/.output/*.zip
+          if-no-files-found: error

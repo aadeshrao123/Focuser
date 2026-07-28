@@ -104,13 +104,53 @@ labels come from a file bundled with the extension, not from a lookup service.
 
 ## Publishing
 
-WXT can submit to the stores directly:
+`.github/workflows/publish-extension.yml` submits to both stores. Pushing a
+`v*` tag publishes; running it by hand from the Actions tab defaults to a dry
+run that checks the credentials and uploads nothing.
+
+It refuses to submit anything that fails `tsc` or the tests first, because a
+store review takes days and a broken build should cost seconds.
+
+Nothing is submitted until these repository secrets exist. Whichever store is
+missing its credentials is skipped with a warning rather than failing the run.
+
+**Chrome Web Store** (Google Cloud console, Chrome Web Store API enabled):
+
+| Secret | Where it comes from |
+|---|---|
+| `CHROME_EXTENSION_ID` | The id in the dashboard URL |
+| `CHROME_CLIENT_ID` | OAuth client, type "Desktop app" |
+| `CHROME_CLIENT_SECRET` | Same OAuth client |
+| `CHROME_REFRESH_TOKEN` | One-time OAuth exchange, see below |
+
+**Firefox Add-ons** (addons.mozilla.org, Manage API Keys):
+
+| Secret | Where it comes from |
+|---|---|
+| `FIREFOX_EXTENSION_ID` | `focuser@focuser-app` |
+| `FIREFOX_JWT_ISSUER` | The AMO API key |
+| `FIREFOX_JWT_SECRET` | The AMO API secret |
+
+To collect all of them interactively, including the Chrome refresh token:
+
+```bash
+cd extension && npx wxt submit init
+```
+
+That writes `.env.submit`, which is gitignored. Copy each value into the
+repository secrets; keep the file for local submissions.
+
+Then locally:
 
 ```bash
 npm run zip && npm run zip:firefox
-npx wxt submit init      # once, to store credentials in .env.submit
-npx wxt submit --dry-run --chrome-zip .output/*-chrome.zip --firefox-zip .output/*-firefox.zip
+npm run submit:dry   # checks credentials, uploads nothing
+npm run submit       # the real thing
 ```
+
+Firefox always gets the sources zip alongside the build. AMO rejects bundled
+code without the source to rebuild it from, and everything here is bundled by
+Vite. Chrome does not ask for it.
 
 The Firefox build is **MV3**, matching the published AMO listing. WXT defaults
 Firefox to MV2; `manifestVersion: 3` in `wxt.config.ts` overrides that, and
