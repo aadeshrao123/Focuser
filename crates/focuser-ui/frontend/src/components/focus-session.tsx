@@ -6,8 +6,8 @@ import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { LiveBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dial } from "@/components/ui/dial";
 import { InlineError } from "@/components/ui/feedback";
-import { NumberField } from "@/components/ui/number-field";
 import { Progress } from "@/components/ui/progress";
 import {
   usePausePomodoro,
@@ -18,12 +18,21 @@ import {
   useStartPomodoro,
   useStopPomodoro,
 } from "@/lib/commands";
+import { formatDuration } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 
 const PHASE_LABEL = {
   work: "Focus",
   short_break: "Short break",
   long_break: "Long break",
+} as const;
+
+/** One colour per phase, reused by the dials, the timeline and the running
+    session, so the same thing is the same colour everywhere. */
+const PHASE_COLOR = {
+  work: "var(--color-primary)",
+  short_break: "var(--color-success)",
+  long_break: "var(--color-info)",
 } as const;
 
 export function FocusSession({ lists }: { lists: BlockList[] }) {
@@ -211,48 +220,55 @@ function StartForm({ lists }: { lists: BlockList[] }) {
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-4">
-        <ListPicker lists={lists} value={selected} onChange={setSelected} />
-        <Field label="Focus" htmlFor="pomo-work">
-          <NumberField
-            id="pomo-work"
-            value={values.work}
-            onCommit={(work) => set({ work })}
-            min={1}
-            max={480}
-            suffix="min"
-          />
-        </Field>
-        <Field label="Short break" htmlFor="pomo-short">
-          <NumberField
-            id="pomo-short"
-            value={values.shortBreak}
-            onCommit={(shortBreak) => set({ shortBreak })}
-            min={1}
-            max={120}
-            suffix="min"
-          />
-        </Field>
-        <Field label="Long break" htmlFor="pomo-long">
-          <NumberField
-            id="pomo-long"
-            value={values.longBreak}
-            onCommit={(longBreak) => set({ longBreak })}
-            min={1}
-            max={120}
-            suffix="min"
-          />
-        </Field>
-        <Field label="Cycles" htmlFor="pomo-cycles">
-          <NumberField
-            id="pomo-cycles"
-            value={values.cycles}
-            onCommit={(cycles) => set({ cycles })}
-            min={1}
-            max={20}
-          />
-        </Field>
+      <div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-6">
+        <Dial
+          label="Focus"
+          suffix="min"
+          value={values.work}
+          onChange={(work) => set({ work })}
+          min={1}
+          max={90}
+          color={PHASE_COLOR.work}
+        />
+        <Dial
+          label="Short break"
+          suffix="min"
+          value={values.shortBreak}
+          onChange={(shortBreak) => set({ shortBreak })}
+          min={1}
+          max={30}
+          color={PHASE_COLOR.short_break}
+        />
+        <Dial
+          label="Long break"
+          suffix="min"
+          value={values.longBreak}
+          onChange={(longBreak) => set({ longBreak })}
+          min={1}
+          max={60}
+          color={PHASE_COLOR.long_break}
+        />
 
+        <div className="flex min-w-56 flex-1 flex-col gap-4">
+          <div>
+            <p className="mb-2 text-muted-foreground text-xs">Cycles before a long break</p>
+            <Cycles value={values.cycles} onChange={(cycles) => set({ cycles })} />
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <p className="text-muted-foreground text-xs">One session</p>
+              <p className="font-medium text-foreground text-sm tabular-nums">
+                {formatDuration(sessionSeconds(values))}
+              </p>
+            </div>
+            <Timeline values={values} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+        <ListPicker lists={lists} value={selected} onChange={setSelected} />
         <Button
           icon={<Play />}
           disabled={!selected || start.isPending}
@@ -277,21 +293,66 @@ function StartForm({ lists }: { lists: BlockList[] }) {
   );
 }
 
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
+/** Total for one run through every cycle, including the long break at the end. */
+function sessionSeconds(v: Minutes): number {
+  const focus = v.work * v.cycles;
+  const shorts = v.shortBreak * Math.max(0, v.cycles - 1);
+  return (focus + shorts + v.longBreak) * 60;
+}
+
+/** Dots rather than a number field: the count is small and clicking one is
+    faster than typing it. */
+function Cycles({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const MAX = 8;
   return (
-    <div>
-      <label htmlFor={htmlFor} className="mb-1.5 block text-muted-foreground text-xs">
-        {label}
-      </label>
-      {children}
+    <div className="flex flex-wrap items-center gap-1.5">
+      {Array.from({ length: MAX }, (_, i) => i + 1).map((n) => (
+        <button
+          key={n}
+          type="button"
+          aria-pressed={n === value}
+          aria-label={`${n} cycles`}
+          onClick={() => onChange(n)}
+          className={cn(
+            "size-7 rounded-full border font-medium text-xs tabular-nums transition-colors",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            n === value
+              ? "border-primary bg-primary text-primary-foreground"
+              : n < value
+                ? "border-primary/40 bg-primary/15 text-foreground"
+                : "border-border text-faint-foreground hover:bg-hover hover:text-foreground",
+          )}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The session drawn to scale, so the balance of work to rest is visible
+    before committing to it. */
+function Timeline({ values }: { values: Minutes }) {
+  const blocks: Array<{ id: string; kind: keyof typeof PHASE_COLOR; minutes: number }> = [];
+  for (let i = 0; i < values.cycles; i++) {
+    blocks.push({ id: `work-${i}`, kind: "work", minutes: values.work });
+    if (i < values.cycles - 1) {
+      blocks.push({ id: `short-${i}`, kind: "short_break", minutes: values.shortBreak });
+    }
+  }
+  blocks.push({ id: "long", kind: "long_break", minutes: values.longBreak });
+
+  const total = blocks.reduce((n, b) => n + b.minutes, 0) || 1;
+
+  return (
+    <div className="flex h-2.5 gap-px overflow-hidden rounded-full">
+      {blocks.map((b) => (
+        <span
+          key={b.id}
+          title={`${PHASE_LABEL[b.kind]} · ${b.minutes} min`}
+          style={{ width: `${(b.minutes / total) * 100}%`, backgroundColor: PHASE_COLOR[b.kind] }}
+        />
+      ))}
     </div>
   );
 }
