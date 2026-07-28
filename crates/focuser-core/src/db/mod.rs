@@ -212,6 +212,30 @@ impl Database {
         Ok(())
     }
 
+    /// Write a statistics row for a given day. Exists for the dev server's
+    /// `--seed`, which needs history that `record_blocked_attempt` cannot make.
+    pub fn record_usage_on(
+        &self,
+        domain_or_app: &str,
+        date: &str,
+        attempts: i64,
+        seconds: i64,
+    ) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute(
+            "INSERT INTO statistics (domain_or_app, blocked_attempts, duration_seconds, date)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(domain_or_app, date)
+             DO UPDATE SET blocked_attempts = ?2, duration_seconds = ?3",
+            rusqlite::params![domain_or_app, attempts, seconds, date],
+        )
+        .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
     // ─── Blocked Events (fine-grained timeline) ────────────
 
     /// Record an individual block event with a precise timestamp.

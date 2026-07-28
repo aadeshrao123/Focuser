@@ -54,6 +54,11 @@ struct Cli {
     /// Use an in-memory database — state resets each run, for repeatable tests.
     #[arg(long)]
     memory: bool,
+
+    /// Fill the database with sample block lists and statistics, so the charts
+    /// have something to draw without waiting for real usage.
+    #[arg(long)]
+    seed: bool,
 }
 
 fn main() {
@@ -68,6 +73,11 @@ fn main() {
         info!(path = %path.display(), "using dev database");
         Database::open(&path).expect("failed to open dev database")
     };
+
+    if cli.seed {
+        seed(&db).expect("failed to seed sample data");
+        info!("seeded sample block lists and statistics");
+    }
 
     let engine = BlockEngine::new(db).expect("failed to build engine");
     // Headless: no hosts-file writes. A dev server must never edit the real
@@ -94,6 +104,57 @@ fn main() {
             Err(e) => error!(error = %e, "accept failed"),
         }
     }
+}
+
+/// Sample sites, apps and 30 days of statistics.
+///
+/// The shapes are deliberately different per site — a steady one, a weekend
+/// spike, a decline — because a chart drawn from flat data looks fine no matter
+/// how wrong it is.
+fn seed(db: &Database) -> focuser_common::Result<()> {
+    use focuser_common::types::{AppRule, BlockList, WebsiteRule};
+
+    let mut work = BlockList::new("Deep work");
+    for domain in ["reddit.com", "youtube.com", "x.com", "news.ycombinator.com"] {
+        work.websites.push(WebsiteRule::domain(domain));
+    }
+    work.applications.push(AppRule::executable("steam.exe"));
+    db.create_block_list(&work)?;
+
+    let mut evenings = BlockList::new("Evenings");
+    for domain in ["netflix.com", "twitch.tv"] {
+        evenings.websites.push(WebsiteRule::domain(domain));
+    }
+    evenings.enabled = false;
+    db.create_block_list(&evenings)?;
+
+    let sites: [(&str, f64, f64); 9] = [
+        ("reddit.com", 14.0, 0.0),
+        ("youtube.com", 11.0, 1.1),
+        ("x.com", 9.0, 2.2),
+        ("news.ycombinator.com", 7.0, 3.3),
+        ("instagram.com", 6.0, 0.7),
+        ("twitch.tv", 5.0, 4.0),
+        ("tiktok.com", 4.0, 1.8),
+        ("netflix.com", 3.0, 2.6),
+        ("steam.exe", 3.0, 5.1),
+    ];
+
+    let today = chrono::Local::now().date_naive();
+    for back in 0..30 {
+        let date = (today - chrono::Duration::days(back)).to_string();
+        for (name, scale, phase) in sites {
+            let wave = (f64::from(back as i32).mul_add(0.45, phase))
+                .sin()
+                .mul_add(0.5, 0.75);
+            let attempts = (scale * wave).round() as i64;
+            if attempts > 0 {
+                db.record_usage_on(name, &date, attempts, attempts * 47)?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn handle(mut stream: TcpStream, ctx: &AppContext) -> std::io::Result<()> {

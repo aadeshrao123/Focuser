@@ -10,8 +10,10 @@ publish = false
 [dependencies]
 focuser-app.workspace = true
 focuser-core.workspace = true
+focuser-common.workspace = true
 
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 clap.workspace = true
+chrono.workspace = true
