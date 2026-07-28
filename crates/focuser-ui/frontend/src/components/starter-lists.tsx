@@ -1,60 +1,57 @@
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { InlineError, QueryState } from "@/components/ui/feedback";
+import { InlineError } from "@/components/ui/feedback";
+import { Select } from "@/components/ui/select";
 import { useBulkImportWebsites } from "@/lib/commands";
-import { type PremadeCategory, usePremadeLists } from "@/lib/premade";
+import { usePremadeLists } from "@/lib/premade";
 import { count } from "@/lib/utils";
 
-/** Curated categories, added to the current list in one click. */
+/**
+ * Curated categories, added to the current list from one dropdown.
+ *
+ * Deliberately sitting next to the add-a-domain form rather than on a tab of
+ * its own: importing a starter list is the same act as typing a domain, and
+ * splitting them meant the fastest way to fill a list was the one people
+ * never found.
+ */
 export function StarterLists({ listId }: { listId: string }) {
   const categories = usePremadeLists();
+  const importer = useBulkImportWebsites();
+  const [id, setId] = useState("");
+  const [result, setResult] = useState<{ added: number; total: number } | null>(null);
 
-  return (
-    <>
-      <p className="mb-4 text-muted-foreground text-sm">
-        Ready-made sets of sites. Adding one appends to this block list; duplicates are skipped, so
-        it is safe to add more than one.
-      </p>
+  const all = categories.data ?? [];
+  const chosen = all.find((c) => c.id === id) ?? all[0];
 
-      <QueryState
-        isPending={categories.isPending}
-        error={categories.error}
-        onRetry={() => categories.refetch()}
-        isRetrying={categories.isFetching}
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          {categories.data?.map((category) => (
-            <CategoryCard key={category.id} listId={listId} category={category} />
-          ))}
-        </div>
-      </QueryState>
-    </>
-  );
-}
-
-function CategoryCard({ listId, category }: { listId: string; category: PremadeCategory }) {
-  const importDomains = useBulkImportWebsites();
-  const [added, setAdded] = useState<number | null>(null);
+  const options = all.map((c) => ({
+    value: c.id,
+    label: `${c.name} · ${count(c.domains.length + c.wildcards.length, "site")}`,
+  }));
 
   // Domains and wildcards are different rule kinds, so they go in two passes.
   function add() {
-    setAdded(null);
-    importDomains.mutate(
-      { listId, values: category.domains, kind: "domain" },
+    if (!chosen) return;
+    const total = chosen.domains.length + chosen.wildcards.length;
+    setResult(null);
+
+    importer.mutate(
+      { listId, values: chosen.domains, kind: "domain" },
       {
         onSuccess: (first) => {
           const domains = first.kind === "count" ? first.data : 0;
-          if (category.wildcards.length === 0) {
-            setAdded(domains);
+          if (chosen.wildcards.length === 0) {
+            setResult({ added: domains, total });
             return;
           }
-          importDomains.mutate(
-            { listId, values: category.wildcards, kind: "wildcard" },
+          importer.mutate(
+            { listId, values: chosen.wildcards, kind: "wildcard" },
             {
               onSuccess: (second) =>
-                setAdded(domains + (second.kind === "count" ? second.data : 0)),
+                setResult({
+                  added: domains + (second.kind === "count" ? second.data : 0),
+                  total,
+                }),
             },
           );
         },
@@ -62,34 +59,43 @@ function CategoryCard({ listId, category }: { listId: string; category: PremadeC
     );
   }
 
-  const total = category.domains.length + category.wildcards.length;
+  if (categories.isPending) return null;
 
   return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-medium text-foreground text-sm">{category.name}</p>
-          <p className="mt-0.5 text-muted-foreground text-xs">{category.description}</p>
-          <p className="mt-1 text-faint-foreground text-xs">{count(total, "entry", "entries")}</p>
-        </div>
+    <div className="mt-3 border-border border-t pt-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground text-sm">Or import a starter list</span>
+        <Select
+          value={chosen?.id ?? ""}
+          onValueChange={setId}
+          options={options}
+          size="sm"
+          className="w-56"
+          aria-label="Starter list"
+        />
         <Button
           variant="outline"
           size="sm"
           icon={<Download />}
-          disabled={importDomains.isPending}
+          disabled={!chosen || importer.isPending}
           onClick={add}
         >
-          Add
+          Import
         </Button>
       </div>
 
-      {added !== null && (
+      {chosen?.description && (
+        <p className="mt-2 text-muted-foreground text-xs">{chosen.description}</p>
+      )}
+
+      {result && (
         <p className="mt-2 text-success text-xs">
-          Added {count(added, "new rule")}
-          {added < total && ` · ${total - added} already there`}.
+          Added {count(result.added, "new site")}
+          {result.added < result.total && ` · ${result.total - result.added} already there`}.
         </p>
       )}
-      <InlineError error={importDomains.error} />
-    </Card>
+
+      <InlineError error={categories.error ?? importer.error} />
+    </div>
   );
 }

@@ -309,6 +309,9 @@ pub struct BlockingHealth {
     pub extension_connected: bool,
     /// The hosts file can be written — i.e. we have the privileges for it.
     pub hosts_writable: bool,
+    /// A keyword, wildcard or URL-path rule is active. Only the extension can
+    /// enforce those; a hosts file has no way to express them.
+    pub extension_only_rules: bool,
 }
 
 impl BlockingHealth {
@@ -471,6 +474,7 @@ mod health_tests {
             active_lists,
             extension_connected,
             hosts_writable,
+            extension_only_rules: false,
         }
     }
 

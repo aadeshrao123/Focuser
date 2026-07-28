@@ -4,6 +4,7 @@
 //! variant without handling it here is a compile error.
 
 use focuser_common::allowance::Allowance;
+use focuser_common::host::canonical_host;
 use focuser_common::types::{
     AppRule, BlockList, EntityId, ExceptionRule, Protection, Schedule, WebsiteMatchType,
     WebsiteRule,
@@ -78,14 +79,22 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
 
         // ─── Website rules ────────────────────────────────────────
         Command::AddWebsiteRule { list_id, rule } => {
+            let mut match_type = rule;
+            normalize(&mut match_type);
             let created = WebsiteRule {
                 id: focuser_common::types::new_id(),
-                match_type: rule,
+                match_type,
                 enabled: true,
             };
-            let out = created.clone();
+            let key = website_key(&created);
+            let mut out = created.clone();
+
             mutate_list(ctx, &mut engine, list_id, |list| {
-                list.websites.push(created);
+                // Adding the same site twice should not make two rules.
+                match list.websites.iter().find(|r| website_key(r) == key) {
+                    Some(existing) => out = existing.clone(),
+                    None => list.websites.push(created),
+                }
                 Ok(())
             })?;
             Ok(CommandResult::WebsiteRule(Box::new(out)))
@@ -112,14 +121,18 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                     if value.is_empty() || value.starts_with('#') {
                         continue;
                     }
-                    if list
-                        .websites
-                        .iter()
-                        .any(|r| website_value(r) == Some(&value))
-                    {
+
+                    let mut candidate = kind.rule(&value);
+                    normalize(&mut candidate.match_type);
+                    if website_value(&candidate).is_some_and(|v| v.is_empty()) {
                         continue;
                     }
-                    list.websites.push(kind.rule(&value));
+
+                    let key = website_key(&candidate);
+                    if list.websites.iter().any(|r| website_key(r) == key) {
+                        continue;
+                    }
+                    list.websites.push(candidate);
                     added += 1;
                 }
                 Ok(())
@@ -358,6 +371,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 active_lists,
                 extension_connected: !ctx.connected_browsers().is_empty(),
                 hosts_writable: ctx.hosts_writable(),
+                extension_only_rules: engine.has_extension_only_rules(),
             }))
         }
 
@@ -753,6 +767,28 @@ fn website_value(rule: &WebsiteRule) -> Option<&String> {
     }
 }
 
+/// What makes two website rules the same rule.
+///
+/// Domains compare canonically, so `www.pornhub.com`, `pornhub.com` and a
+/// pasted URL are one entry rather than three. Patterns compare literally,
+/// because `*.reddit.com` and `reddit.com` really are different rules.
+fn website_key(rule: &WebsiteRule) -> (u8, String) {
+    match &rule.match_type {
+        WebsiteMatchType::Domain(v) => (0, canonical_host(v)),
+        WebsiteMatchType::Keyword(v) => (1, v.trim().to_lowercase()),
+        WebsiteMatchType::Wildcard(v) => (2, v.trim().to_lowercase()),
+        WebsiteMatchType::UrlPath(v) => (3, v.trim().to_lowercase()),
+        WebsiteMatchType::EntireInternet => (4, String::new()),
+    }
+}
+
+/// A domain is stored in its canonical form; everything else as typed.
+fn normalize(match_type: &mut WebsiteMatchType) {
+    if let WebsiteMatchType::Domain(d) = match_type {
+        *d = canonical_host(d);
+    }
+}
+
 /// Reject mutations to a block list whose protection window is still open.
 ///
 /// Centralised here on purpose. This check was previously duplicated inline in
@@ -983,6 +1019,88 @@ mod tests {
         .unwrap();
 
         assert_eq!(added, 2, "only example.com and other.com are real values");
+        assert_eq!(lists(&ctx)[0].websites.len(), 2);
+    }
+
+    // A starter list holds bare domains, but people paste `www.` forms and whole
+    // URLs. Comparing the raw strings made all of those separate entries.
+    #[test]
+    fn bulk_import_treats_every_form_of_a_domain_as_one_entry() {
+        let ctx = ctx();
+        let list = create(&ctx, "Sites");
+
+        let added = execute(
+            &ctx,
+            Command::BulkImportWebsites {
+                list_id: list.id,
+                values: vec![
+                    "pornhub.com".into(),
+                    "www.pornhub.com".into(),
+                    "https://www.pornhub.com/".into(),
+                    "PORNHUB.COM.".into(),
+                ],
+                kind: WebsiteRuleKind::Domain,
+            },
+        )
+        .unwrap()
+        .as_count()
+        .unwrap();
+
+        assert_eq!(added, 1, "all four are the same site");
+        let websites = &lists(&ctx)[0].websites;
+        assert_eq!(websites.len(), 1);
+        assert!(matches!(
+            &websites[0].match_type,
+            WebsiteMatchType::Domain(d) if d == "pornhub.com"
+        ));
+    }
+
+    #[test]
+    fn adding_the_same_site_twice_does_not_make_two_rules() {
+        let ctx = ctx();
+        let list = create(&ctx, "Sites");
+
+        let add = |value: &str| {
+            execute(
+                &ctx,
+                Command::AddWebsiteRule {
+                    list_id: list.id,
+                    rule: WebsiteMatchType::Domain(value.into()),
+                },
+            )
+            .unwrap()
+        };
+
+        let CommandResult::WebsiteRule(first) = add("reddit.com") else {
+            panic!("expected a rule back");
+        };
+        let CommandResult::WebsiteRule(second) = add("https://www.reddit.com/r/rust") else {
+            panic!("expected a rule back");
+        };
+
+        assert_eq!(first.id, second.id, "the existing rule comes back");
+        assert_eq!(lists(&ctx)[0].websites.len(), 1);
+    }
+
+    #[test]
+    fn a_wildcard_and_a_domain_of_the_same_name_are_different_rules() {
+        let ctx = ctx();
+        let list = create(&ctx, "Sites");
+
+        for rule in [
+            WebsiteMatchType::Domain("reddit.com".into()),
+            WebsiteMatchType::Wildcard("reddit.com".into()),
+        ] {
+            execute(
+                &ctx,
+                Command::AddWebsiteRule {
+                    list_id: list.id,
+                    rule,
+                },
+            )
+            .unwrap();
+        }
+
         assert_eq!(lists(&ctx)[0].websites.len(), 2);
     }
 

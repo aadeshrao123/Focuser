@@ -240,6 +240,14 @@ impl ExceptionRule {
             enabled: true,
         }
     }
+
+    pub fn wildcard(pattern: impl Into<String>) -> Self {
+        Self {
+            id: new_id(),
+            exception_type: ExceptionType::Wildcard(pattern.into()),
+            enabled: true,
+        }
+    }
 }
 
 // ─── Protection ────────────────────────────────────────────────────

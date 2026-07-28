@@ -16,6 +16,7 @@ export interface RuleSet {
   blocked_url_paths: string[];
   block_entire_internet: boolean;
   allowed_domains: string[];
+  allowed_wildcards?: string[];
   domain_categories?: Record<string, string>;
   version?: number;
 }
@@ -28,6 +29,7 @@ export interface CompiledRules {
   urlPaths: string[];
   blockEverything: boolean;
   allowed: Set<string>;
+  allowedWildcards: string[];
   categories: Record<string, string>;
 }
 
@@ -38,6 +40,7 @@ export const EMPTY_RULES: CompiledRules = {
   urlPaths: [],
   blockEverything: false,
   allowed: new Set(),
+  allowedWildcards: [],
   categories: {},
 };
 
@@ -111,6 +114,28 @@ export function matchWildcard(pattern: string, value: string): boolean {
   }
 }
 
+/**
+ * A wildcard against a hostname. `*.youtube.com` covers `youtube.com` too.
+ *
+ * People write the `*.` form meaning "the site", and a pattern that skipped the
+ * apex just looked broken. `focuser_common::host::wildcard_matches` is the same
+ * rule on the Rust side; the two have to agree or a rule silently misses.
+ */
+export function matchHostWildcard(pattern: string, hostname: string): boolean {
+  const canonical = canonicalHost(hostname);
+  if (!canonical) return false;
+
+  // Both the host as given and its canonical form: a glob may be aiming at the
+  // `www.` label that canonicalHost removes.
+  const raw = String(hostname ?? "").trim().toLowerCase();
+  const glob = pattern.trim().toLowerCase();
+  if (matchWildcard(glob, raw) || matchWildcard(glob, canonical)) return true;
+
+  const apex = glob.startsWith("*.") ? glob.slice(2) : "";
+  if (!apex || /[*?]/.test(apex)) return false;
+  return setCovers(new Set([apex]), canonical);
+}
+
 export function compile(rules: RuleSet | null): CompiledRules {
   if (!rules) return EMPTY_RULES;
   return {
@@ -120,12 +145,14 @@ export function compile(rules: RuleSet | null): CompiledRules {
     urlPaths: (rules.blocked_url_paths ?? []).map((p) => p.toLowerCase()),
     blockEverything: rules.block_entire_internet ?? false,
     allowed: canonicalSet(rules.allowed_domains),
+    allowedWildcards: rules.allowed_wildcards ?? [],
     categories: rules.domain_categories ?? {},
   };
 }
 
 export function isAllowed(rules: CompiledRules, hostname: string): boolean {
-  return setCovers(rules.allowed, hostname);
+  if (setCovers(rules.allowed, hostname)) return true;
+  return rules.allowedWildcards.some((pattern) => matchHostWildcard(pattern, hostname));
 }
 
 /**
@@ -156,7 +183,7 @@ export function match(
   const host = canonicalHost(hostname);
   const lowerUrl = (url ?? "").toLowerCase();
 
-  if (isAllowed(rules, host)) return null;
+  if (isAllowed(rules, hostname)) return null;
   if (rules.blockEverything) return { reason: "everything", target: host };
   if (setCovers(rules.domains, host)) return { reason: "domain", target: host };
 
@@ -167,8 +194,7 @@ export function match(
     if (lowerUrl.includes(path)) return { reason: "url-path", target: path };
   }
   for (const raw of rules.wildcards) {
-    const pattern = raw.toLowerCase();
-    if (matchWildcard(pattern, host) || matchWildcard(pattern, lowerUrl)) {
+    if (matchHostWildcard(raw, hostname) || matchWildcard(raw.toLowerCase(), lowerUrl)) {
       return { reason: "wildcard", target: raw };
     }
   }

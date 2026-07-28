@@ -1,10 +1,11 @@
-import { Globe, Plus, ShieldCheck } from "lucide-react";
+import { Ban, Globe, Plus, ShieldCheck, TriangleAlert } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { RuleTable } from "@/components/rule-table";
 import { StarterLists } from "@/components/starter-lists";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Page } from "@/components/ui/page";
@@ -13,6 +14,7 @@ import { Tabs } from "@/components/ui/tabs";
 import {
   useAddException,
   useAddWebsiteRule,
+  useBlockingHealth,
   useBlockLists,
   useBulkImportWebsites,
   useRemoveException,
@@ -24,21 +26,55 @@ import {
   EXCEPTION_KINDS,
   type ExceptionKind,
   exceptionRule,
+  IMPORT_KINDS,
+  type ImportKind,
   WEBSITE_KINDS,
   type WebsiteKind,
   websiteRule,
 } from "@/lib/match-types";
+import { cn } from "@/lib/utils";
 
-type Tab = "blocked" | "exceptions" | "starter" | "import";
+type Tab = "blocked" | "exceptions" | "import";
+
+const KIND_HELP: Record<WebsiteKind, { placeholder: string; hint: string }> = {
+  Domain: { placeholder: "reddit.com", hint: "Covers www. and every subdomain." },
+  Keyword: {
+    placeholder: "casino",
+    hint: "Blocks any URL containing this word. Extension only.",
+  },
+  Wildcard: {
+    placeholder: "*.reddit.com",
+    hint: "* matches any run of characters, and *.reddit.com covers reddit.com too. Extension only.",
+  },
+  UrlPath: {
+    placeholder: "/r/gaming",
+    hint: "Blocks URLs containing this path. Extension only.",
+  },
+  EntireInternet: {
+    placeholder: "",
+    hint: "Blocks every site except your exceptions, so add those first. Extension only.",
+  },
+};
+
+/** `*`, `*.*`, `**`: a pattern with nothing in it but wildcards. */
+const CATCH_ALL = /^[*.\s]+$/;
+
+const CATCH_ALL_WARNING =
+  "This matches every site, including local pages and your own machine. Pick Entire internet instead if that is what you want, and add exceptions first.";
 
 export function Websites() {
   const lists = useBlockLists();
+  const health = useBlockingHealth();
   const [rawSelected, setSelected] = useState("");
   const [tab, setTab] = useState<Tab>("blocked");
 
   const all = lists.data ?? [];
   const selected = resolveSelected(all, rawSelected);
   const list = all.find((l) => l.id === selected);
+
+  // A hosts file cannot express a keyword, wildcard or path, so without the
+  // extension those rules do nothing at all. Saying so beats a silent miss.
+  const unenforced = health.data?.extension_only_rules && !health.data.extension_connected;
 
   return (
     <Page>
@@ -47,6 +83,8 @@ export function Websites() {
         description="Domains, keywords and URL patterns to block."
         actions={<ListPicker lists={all} value={selected} onChange={setSelected} />}
       />
+
+      {unenforced && <ExtensionNeeded />}
 
       <QueryState
         isPending={lists.isPending}
@@ -68,7 +106,6 @@ export function Websites() {
               items={[
                 { id: "blocked", label: "Blocked", count: list.websites.length },
                 { id: "exceptions", label: "Exceptions", count: list.exceptions.length },
-                { id: "starter", label: "Starter lists" },
                 { id: "import", label: "Bulk import" },
               ]}
             />
@@ -77,12 +114,27 @@ export function Websites() {
             {tab === "exceptions" && (
               <ExceptionsTab listId={list.id} exceptions={list.exceptions} />
             )}
-            {tab === "starter" && <StarterLists listId={list.id} />}
             {tab === "import" && <ImportTab listId={list.id} />}
           </>
         )}
       </QueryState>
     </Page>
+  );
+}
+
+function ExtensionNeeded() {
+  return (
+    <Card className="mb-6 border-warning/40" padding="md">
+      <p className="flex items-center gap-2 font-medium text-sm text-warning">
+        <TriangleAlert aria-hidden className="size-4" />
+        Keyword, wildcard and URL path rules need the browser extension
+      </p>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Focuser blocks plain domains through the hosts file, but that file has no way to express a
+        pattern. Those rules are being ignored right now. Install the extension from Settings and
+        they start working straight away. Domain rules are unaffected.
+      </p>
+    </Card>
   );
 }
 
@@ -98,11 +150,20 @@ function BlockedTab({
   const add = useAddWebsiteRule();
   const remove = useRemoveWebsiteRule();
 
+  const wholeInternet = kind === "EntireInternet";
+  const trimmed = value.trim();
+  const catchAll = wholeInternet || (kind === "Wildcard" && !!trimmed && CATCH_ALL.test(trimmed));
+
+  function addRule() {
+    if (!wholeInternet && !trimmed) return;
+    add.mutate({ listId, rule: websiteRule(kind, trimmed) }, { onSuccess: () => setValue("") });
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault();
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    add.mutate({ listId, rule: websiteRule(kind, trimmed) }, { onSuccess: () => setValue("") });
+    // Blocking everything takes a deliberate second click, not a stray Enter.
+    if (catchAll) return;
+    addRule();
   }
 
   return (
@@ -110,25 +171,46 @@ function BlockedTab({
       <Card className="mb-4" padding="md" elevation="raised">
         <form onSubmit={submit} className="flex flex-wrap gap-2">
           <Select value={kind} onValueChange={setKind} options={WEBSITE_KINDS} className="w-40" />
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="reddit.com"
-            aria-label="Value to block"
-            className="max-w-sm flex-1"
-          />
-          <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
-            Add
-          </Button>
+          {!wholeInternet && (
+            <Input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={KIND_HELP[kind].placeholder}
+              aria-label="Value to block"
+              className="max-w-sm flex-1"
+            />
+          )}
+          {catchAll ? (
+            <ConfirmButton
+              icon={<Ban />}
+              confirmLabel="Block every site?"
+              onConfirm={addRule}
+              disabled={add.isPending}
+            >
+              Add
+            </ConfirmButton>
+          ) : (
+            <Button type="submit" icon={<Plus />} disabled={!trimmed || add.isPending}>
+              Add
+            </Button>
+          )}
         </form>
+        <p className={cn("mt-2 text-xs", catchAll ? "text-warning" : "text-muted-foreground")}>
+          {wholeInternet
+            ? KIND_HELP[kind].hint
+            : catchAll
+              ? CATCH_ALL_WARNING
+              : KIND_HELP[kind].hint}
+        </p>
         <InlineError error={add.error} />
+        <StarterLists listId={listId} />
       </Card>
 
       {rules.length === 0 ? (
         <EmptyState
           icon={<Globe />}
           title="Nothing blocked yet"
-          description="Add a domain above, or start from one of the curated Starter lists."
+          description="Add a domain above, or import one of the curated starter lists."
         />
       ) : (
         <RuleTable
@@ -207,7 +289,7 @@ function ExceptionsTab({
 
 function ImportTab({ listId }: { listId: string }) {
   const [text, setText] = useState("");
-  const [kind, setKind] = useState<WebsiteKind>("Domain");
+  const [kind, setKind] = useState<ImportKind>("Domain");
   const importer = useBulkImportWebsites();
 
   const kindMap = {
@@ -233,7 +315,7 @@ function ImportTab({ listId }: { listId: string }) {
       </p>
 
       <div className="mb-3 flex gap-2">
-        <Select value={kind} onValueChange={setKind} options={WEBSITE_KINDS} />
+        <Select value={kind} onValueChange={setKind} options={IMPORT_KINDS} />
         <Button type="submit" disabled={!text.trim() || importer.isPending}>
           {importer.isPending ? "Importing…" : "Import"}
         </Button>

@@ -46,11 +46,17 @@ export function describeException(m: ExceptionType) {
   return { kind: EXCEPTION_LABELS[label] ?? label, value };
 }
 
-export const WEBSITE_KINDS = [
+/** Bulk import takes a value per line, so the whole-internet rule has no place. */
+export const IMPORT_KINDS = [
   { value: "Domain", label: "Domain" },
   { value: "Keyword", label: "Keyword" },
   { value: "Wildcard", label: "Wildcard" },
   { value: "UrlPath", label: "URL path" },
+] as const;
+
+export const WEBSITE_KINDS = [
+  ...IMPORT_KINDS,
+  { value: "EntireInternet", label: "Entire internet" },
 ] as const;
 
 export const APP_KINDS = [
@@ -65,6 +71,7 @@ export const EXCEPTION_KINDS = [
 ] as const;
 
 export type WebsiteKind = (typeof WEBSITE_KINDS)[number]["value"];
+export type ImportKind = (typeof IMPORT_KINDS)[number]["value"];
 export type AppKind = (typeof APP_KINDS)[number]["value"];
 export type ExceptionKind = (typeof EXCEPTION_KINDS)[number]["value"];
 
@@ -80,6 +87,8 @@ export function websiteRule(kind: WebsiteKind, value: string): WebsiteMatchType 
       return { Wildcard: value };
     case "UrlPath":
       return { UrlPath: value };
+    case "EntireInternet":
+      return "EntireInternet";
   }
 }
 

@@ -69,6 +69,33 @@ where
         .any(|rule| host_matches(rule.as_ref(), &host))
 }
 
+/// Does `host` match the wildcard `pattern`?
+///
+/// `*.youtube.com` also covers `youtube.com` itself. People write it meaning
+/// "the site", and a pattern that skipped the apex just looked broken.
+pub fn wildcard_matches(pattern: &str, host: &str) -> bool {
+    let pattern = pattern.trim().to_ascii_lowercase();
+    if pattern.is_empty() {
+        return false;
+    }
+
+    // Both the host as typed and its canonical form: a glob may be aiming at
+    // the `www.` label that `canonical_host` removes.
+    let raw = host.trim().to_ascii_lowercase();
+    let canonical = canonical_host(host);
+    if canonical.is_empty() {
+        return false;
+    }
+    if glob_match::glob_match(&pattern, &raw) || glob_match::glob_match(&pattern, &canonical) {
+        return true;
+    }
+
+    match pattern.strip_prefix("*.") {
+        Some(apex) if !apex.contains(['*', '?']) => host_matches(apex, &canonical),
+        _ => false,
+    }
+}
+
 /// The hosts-file lines needed to block `domain`.
 ///
 /// A hosts file has no wildcards, so the bare domain and its `www.` form both
@@ -153,6 +180,34 @@ mod tests {
     #[test]
     fn hosts_entries_ignores_a_blank_rule() {
         assert!(hosts_entries("  ").is_empty());
+    }
+
+    #[test]
+    fn a_leading_star_dot_covers_the_apex_as_well() {
+        for host in ["youtube.com", "www.youtube.com", "music.youtube.com"] {
+            assert!(wildcard_matches("*.youtube.com", host), "{host}");
+        }
+        assert!(!wildcard_matches("*.youtube.com", "notyoutube.com"));
+    }
+
+    #[test]
+    fn a_pattern_can_still_aim_at_the_www_label() {
+        assert!(wildcard_matches("*.social.*", "www.social.network"));
+        assert!(wildcard_matches("www.*", "www.example.com"));
+    }
+
+    #[test]
+    fn a_bare_star_matches_every_host() {
+        for host in ["youtube.com", "a.b.example.org", "localhost"] {
+            assert!(wildcard_matches("*", host), "{host}");
+        }
+    }
+
+    #[test]
+    fn wildcard_ignores_case_and_blank_patterns() {
+        assert!(wildcard_matches("*.YouTube.COM", "MUSIC.youtube.com"));
+        assert!(!wildcard_matches("   ", "youtube.com"));
+        assert!(!wildcard_matches("*", ""));
     }
 
     #[test]

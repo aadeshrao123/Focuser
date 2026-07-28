@@ -136,6 +136,11 @@ export type BlockingHealth = {
 	extension_connected: boolean,
 	/**  The hosts file can be written — i.e. we have the privileges for it. */
 	hosts_writable: boolean,
+	/**
+	 *  A keyword, wildcard or URL-path rule is active. Only the extension can
+	 *  enforce those; a hosts file has no way to express them.
+	 */
+	extension_only_rules: boolean,
 };
 
 export type BreakConfig = 

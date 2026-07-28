@@ -4,6 +4,7 @@ import {
   compile,
   isInternalUrl,
   match,
+  matchHostWildcard,
   matchWildcard,
   ruleCount,
   type RuleSet,
@@ -19,6 +20,7 @@ function rules(patch: Partial<RuleSet> = {}) {
     blocked_url_paths: [],
     block_entire_internet: false,
     allowed_domains: [],
+    allowed_wildcards: [],
     ...patch,
   });
 }
@@ -121,6 +123,39 @@ describe("match", () => {
   it("treats a domain rule as beating a keyword when both apply", () => {
     const r = rules({ blocked_domains: ["casino.test"], blocked_keywords: ["casino"] });
     expect(match(r, "casino.test", "https://casino.test/")?.reason).toBe("domain");
+  });
+});
+
+describe("matchHostWildcard", () => {
+  it("covers the apex as well as subdomains", () => {
+    for (const host of ["youtube.com", "www.youtube.com", "music.youtube.com"]) {
+      expect(matchHostWildcard("*.youtube.com", host)).toBe(true);
+    }
+    expect(matchHostWildcard("*.youtube.com", "notyoutube.com")).toBe(false);
+  });
+
+  it("matches every host on a bare star", () => {
+    expect(matchHostWildcard("*", "example.com")).toBe(true);
+    expect(matchHostWildcard("*", "")).toBe(false);
+  });
+});
+
+describe("wildcard exceptions", () => {
+  // The app has always sent allowed_wildcards; the extension used to drop them
+  // on the floor, so a wildcard exception released nothing.
+  it("releases a host the blocked rules would otherwise catch", () => {
+    const r = rules({
+      blocked_domains: ["example.com"],
+      allowed_wildcards: ["*.docs.example.com"],
+    });
+    expect(match(r, "docs.example.com", "https://docs.example.com/")).toBeNull();
+    expect(match(r, "example.com", "https://example.com/")).not.toBeNull();
+  });
+
+  it("beats blocking the entire internet", () => {
+    const r = rules({ block_entire_internet: true, allowed_wildcards: ["*.work.test"] });
+    expect(match(r, "mail.work.test", "https://mail.work.test/")).toBeNull();
+    expect(match(r, "reddit.com", "https://reddit.com/")).not.toBeNull();
   });
 });
 

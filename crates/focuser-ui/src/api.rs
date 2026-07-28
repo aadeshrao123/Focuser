@@ -771,7 +771,7 @@ mod tests {
 
     use focuser_app::AppContext;
     use focuser_common::allowance::AllowanceMatch;
-    use focuser_common::types::{BlockList, WebsiteRule};
+    use focuser_common::types::{BlockList, ExceptionRule, WebsiteRule};
     use focuser_core::{BlockEngine, Database};
 
     /// A context that reports a connected extension, since that is the state
@@ -936,6 +936,38 @@ mod tests {
         );
 
         assert_eq!(used_secs(&state), 0, "strict mode only counts focused time");
+    }
+
+    // A hosts file cannot express these, so this endpoint is the only way they
+    // ever reach anything that enforces them.
+    #[test]
+    fn compiled_rules_carry_the_extension_only_kinds() {
+        let state = ctx_with_extension(|db| {
+            let mut list = BlockList::new("Patterns");
+            list.websites.push(WebsiteRule::wildcard("*.reddit.com"));
+            list.websites.push(WebsiteRule::keyword("casino"));
+            list.websites.push(WebsiteRule::url_path("/r/gaming"));
+            list.exceptions
+                .push(ExceptionRule::wildcard("*.docs.reddit.com"));
+            db.create_block_list(&list).unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+
+        let body = request(&addr, "GET", "/api/rules", None);
+        let rules: serde_json::Value = serde_json::from_str(&body).unwrap();
+
+        for (field, value) in [
+            ("blocked_wildcards", "*.reddit.com"),
+            ("blocked_keywords", "casino"),
+            ("blocked_url_paths", "/r/gaming"),
+            ("allowed_wildcards", "*.docs.reddit.com"),
+        ] {
+            let served = rules[field].as_array().unwrap();
+            assert!(
+                served.iter().any(|v| v == value),
+                "{field} should list {value}: {served:?}"
+            );
+        }
     }
 
     #[test]

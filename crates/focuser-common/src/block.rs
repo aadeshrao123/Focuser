@@ -1,4 +1,4 @@
-use crate::host::host_matches;
+use crate::host::{canonical_host, host_matches, wildcard_matches};
 use crate::types::{
     AppMatchType, AppRule, BlockList, ExceptionType, WebsiteMatchType, WebsiteRule,
 };
@@ -50,9 +50,7 @@ impl BlockList {
             }
             match &exc.exception_type {
                 ExceptionType::Domain(d) => host_matches(d, domain),
-                ExceptionType::Wildcard(pattern) => {
-                    glob_match::glob_match(&pattern.to_lowercase(), domain)
-                }
+                ExceptionType::Wildcard(pattern) => wildcard_matches(pattern, domain),
                 ExceptionType::LocalFiles => false, // N/A for domain checks
             }
         })
@@ -64,9 +62,7 @@ impl WebsiteRule {
     pub fn matches_domain(&self, domain: &str) -> bool {
         match &self.match_type {
             WebsiteMatchType::Domain(d) => host_matches(d, domain),
-            WebsiteMatchType::Wildcard(pattern) => {
-                glob_match::glob_match(&pattern.to_lowercase(), domain)
-            }
+            WebsiteMatchType::Wildcard(pattern) => wildcard_matches(pattern, domain),
             WebsiteMatchType::Keyword(kw) => domain.contains(&kw.to_lowercase()),
             // Domain-only check, so only the host part of the pattern applies.
             WebsiteMatchType::UrlPath(path) => host_matches(path, domain),
@@ -83,8 +79,11 @@ impl WebsiteRule {
             // also fire on notyoutube.com and on the domain appearing in a query
             // string.
             WebsiteMatchType::Domain(d) => host_matches(d, &url_lower),
+            // Against the host as well as the URL, so `*.youtube.com` catches a
+            // page on it. The extension matches both the same way.
             WebsiteMatchType::Wildcard(pattern) => {
                 glob_match::glob_match(&pattern.to_lowercase(), &url_lower)
+                    || wildcard_matches(pattern, &canonical_host(&url_lower))
             }
             WebsiteMatchType::Keyword(kw) => url_lower.contains(&kw.to_lowercase()),
             WebsiteMatchType::UrlPath(path) => url_lower.contains(&path.to_lowercase()),

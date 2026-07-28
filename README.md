@@ -62,7 +62,7 @@ It sits quietly in your system tray, blocks the sites you told it to block, and 
 
 ## What it does
 
-- **Block websites** - Add domains, keywords, wildcards, or URL paths. Or just block the entire internet and whitelist only what you need. Your call.
+- **Block websites** - Add domains, keywords, wildcards, or URL paths. Or just block the entire internet and whitelist only what you need. Your call. Keywords, wildcards and URL paths are enforced by the browser extension, since a hosts file has no way to express a pattern. Focuser tells you on the Websites page when you have one of those rules and no extension installed.
 - **Block applications** - Steam launching itself at 2pm on a Tuesday? Not anymore. Block by executable name, path, or window title.
 - **Real application icons** - Blocked programs show their actual icon, read out of the executable on your own machine. Nothing is fetched from the internet to do it, because asking an icon service once per entry would hand over your entire block list.
 - **Pre-made block lists** - 1,207 domains across 13 categories (social media, games, gambling, news, adult, etc.) ready to import with one click. We did the research so you don't have to.

@@ -83,6 +83,16 @@ fresh by the block script, so it carries the UA's 8px default, which puts a
 scrollbar on every block page. The preview's own HTML zeroes it already, so
 this is invisible there.
 
+**A wildcard is matched against the host and the full URL, and `*.` includes
+the apex.** `*.reddit.com` covers `reddit.com` itself, because that is what
+people mean when they write it, and a pattern that quietly skipped the apex
+looked broken. `focuser_common::host::wildcard_matches` is the same rule on the
+Rust side; if the two ever disagree, a rule silently misses.
+
+**Exceptions can be wildcards too.** `allowed_wildcards` had been served by the
+app since the protocol was written and dropped on the floor here, so a wildcard
+exception released nothing. `isAllowed` checks them now.
+
 **Messages escalate with the visit count.** A single fixed string stops being
 read after the second visit. Roughly 40% of them carry `{count}` / `{domain}`
 placeholders — `messageFor` substitutes them, and a test fails if any rendered
