@@ -33,6 +33,7 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+!.env.submit.example
 *.pem
 *.key
 credentials.json

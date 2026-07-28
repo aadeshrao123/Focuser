@@ -131,14 +131,35 @@ missing its credentials is skipped with a warning rather than failing the run.
 | `FIREFOX_JWT_ISSUER` | The AMO API key |
 | `FIREFOX_JWT_SECRET` | The AMO API secret |
 
-To collect all of them interactively, including the Chrome refresh token:
+### Getting set up locally
+
+`publish-extension init` cannot bootstrap from nothing. In 5.1.0 it fabricates
+a zip for every store before prompting, so validation demands every store's
+credentials up front, including the Chrome refresh token the walkthrough exists
+to generate. Starting from a filled-in file avoids that:
 
 ```bash
-cd extension && npx wxt submit init
+cd extension
+cp .env.submit.example .env.submit
 ```
 
-That writes `.env.submit`, which is gitignored. Copy each value into the
-repository secrets; keep the file for local submissions.
+Fill in `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `FIREFOX_JWT_ISSUER` and
+`FIREFOX_JWT_SECRET`. Leave the Edge and Opera placeholders alone; they are
+only there to satisfy that validation, and nothing is submitted to a store
+without a zip for it.
+
+Then let the walkthrough do the OAuth exchange:
+
+```bash
+npx publish-extension init
+```
+
+Choose Chrome, answer yes to "Generate new refresh token?", approve in the
+browser, and paste the code back. It writes `CHROME_REFRESH_TOKEN` into
+`.env.submit`, which is gitignored.
+
+Copy each value into the repository secrets for CI; keep the file for local
+submissions.
 
 Then locally:
 
