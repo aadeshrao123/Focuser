@@ -10,6 +10,9 @@ export const commands = {
 	 *  Errors are flattened to [`CommandErrorPayload`] (`{ code, message }`) because
 	 *  `CommandError` wraps `FocuserError`, which has no TypeScript representation.
 	 *  The frontend branches on `code`, never on `message`.
+	 *  `(async)` on a sync function puts it on Tauri's blocking thread pool.
+	 *  Without it the default is the event-loop thread, and a slow command — icons
+	 *  especially — freezes the window.
 	 */
 	runCommand: (command: Command) => typedError<CommandResult, CommandErrorPayload>(__TAURI_INVOKE("run_command", { command })),
 };
