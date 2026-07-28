@@ -114,32 +114,19 @@ labels come from a file bundled with the extension, not from a lookup service.
 
 ## Publishing
 
-`.github/workflows/publish-extension.yml` submits to both stores. Pushing a
-`v*` tag publishes; running it by hand from the Actions tab defaults to a dry
-run that checks the credentials and uploads nothing.
+**Submitting is manual, on purpose.** Nothing in CI uploads to a store.
+`.github/workflows/package-extension.yml` builds the zips on a `v*` tag, or on
+demand from the Actions tab, and attaches them to the run as `extension-zips`.
+Download them from there and upload them yourself.
 
-It refuses to submit anything that fails `tsc` or the tests first, because a
+It refuses to package anything that fails `tsc` or the tests first, because a
 store review takes days and a broken build should cost seconds.
 
-Nothing is submitted until these repository secrets exist. Whichever store is
-missing its credentials is skipped with a warning rather than failing the run.
-
-**Chrome Web Store** (Google Cloud console, Chrome Web Store API enabled):
-
-| Secret | Where it comes from |
-|---|---|
-| `CHROME_EXTENSION_ID` | The id in the dashboard URL |
-| `CHROME_CLIENT_ID` | OAuth client, type "Desktop app" |
-| `CHROME_CLIENT_SECRET` | Same OAuth client |
-| `CHROME_REFRESH_TOKEN` | One-time OAuth exchange, see below |
-
-**Firefox Add-ons** (addons.mozilla.org, Manage API Keys):
-
-| Secret | Where it comes from |
-|---|---|
-| `FIREFOX_EXTENSION_ID` | `focuser@focuser-app` |
-| `FIREFOX_JWT_ISSUER` | The AMO API key |
-| `FIREFOX_JWT_SECRET` | The AMO API secret |
+The workflow used to submit to both stores on every tag. That published a
+version before anyone had looked at it, so it was cut back to packaging. If it
+is ever restored, note that `.output` is a dot directory: `upload-artifact`
+treats everything inside it as hidden and silently uploads nothing without
+`include-hidden-files: true`.
 
 ### Getting set up locally
 
@@ -168,8 +155,8 @@ Choose Chrome, answer yes to "Generate new refresh token?", approve in the
 browser, and paste the code back. It writes `CHROME_REFRESH_TOKEN` into
 `.env.submit`, which is gitignored.
 
-Copy each value into the repository secrets for CI; keep the file for local
-submissions.
+Keep the file for local submissions. It does not belong in repository secrets
+any more, since CI no longer submits anything.
 
 Then locally:
 

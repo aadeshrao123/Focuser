@@ -1,0 +1,49 @@
+name: Package extension
+
+# Builds the store-ready zips and stops there. Submitting is done by hand.
+# This workflow used to upload to both stores on every tag, which published a
+# version before anyone had looked at it, and a store review is not something
+# worth starting by accident.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: Build the Chrome and Firefox zips
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - run: npm ci
+
+      # Never package something that does not typecheck or pass its tests.
+      - run: npm run compile
+      - run: npm test
+
+      - name: Build and zip both stores
+        run: |
+          npm run zip
+          npm run zip:firefox
+
+      - name: Upload the zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zips
+          path: extension/.output/*.zip
+          # `.output` is a dot directory, so every zip inside it counts as a
+          # hidden file and is skipped without this.
+          include-hidden-files: true
+          if-no-files-found: error
