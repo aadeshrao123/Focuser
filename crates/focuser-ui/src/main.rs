@@ -8,6 +8,7 @@ mod typed_commands;
 
 use directories::ProjectDirs;
 
+use focuser_common::types::AppMatchType;
 use focuser_core::{BlockEngine, Database};
 use std::sync::Arc;
 use tauri::{
@@ -161,6 +162,11 @@ fn main() {
             std::thread::spawn(move || {
                 foreground_watcher::run_foreground_watcher(watcher_state);
             });
+
+            // Warm the icon cache so the Applications page does not pay for the
+            // Start Menu search on first open.
+            let icon_state = Arc::clone(&state_for_blocker);
+            std::thread::spawn(move || warm_app_icons(&icon_state));
 
             // System tray icon
             let show = MenuItemBuilder::with_id("show", "Open Focuser").build(app)?;
@@ -351,6 +357,31 @@ fn build_locked_modal_js(reason: &str) -> String {
   document.body.appendChild(overlay);
 }})();"##
     )
+}
+
+/// Reads every application rule's icon once at startup, so opening the
+/// Applications page is a cache hit rather than a Start Menu search.
+fn warm_app_icons(state: &Arc<AppState>) {
+    let Ok(engine) = state.engine.lock() else {
+        return;
+    };
+    let targets: Vec<String> = engine
+        .block_lists()
+        .iter()
+        .flat_map(|list| &list.applications)
+        .map(|rule| match &rule.match_type {
+            AppMatchType::ExecutableName(v)
+            | AppMatchType::ExecutablePath(v)
+            | AppMatchType::WindowTitle(v)
+            | AppMatchType::BundleId(v) => v.clone(),
+        })
+        .collect();
+    drop(engine);
+
+    let loader = focuser_common::appicon::Loader::new();
+    for target in &targets {
+        loader.icon_for(target);
+    }
 }
 
 /// Why quitting is refused right now, or `None` if it is allowed.

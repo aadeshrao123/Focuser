@@ -12,6 +12,9 @@
 //! and encoding are ordinary pixel work, kept platform-free so they can be
 //! tested anywhere.
 
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
 use base64::Engine as _;
 
 /// A decoded icon: RGBA8, row-major, top row first.
@@ -300,6 +303,15 @@ pub fn icons_for<'a>(targets: impl IntoIterator<Item = &'a str>) -> Vec<Option<S
         .collect()
 }
 
+/// Resolved icons, for the life of the process. Misses are cached too — a
+/// window-title rule never resolves, and re-searching for it costs the most.
+/// An app installed while Focuser runs keeps its blank tile until restart.
+static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
+
+fn cache() -> &'static Mutex<HashMap<String, Option<String>>> {
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 /// Holds whatever a platform wants to reuse across a batch of lookups.
 pub struct Loader(platform::Loader);
 
@@ -309,6 +321,25 @@ impl Loader {
     }
 
     pub fn icon_for(&self, target: &str) -> Option<String> {
+        if let Some(hit) = cache()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .get(target)
+        {
+            return hit.clone();
+        }
+
+        // Lock released first: the lookup is the slow part.
+        let resolved = self.load_uncached(target);
+
+        cache()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(target.to_string(), resolved.clone());
+        resolved
+    }
+
+    fn load_uncached(&self, target: &str) -> Option<String> {
         let icon = self.0.load(target)?;
         let trimmed = trim_transparent(&icon)?;
         to_data_uri(&downscale(&trimmed, MAX_EDGE))

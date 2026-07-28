@@ -19,6 +19,11 @@ use crate::error::{CommandError, CommandOutcome};
 
 /// Run one command against the shared context.
 pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> {
+    // Before the lock: reading icons is slow and never touches the engine.
+    if let Command::GetAppIcons { targets } = cmd {
+        return Ok(CommandResult::AppIcons(app_icons(targets)));
+    }
+
     let mut engine = ctx
         .engine
         .lock()
@@ -601,28 +606,27 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             Ok(CommandResult::BrowserStatus(statuses))
         }
 
-        Command::GetAppIcons { targets } => {
-            // Deduplicated: the same executable can appear in several rules,
-            // and reading its icon twice is wasted work.
-            let mut seen = std::collections::HashSet::new();
-            // One loader for the batch. On Linux it parses every installed
-            // desktop entry, which should happen once, not once per rule.
-            let loader = focuser_common::appicon::Loader::new();
-
-            let icons = targets
-                .into_iter()
-                .filter(|target| seen.insert(target.clone()))
-                .map(|target| AppIcon {
-                    data_uri: loader.icon_for(&target),
-                    target,
-                })
-                .collect();
-
-            Ok(CommandResult::AppIcons(icons))
-        }
-
         Command::AppVersion => Ok(CommandResult::Text(env!("CARGO_PKG_VERSION").to_string())),
+
+        // Answered above; kept correct rather than `unreachable!`.
+        Command::GetAppIcons { targets } => Ok(CommandResult::AppIcons(app_icons(targets))),
     }
+}
+
+/// Deduplicated, and one loader for the batch — on Linux that parses every
+/// installed desktop entry, which should happen once rather than once per rule.
+fn app_icons(targets: Vec<String>) -> Vec<AppIcon> {
+    let mut seen = std::collections::HashSet::new();
+    let loader = focuser_common::appicon::Loader::new();
+
+    targets
+        .into_iter()
+        .filter(|target| seen.insert(target.clone()))
+        .map(|target| AppIcon {
+            data_uri: loader.icon_for(&target),
+            target,
+        })
+        .collect()
 }
 
 /// Bumped only when the exported shape changes incompatibly.

@@ -45,19 +45,17 @@ const SIZES: [u32; 3] = [
 /// lock across the call costs nothing worth measuring.
 static SHELL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Carries the Start Menu index across a batch of lookups.
+/// Executable name (lower case) → full path, from Start Menu shortcuts. Built
+/// once per process and only on a miss: every shortcut is a COM round trip.
+static SHORTCUTS: OnceLock<HashMap<String, PathBuf>> = OnceLock::new();
+
+/// Windows keeps its lookup state in statics, so the loader itself is empty.
 #[derive(Default)]
-pub struct Loader {
-    /// Executable name (lower case) → full path, from Start Menu shortcuts.
-    ///
-    /// Built at most once, and only when something is not found the cheap way,
-    /// because reading every shortcut means a COM round trip apiece.
-    shortcuts: OnceLock<HashMap<String, PathBuf>>,
-}
+pub struct Loader;
 
 impl Loader {
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 
     pub fn load(&self, target: &str) -> Option<Icon> {
@@ -112,7 +110,7 @@ impl Loader {
     }
 
     fn start_menu_target(&self, name: &str) -> Option<PathBuf> {
-        self.shortcuts
+        SHORTCUTS
             .get_or_init(read_start_menu)
             .get(&name.to_ascii_lowercase())
             .cloned()

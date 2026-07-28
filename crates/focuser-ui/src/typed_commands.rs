@@ -34,7 +34,10 @@ use crate::AppState;
 /// Errors are flattened to [`CommandErrorPayload`] (`{ code, message }`) because
 /// `CommandError` wraps `FocuserError`, which has no TypeScript representation.
 /// The frontend branches on `code`, never on `message`.
-#[tauri::command]
+/// `(async)` on a sync function puts it on Tauri's blocking thread pool.
+/// Without it the default is the event-loop thread, and a slow command — icons
+/// especially — freezes the window.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn run_command(
     state: State<'_, Arc<AppState>>,
