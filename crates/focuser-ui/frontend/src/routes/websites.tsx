@@ -33,34 +33,58 @@ import {
   websiteRule,
 } from "@/lib/match-types";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 type Tab = "blocked" | "exceptions" | "import";
 
-const KIND_HELP: Record<WebsiteKind, { placeholder: string; hint: string }> = {
-  Domain: { placeholder: "reddit.com", hint: "Covers www. and every subdomain." },
-  Keyword: {
-    placeholder: "casino",
-    hint: "Blocks any URL containing this word. Extension only.",
-  },
-  Wildcard: {
-    placeholder: "*.reddit.com",
-    hint: "* matches any run of characters, and *.reddit.com covers reddit.com too. Extension only.",
-  },
-  UrlPath: {
-    placeholder: "/r/gaming",
-    hint: "Blocks URLs containing this path. Extension only.",
-  },
-  EntireInternet: {
-    placeholder: "",
-    hint: "Blocks every site except your exceptions, so add those first. Extension only.",
-  },
+/**
+ * Called during render, never at module scope.
+ *
+ * A message function reads the current locale when it runs. Assigning one to a
+ * module constant would freeze whatever locale was active at import time, and
+ * switching language would leave it behind.
+ */
+const KIND_LABEL: Record<WebsiteKind, () => string> = {
+  Domain: m.websites_kind_domain,
+  Keyword: m.websites_kind_keyword,
+  Wildcard: m.websites_kind_wildcard,
+  UrlPath: m.websites_kind_url_path,
+  EntireInternet: m.websites_kind_entire_internet,
 };
+
+/** Options for the rule-kind picker, labelled in the current language. */
+function websiteKindOptions() {
+  return WEBSITE_KINDS.map((k) => ({ value: k.value, label: KIND_LABEL[k.value]() }));
+}
+
+function importKindOptions() {
+  return IMPORT_KINDS.map((k) => ({ value: k.value, label: KIND_LABEL[k.value]() }));
+}
+
+function exceptionKindOptions() {
+  return EXCEPTION_KINDS.map((k) => ({
+    value: k.value,
+    label: k.value === "Domain" ? m.websites_kind_domain() : m.websites_kind_wildcard(),
+  }));
+}
+
+function kindHelp(kind: WebsiteKind): { placeholder: string; hint: string } {
+  switch (kind) {
+    case "Domain":
+      return { placeholder: "reddit.com", hint: m.websites_hint_domain() };
+    case "Keyword":
+      return { placeholder: "casino", hint: m.websites_hint_keyword() };
+    case "Wildcard":
+      return { placeholder: "*.reddit.com", hint: m.websites_hint_wildcard() };
+    case "UrlPath":
+      return { placeholder: "/r/gaming", hint: m.websites_hint_url_path() };
+    case "EntireInternet":
+      return { placeholder: "", hint: m.websites_hint_entire_internet() };
+  }
+}
 
 /** `*`, `*.*`, `**`: a pattern with nothing in it but wildcards. */
 const CATCH_ALL = /^[*.\s]+$/;
-
-const CATCH_ALL_WARNING =
-  "This matches every site, including local pages and your own machine. Pick Entire internet instead if that is what you want, and add exceptions first.";
 
 export function Websites() {
   const lists = useBlockLists();
@@ -79,8 +103,8 @@ export function Websites() {
   return (
     <Page>
       <PageHeader
-        title="Websites"
-        description="Domains, keywords and URL patterns to block."
+        title={m.websites_title()}
+        description={m.websites_description()}
         actions={<ListPicker lists={all} value={selected} onChange={setSelected} />}
       />
 
@@ -94,8 +118,8 @@ export function Websites() {
       >
         {!list ? (
           <EmptyState
-            title="No block lists yet"
-            description="Create one on the Block Lists page first."
+            title={m.websites_no_lists_title()}
+            description={m.websites_no_lists_description()}
           />
         ) : (
           <>
@@ -104,9 +128,13 @@ export function Websites() {
               value={tab}
               onChange={setTab}
               items={[
-                { id: "blocked", label: "Blocked", count: list.websites.length },
-                { id: "exceptions", label: "Exceptions", count: list.exceptions.length },
-                { id: "import", label: "Bulk import" },
+                { id: "blocked", label: m.websites_tab_blocked(), count: list.websites.length },
+                {
+                  id: "exceptions",
+                  label: m.websites_tab_exceptions(),
+                  count: list.exceptions.length,
+                },
+                { id: "import", label: m.websites_tab_import() },
               ]}
             />
 
@@ -127,13 +155,9 @@ function ExtensionNeeded() {
     <Card className="mb-6 border-warning/40" padding="md">
       <p className="flex items-center gap-2 font-medium text-sm text-warning">
         <TriangleAlert aria-hidden className="size-4" />
-        Keyword, wildcard and URL path rules need the browser extension
+        {m.websites_extension_needed_title()}
       </p>
-      <p className="mt-1 text-muted-foreground text-sm">
-        Focuser blocks plain domains through the hosts file, but that file has no way to express a
-        pattern. Those rules are being ignored right now. Install the extension from Settings and
-        they start working straight away. Domain rules are unaffected.
-      </p>
+      <p className="mt-1 text-muted-foreground text-sm">{m.websites_extension_needed_body()}</p>
     </Card>
   );
 }
@@ -166,41 +190,44 @@ function BlockedTab({
     addRule();
   }
 
+  const help = kindHelp(kind);
+
   return (
     <>
       <Card className="mb-4" padding="md" elevation="raised">
         <form onSubmit={submit} className="flex flex-wrap gap-2">
-          <Select value={kind} onValueChange={setKind} options={WEBSITE_KINDS} className="w-40" />
+          <Select
+            value={kind}
+            onValueChange={setKind}
+            options={websiteKindOptions()}
+            className="w-40"
+          />
           {!wholeInternet && (
             <Input
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={KIND_HELP[kind].placeholder}
-              aria-label="Value to block"
+              placeholder={help.placeholder}
+              aria-label={m.websites_value_label()}
               className="max-w-sm flex-1"
             />
           )}
           {catchAll ? (
             <ConfirmButton
               icon={<Ban />}
-              confirmLabel="Block every site?"
+              confirmLabel={m.websites_confirm_block_everything()}
               onConfirm={addRule}
               disabled={add.isPending}
             >
-              Add
+              {m.websites_add()}
             </ConfirmButton>
           ) : (
             <Button type="submit" icon={<Plus />} disabled={!trimmed || add.isPending}>
-              Add
+              {m.websites_add()}
             </Button>
           )}
         </form>
         <p className={cn("mt-2 text-xs", catchAll ? "text-warning" : "text-muted-foreground")}>
-          {wholeInternet
-            ? KIND_HELP[kind].hint
-            : catchAll
-              ? CATCH_ALL_WARNING
-              : KIND_HELP[kind].hint}
+          {catchAll && !wholeInternet ? m.websites_hint_catch_all() : help.hint}
         </p>
         <InlineError error={add.error} />
         <StarterLists listId={listId} />
@@ -209,8 +236,8 @@ function BlockedTab({
       {rules.length === 0 ? (
         <EmptyState
           icon={<Globe />}
-          title="Nothing blocked yet"
-          description="Add a domain above, or import one of the curated starter lists."
+          title={m.websites_empty_title()}
+          description={m.websites_empty_description()}
         />
       ) : (
         <RuleTable
@@ -248,22 +275,25 @@ function ExceptionsTab({
 
   return (
     <>
-      <p className="mb-4 text-muted-foreground text-sm">
-        Exceptions stay reachable even when a rule above would block them.
-      </p>
+      <p className="mb-4 text-muted-foreground text-sm">{m.exceptions_intro()}</p>
 
       <Card className="mb-4" padding="md" elevation="raised">
         <form onSubmit={submit} className="flex flex-wrap gap-2">
-          <Select value={kind} onValueChange={setKind} options={EXCEPTION_KINDS} className="w-40" />
+          <Select
+            value={kind}
+            onValueChange={setKind}
+            options={exceptionKindOptions()}
+            className="w-40"
+          />
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="docs.example.com"
-            aria-label="Value to allow"
+            aria-label={m.exceptions_value_label()}
             className="max-w-sm flex-1"
           />
           <Button type="submit" icon={<Plus />} disabled={!value.trim() || add.isPending}>
-            Allow
+            {m.exceptions_allow()}
           </Button>
         </form>
         <InlineError error={add.error} />
@@ -272,8 +302,8 @@ function ExceptionsTab({
       {exceptions.length === 0 ? (
         <EmptyState
           icon={<ShieldCheck />}
-          title="No exceptions"
-          description="An exception stays reachable even when a rule above would block it."
+          title={m.exceptions_empty_title()}
+          description={m.exceptions_empty_description()}
         />
       ) : (
         <RuleTable
@@ -310,21 +340,19 @@ function ImportTab({ listId }: { listId: string }) {
 
   return (
     <form onSubmit={submit}>
-      <p className="mb-3 text-muted-foreground text-sm">
-        One value per line. Blank lines, duplicates and <code>#</code> comments are skipped.
-      </p>
+      <p className="mb-3 text-muted-foreground text-sm">{m.import_intro()}</p>
 
       <div className="mb-3 flex gap-2">
-        <Select value={kind} onValueChange={setKind} options={IMPORT_KINDS} />
+        <Select value={kind} onValueChange={setKind} options={importKindOptions()} />
         <Button type="submit" disabled={!text.trim() || importer.isPending}>
-          {importer.isPending ? "Importing…" : "Import"}
+          {importer.isPending ? m.import_pending() : m.import_action()}
         </Button>
       </div>
 
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        aria-label="Values to import"
+        aria-label={m.import_values_label()}
         rows={12}
         spellCheck={false}
         placeholder={"reddit.com\ntwitter.com\n# social\nfacebook.com"}
@@ -332,9 +360,7 @@ function ImportTab({ listId }: { listId: string }) {
       />
 
       {added !== null && (
-        <p className="mt-2 text-success text-sm">
-          Imported {added} {added === 1 ? "rule" : "rules"}.
-        </p>
+        <p className="mt-2 text-success text-sm">{m.import_added({ count: added })}</p>
       )}
       <InlineError error={importer.error} />
     </form>

@@ -131,6 +131,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      # `postinstall` already does this, but nothing else compiles without it,
+      # so make the dependency visible rather than implicit in a lifecycle hook.
+      - name: Compile messages
+        run: npm run paraglide
+
       - name: Lint and format
         run: npx biome check .
 

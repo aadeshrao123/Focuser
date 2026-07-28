@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dev:backend": "cargo run --manifest-path ../../../Cargo.toml -p focuser-devserver -- --memory",
-    "bindings": "cargo run --manifest-path ../../../Cargo.toml -p focuser-ui -- --export-bindings"
+    "bindings": "cargo run --manifest-path ../../../Cargo.toml -p focuser-ui -- --export-bindings",
+    "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy baseLocale --output-structure message-modules --emit-ts-declarations",
+    "postinstall": "npm run paraglide"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
@@ -39,6 +41,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
+    "@inlang/paraglide-js": "^2.23.0",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.0",

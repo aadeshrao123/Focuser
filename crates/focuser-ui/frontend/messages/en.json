@@ -1,0 +1,71 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "nav_dashboard": "Dashboard",
+  "nav_block_lists": "Block Lists",
+  "nav_websites": "Websites",
+  "nav_applications": "Applications",
+  "nav_schedule": "Schedule",
+  "nav_allowances": "Allowances",
+  "nav_statistics": "Statistics",
+  "nav_settings": "Settings",
+
+  "websites_title": "Websites",
+  "websites_description": "Domains, keywords and URL patterns to block.",
+  "websites_tab_blocked": "Blocked",
+  "websites_tab_exceptions": "Exceptions",
+  "websites_tab_import": "Bulk import",
+
+  "websites_kind_domain": "Domain",
+  "websites_kind_keyword": "Keyword",
+  "websites_kind_wildcard": "Wildcard",
+  "websites_kind_url_path": "URL path",
+  "websites_kind_entire_internet": "Entire internet",
+
+  "websites_hint_domain": "Covers www. and every subdomain.",
+  "websites_hint_keyword": "Blocks any URL containing this word. Extension only.",
+  "websites_hint_wildcard": "* matches any run of characters, and *.reddit.com covers reddit.com too. Extension only.",
+  "websites_hint_url_path": "Blocks URLs containing this path. Extension only.",
+  "websites_hint_entire_internet": "Blocks every site except your exceptions, so add those first. Extension only.",
+  "websites_hint_catch_all": "This matches every site, including local pages and your own machine. Pick Entire internet instead if that is what you want, and add exceptions first.",
+
+  "websites_add": "Add",
+  "websites_confirm_block_everything": "Block every site?",
+  "websites_value_label": "Value to block",
+  "websites_empty_title": "Nothing blocked yet",
+  "websites_empty_description": "Add a domain above, or import one of the curated starter lists.",
+
+  "websites_extension_needed_title": "Keyword, wildcard and URL path rules need the browser extension",
+  "websites_extension_needed_body": "Focuser blocks plain domains through the hosts file, but that file has no way to express a pattern. Those rules are being ignored right now. Install the extension from Settings and they start working straight away. Domain rules are unaffected.",
+
+  "websites_no_lists_title": "No block lists yet",
+  "websites_no_lists_description": "Create one on the Block Lists page first.",
+
+  "exceptions_intro": "Exceptions stay reachable even when a rule above would block them.",
+  "exceptions_allow": "Allow",
+  "exceptions_value_label": "Value to allow",
+  "exceptions_empty_title": "No exceptions",
+  "exceptions_empty_description": "An exception stays reachable even when a rule above would block it.",
+
+  "starter_lists_label": "Or import a starter list",
+  "starter_lists_import": "Import",
+  "starter_lists_picker_label": "Starter list",
+  "starter_lists_added": "Added {added}{alreadyThere}.",
+  "starter_lists_already_there": " · {count} already there",
+
+  "import_intro": "One value per line. Blank lines, duplicates and # comments are skipped.",
+  "import_action": "Import",
+  "import_pending": "Importing…",
+  "import_values_label": "Values to import",
+
+  "import_added": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Imported {count} rule.",
+        "countPlural=other": "Imported {count} rules."
+      }
+    }
+  ]
+}

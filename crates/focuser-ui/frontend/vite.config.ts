@@ -1,4 +1,5 @@
 import path from "node:path";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -7,7 +8,26 @@ import { defineConfig } from "vite";
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Messages compile to one function each, so an unused string is dropped by
+    // tree-shaking and a missing key is a build error rather than a silent
+    // fallback to English.
+    paraglideVitePlugin({
+      project: "./project.inlang",
+      outdir: "./src/paraglide",
+      emitTsDeclarations: true,
+      // One module per message, so Vite can drop the ones nobody imports.
+      // Must match the `paraglide` script in package.json or the two produce
+      // different trees depending on which ran last.
+      outputStructure: "message-modules",
+      // The app owns the language, so there is nothing to sniff: no URL
+      // segment, no Accept-Language, no cookie. It reads the saved setting and
+      // calls setLocale itself.
+      strategy: ["baseLocale"],
+    }),
+  ],
 
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "./src") },
