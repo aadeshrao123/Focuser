@@ -132,6 +132,19 @@ read from `../crates/focuser-ui/frontend/public/` at build time, which made this
 folder impossible to build on its own and would have failed a reviewer on the
 first command. A test in `focuser-ui` fails if the two copies drift.
 
+## Versioning
+
+**The extension version is its own.** It moves when something in this folder
+changes, not when the desktop app is released. They shared a number up to
+0.6.3, which meant every app release produced an extension build identical to
+the last one and a store submission with nothing in it.
+
+Nothing depends on the two matching. The extension reports its own version on
+the welcome page and in the `Connected` handshake, and neither is ever compared
+against the app's.
+
+Store review takes days, so a submission should carry a real change.
+
 ## Publishing
 
 **Submitting is manual, on purpose.** Nothing in CI uploads to a store.
