@@ -70,11 +70,12 @@ export function UsageChart({ data }: { data: DayTotal[] }) {
               <stop offset="0%" stopColor="var(--color-primary-hover)" stopOpacity={1} />
               <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0.55} />
             </linearGradient>
-            {/* Same ramp, brighter and fully opaque, so the hovered bar lifts
-                out of the row without changing size or position. */}
+            {/* A different hue, not just a brighter violet — the point is that
+                the bar under the pointer is unmistakable. */}
             <linearGradient id="bar-primary-active" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-primary-active)" stopOpacity={1} />
-              <stop offset="100%" stopColor="var(--color-primary-hover)" stopOpacity={0.95} />
+              <stop offset="0%" stopColor="var(--color-chart-2)" stopOpacity={1} />
+              <stop offset="55%" stopColor="var(--color-primary-hover)" stopOpacity={1} />
+              <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0.9} />
             </linearGradient>
           </defs>
           <Bar

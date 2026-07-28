@@ -1,5 +1,6 @@
 import { Ban, BarChart3, CalendarDays, Clock, Globe } from "lucide-react";
 import { useMemo, useState } from "react";
+import { TargetIndividual, TargetOverlay } from "@/components/target-breakdown";
 import { Badge } from "@/components/ui/badge";
 import { Card, EmptyState, PageHeader, Section } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -7,17 +8,21 @@ import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Page } from "@/components/ui/page";
 import { Select } from "@/components/ui/select";
 import { Stat, StatGrid } from "@/components/ui/stat";
+import { Tabs } from "@/components/ui/tabs";
 import { UsageChart } from "@/components/usage-chart";
 import { useClearStatistics, useStats } from "@/lib/commands";
 import { formatDay, RANGES, type RangeId, rangeFor } from "@/lib/date-range";
 import { formatDuration } from "@/lib/duration";
-import { summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
+import { seriesByTarget, summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
 import { count } from "@/lib/utils";
 
 const TOP_LIMIT = 10;
 
 export function Statistics() {
   const [rangeId, setRangeId] = useState<RangeId>("7d");
+  const [view, setView] = useState<"bars" | "individual" | "detailed">("bars");
+  // Empty until the user picks; the chart falls back to the busiest target.
+  const [picked, setPicked] = useState("");
   const clear = useClearStatistics();
 
   // Rebuilt only when the preset changes, so a poll at midnight can't shift the
@@ -28,6 +33,7 @@ export function Statistics() {
   const rows = stats.data ?? [];
   const days = useMemo(() => totalsByDay(rows, range), [rows, range]);
   const targets = useMemo(() => totalsByTarget(rows), [rows]);
+  const series = useMemo(() => seriesByTarget(rows, range), [rows, range]);
   const totals = summarise(days, targets);
 
   return (
@@ -87,10 +93,40 @@ export function Statistics() {
           />
         </StatGrid>
 
-        <Section title="Blocked attempts per day">
-          <Card padding="lg" elevation="raised">
-            <UsageChart data={days} />
-          </Card>
+        <Section
+          title="Blocked attempts per day"
+          actions={
+            <Tabs
+              value={view}
+              onChange={setView}
+              items={[
+                { id: "bars", label: "Bars" },
+                { id: "individual", label: "Individual" },
+                { id: "detailed", label: "Detailed" },
+              ]}
+            />
+          }
+        >
+          {view === "bars" ? (
+            <Card padding="lg" elevation="raised">
+              <UsageChart data={days} />
+            </Card>
+          ) : series.length === 0 ? (
+            <EmptyState
+              icon={<BarChart3 />}
+              title="Nothing recorded yet"
+              description="Sites and apps get their own charts here once something is blocked."
+            />
+          ) : view === "individual" ? (
+            <TargetIndividual
+              targets={series}
+              selected={picked}
+              onSelect={setPicked}
+              total={totals.attempts}
+            />
+          ) : (
+            <TargetOverlay targets={series} />
+          )}
         </Section>
 
         <Section

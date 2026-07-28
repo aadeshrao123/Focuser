@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UsageStat } from "@/bindings";
-import { summarise, totalsByDay, totalsByTarget } from "./stats";
+import { seriesByTarget, summarise, totalsByDay, totalsByTarget } from "./stats";
 
 const stat = (date: string, target: string, attempts: number, seconds = 0): UsageStat => ({
   date,
@@ -70,5 +70,43 @@ describe("summarise", () => {
 
   it("has no busiest day when nothing was blocked", () => {
     expect(summarise(totalsByDay([], range), []).busiestDay).toBeNull();
+  });
+});
+
+describe("seriesByTarget", () => {
+  it("keeps one zero-filled row per day for every target", () => {
+    const series = seriesByTarget(
+      [stat("2026-07-26", "reddit.com", 3), stat("2026-07-27", "reddit.com", 1)],
+      range,
+    );
+
+    expect(series).toHaveLength(1);
+    expect(series[0]?.days.map((d) => d.attempts)).toEqual([0, 3, 1]);
+    expect(series[0]?.attempts).toBe(4);
+  });
+
+  it("gives every target the same x axis, so panels line up", () => {
+    const series = seriesByTarget(
+      [stat("2026-07-25", "a.com", 1), stat("2026-07-27", "b.com", 1)],
+      range,
+    );
+
+    expect(series.map((s) => s.days.map((d) => d.date))).toEqual([
+      ["2026-07-25", "2026-07-26", "2026-07-27"],
+      ["2026-07-25", "2026-07-26", "2026-07-27"],
+    ]);
+  });
+
+  it("sorts busiest first", () => {
+    const series = seriesByTarget(
+      [stat("2026-07-26", "quiet.com", 1), stat("2026-07-26", "loud.com", 9)],
+      range,
+    );
+    expect(series.map((s) => s.target)).toEqual(["loud.com", "quiet.com"]);
+  });
+
+  it("drops rows outside the range rather than distorting the axis", () => {
+    const series = seriesByTarget([stat("2026-01-01", "old.com", 5)], range);
+    expect(series).toEqual([]);
   });
 });

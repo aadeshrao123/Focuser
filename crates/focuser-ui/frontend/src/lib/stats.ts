@@ -56,6 +56,45 @@ export function totalsByTarget(stats: UsageStat[]): TargetTotal[] {
   );
 }
 
+export interface TargetSeries extends TargetTotal {
+  /** Zero-filled across the range, so every series shares one x axis. */
+  days: DayTotal[];
+}
+
+/** Per site or app, but keeping the daily shape rather than collapsing it. */
+export function seriesByTarget(stats: UsageStat[], range: DateRange): TargetSeries[] {
+  const dates = daysBetween(range);
+  const position = new Map(dates.map((date, i) => [date, i]));
+  const byTarget = new Map<string, TargetSeries>();
+
+  for (const stat of stats) {
+    const at = position.get(stat.date);
+    if (at === undefined) continue;
+
+    let entry = byTarget.get(stat.domain_or_app);
+    if (!entry) {
+      entry = {
+        target: stat.domain_or_app,
+        attempts: 0,
+        seconds: 0,
+        days: dates.map((date) => ({ date, attempts: 0, seconds: 0 })),
+      };
+      byTarget.set(entry.target, entry);
+    }
+
+    const day = entry.days[at];
+    if (!day) continue;
+    day.attempts += stat.blocked_attempts;
+    day.seconds += stat.duration_seconds;
+    entry.attempts += stat.blocked_attempts;
+    entry.seconds += stat.duration_seconds;
+  }
+
+  return [...byTarget.values()].sort(
+    (a, b) => b.attempts - a.attempts || b.seconds - a.seconds || a.target.localeCompare(b.target),
+  );
+}
+
 export function summarise(days: DayTotal[], targets: TargetTotal[]): Totals {
   const busiest = days.reduce<DayTotal | null>(
     (best, day) => (day.attempts > (best?.attempts ?? 0) ? day : best),
