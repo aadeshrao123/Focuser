@@ -1,6 +1,6 @@
 {
   "name": "focuser-extension",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "description": "Focuser browser extension — enforces the desktop app's block lists inside the browser",
@@ -11,6 +11,7 @@
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
+    "setup:submit": "node scripts/setup-submit.mjs",
     "submit": "wxt submit --chrome-zip .output/*-chrome.zip --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip",
     "submit:dry": "wxt submit --dry-run --chrome-zip .output/*-chrome.zip --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip",
     "compile": "tsc --noEmit",
