@@ -112,6 +112,26 @@ Everything stays on the machine. The extension talks to `127.0.0.1:17549` and
 nothing else — there is no remote endpoint anywhere in this codebase. Category
 labels come from a file bundled with the extension, not from a lookup service.
 
+## Building from source
+
+For an AMO reviewer, or anyone with only this folder:
+
+```bash
+npm ci
+npm run build            # Chrome, → .output/chrome-mv3/
+npm run build:firefox    # Firefox, → .output/firefox-mv3/
+```
+
+- **Node** 22 or newer, **npm** 10 or newer. `node --version` to check.
+- **Operating system**: any. Built and tested on Windows 11 and Ubuntu; the
+  toolchain is pure JavaScript with no native build step.
+- No environment variables, no network calls at build time beyond `npm ci`.
+
+`public/premade-lists.json` is a copy of the file the desktop app ships. It was
+read from `../crates/focuser-ui/frontend/public/` at build time, which made this
+folder impossible to build on its own and would have failed a reviewer on the
+first command. A test in `focuser-ui` fails if the two copies drift.
+
 ## Publishing
 
 **Submitting is manual, on purpose.** Nothing in CI uploads to a store.

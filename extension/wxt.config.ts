@@ -1,19 +1,10 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 
-/**
- * The starter category lists live with the desktop app's frontend and are the
- * one source of truth. Copying them at build time beats keeping a second copy
- * here that quietly drifts — which is exactly what happened before, when the
- * old build never copied the file at all and every block page fell back to the
- * generic message.
- */
-const PREMADE_LISTS = resolve(
-  __dirname,
-  "../crates/focuser-ui/frontend/public/premade-lists.json",
-);
+// `public/premade-lists.json` is a copy of the desktop app's. It used to be
+// read from `../crates/...` at build time, which made this folder impossible
+// to build on its own — and AMO requires a source archive a reviewer can build.
+// `starter_lists_match` in focuser-ui fails if the two copies drift.
 
 const ICONS = {
   16: "icons/icon16.png",
@@ -69,18 +60,4 @@ export default defineConfig({
   vite: () => ({
     plugins: [tailwindcss()],
   }),
-
-  hooks: {
-    "build:publicAssets": (_wxt, assets) => {
-      if (!existsSync(PREMADE_LISTS)) {
-        throw new Error(
-          `Starter lists missing at ${PREMADE_LISTS}. The block page cannot label categories without them.`,
-        );
-      }
-      assets.push({
-        absoluteSrc: PREMADE_LISTS,
-        relativeDest: "premade-lists.json",
-      });
-    },
-  },
 });
