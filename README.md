@@ -20,44 +20,64 @@ It sits quietly in your system tray, blocks the sites you told it to block, and 
 
 ## Screenshots
 
-> These are from an earlier build. The interface has since been rebuilt and looks rather different — fresh captures are on the way.
-
 <details>
-<summary><strong>Dashboard</strong> - Your blocking overview at a glance</summary>
+<summary><strong>Dashboard</strong> - What is blocked right now, and a Pomodoro timer to start a session</summary>
 <br>
-<img src="assets/screenshots/dashboard.png" alt="Dashboard" width="100%">
+<p>Four counters across the top, then the focus session: three dials for focus, short break and long break, how many cycles before the long one, and a bar showing what the whole session adds up to. Block lists can be flipped on and off without leaving the page.</p>
+<img src="assets/screenshots/dashboard.png" alt="Dashboard showing blocked attempts, a Pomodoro focus session and block list toggles" width="100%">
 </details>
 
 <details>
-<summary><strong>Block Lists</strong> - Organize blocks into groups with Focus Lock protection</summary>
+<summary><strong>Block Lists</strong> - Group sites and apps, then schedule and lock each group on its own</summary>
 <br>
-<img src="assets/screenshots/block-lists.png" alt="Block Lists" width="100%">
+<p>A list is the unit everything else hangs off. Each one has its own websites, applications, schedule and exceptions, and can be locked so you cannot casually undo it.</p>
+<img src="assets/screenshots/block-lists.png" alt="Block Lists page with two lists, each showing site and app counts" width="100%">
 </details>
 
 <details>
-<summary><strong>Websites</strong> - Domains, keywords, wildcards, pre-made lists, bulk import</summary>
+<summary><strong>Websites</strong> - Domains, keywords, wildcards, URL paths, or the whole internet</summary>
 <br>
-<img src="assets/screenshots/websites.png" alt="Websites" width="100%">
+<p>Pick the kind of rule and the hint underneath tells you what it will actually match. Starter lists sit right next to the add box: choose a category, hit Import, and the sites that are already there are skipped rather than duplicated.</p>
+<img src="assets/screenshots/websites.png" alt="Websites page with the rule-kind picker, the starter list importer and a list of blocked domains" width="100%">
 </details>
 
 <details>
-<summary><strong>Schedule</strong> - 24/7 blocking or a weekly time grid, your call</summary>
+<summary><strong>Applications</strong> - Block programs by executable, full path, or window title</summary>
 <br>
-<img src="assets/screenshots/schedule-24-7.png" alt="Schedule - Always Active" width="100%">
+<p>Blocked programs show their real icon, read out of the executable on your own machine. Nothing is fetched from the internet to do it.</p>
+<img src="assets/screenshots/applications.png" alt="Applications page showing a blocked executable with its real icon" width="100%">
+</details>
+
+<details>
+<summary><strong>Schedule</strong> - Always on, or painted onto a weekly grid</summary>
+<br>
+<p>Leave a list always active, or switch to the grid and drag to paint the hours you want it blocking. Presets cover work hours, evenings and weekends. The summary underneath adds up your week and warns you when there are unsaved changes.</p>
+<img src="assets/screenshots/schedule-always-active.png" alt="Schedule set to always active, showing 168 of 168 hours covered" width="100%">
 <br><br>
-<img src="assets/screenshots/schedule-weekly.png" alt="Schedule - Weekly Grid" width="100%">
+<img src="assets/screenshots/schedule-weekly.png" alt="Weekly schedule grid with work hours painted in, showing 76 of 168 hours covered" width="100%">
 </details>
 
 <details>
-<summary><strong>Statistics</strong> - See what you tried to access and how many times you got stopped</summary>
+<summary><strong>Allowances</strong> - A daily budget instead of an outright block</summary>
 <br>
-<img src="assets/screenshots/statistics.png" alt="Statistics" width="100%">
+<p>Give a site or app a number of minutes per day. When the budget runs out it is blocked for the rest of the day. Time can be counted only while the tab or window is actually focused, so a forgotten background tab does not drain it.</p>
+<img src="assets/screenshots/allowances.png" alt="Allowances page showing a 30 minute daily budget with 15 minutes used" width="100%">
 </details>
 
 <details>
-<summary><strong>Settings</strong> - Import/export configs, data retention, the usual</summary>
+<summary><strong>Statistics</strong> - What you tried to open, and how often you got stopped</summary>
 <br>
-<img src="assets/screenshots/settings.png" alt="Settings" width="100%">
+<p>Three views of the same data. <strong>Bars</strong> is attempts per day. <strong>Individual</strong> follows one site over time with its own share of the total. <strong>Detailed</strong> puts every site in one chart. Each site keeps the same colour every time, derived from a hash of its name.</p>
+<img src="assets/screenshots/statistics-bars.png" alt="Statistics in Bars view, with blocked attempts per day and a most-blocked table" width="100%">
+<br><br>
+<img src="assets/screenshots/statistics-individual.png" alt="Statistics in Individual view, tracking one site over the last seven days" width="100%">
+</details>
+
+<details>
+<summary><strong>Settings</strong> - Startup, browsers, extension status, and your data</summary>
+<br>
+<p>Shows which browsers have the extension connected and offers to install it where they do not. Export every block list to a file or replace them from one, choose how long statistics are kept, and delete everything if you want to start over.</p>
+<img src="assets/screenshots/settings.png" alt="Settings page showing startup, browser, extension and data options" width="100%">
 </details>
 
 ## What it does
