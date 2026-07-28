@@ -12,11 +12,43 @@ import { useAddAppRule, useAppIcons, useBlockLists, useRemoveAppRule } from "@/l
 import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
 import { isTauri, pickApplication } from "@/lib/native";
 
-const PLACEHOLDERS: Record<AppKind, string> = {
-  ExecutableName: "discord.exe",
-  ExecutablePath: "C:\\Program Files\\Steam\\steam.exe",
-  WindowTitle: "Solitaire",
+/**
+ * Examples in the shape this machine actually reports.
+ *
+ * A rule is compared against a running process, and the three platforms name
+ * those differently: `steam.exe` on Windows, `Steam` on macOS, `steam` on
+ * Linux. Showing a Windows example to a Linux user invites a rule that can
+ * never match.
+ *
+ * Read off the user agent rather than a Tauri plugin: this only picks example
+ * text, and the preview harness gets it right for free.
+ */
+const EXAMPLES: Record<"windows" | "macos" | "linux", Record<AppKind, string>> = {
+  windows: {
+    ExecutableName: "discord.exe",
+    ExecutablePath: "C:\\Program Files\\Steam\\steam.exe",
+    WindowTitle: "Solitaire",
+  },
+  macos: {
+    ExecutableName: "Discord",
+    ExecutablePath: "/Applications/Steam.app",
+    WindowTitle: "Solitaire",
+  },
+  linux: {
+    ExecutableName: "discord",
+    ExecutablePath: "/usr/bin/steam",
+    WindowTitle: "Solitaire",
+  },
 };
+
+function hostPlatform(): keyof typeof EXAMPLES {
+  const agent = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  if (agent.includes("Mac")) return "macos";
+  if (agent.includes("Windows")) return "windows";
+  return "linux";
+}
+
+const PLACEHOLDERS = EXAMPLES[hostPlatform()];
 
 export function Apps() {
   const lists = useBlockLists();
@@ -102,7 +134,7 @@ export function Apps() {
               <EmptyState
                 icon={<AppWindow />}
                 title="No applications blocked"
-                description="Add an executable name like discord.exe, or browse for one on disk."
+                description={`Add an executable name like ${PLACEHOLDERS.ExecutableName}, or browse for one on disk.`}
               />
             ) : (
               <AppRules
