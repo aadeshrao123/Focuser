@@ -9,6 +9,7 @@ pub mod ipc;
 pub mod pomodoro;
 pub mod process;
 pub mod schedule;
+pub mod session;
 pub mod types;
 pub mod uninstall;
 

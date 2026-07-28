@@ -42,3 +42,23 @@ windows = { version = "0.58", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Input_KeyboardAndMouse",
 ] }
+
+# Which app is in front, and how long the user has been away. Versions match
+# what Tauri already pulls in, so this adds no second copy of objc2.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "libc",
+    "NSWorkspace",
+    "NSRunningApplication",
+] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "CGEventSource",
+    "CGEventTypes",
+] }
+
+# Pure Rust, so packagers gain no new system dependency: it speaks the X11
+# protocol over the socket rather than linking libX11.
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.14", features = ["screensaver"] }

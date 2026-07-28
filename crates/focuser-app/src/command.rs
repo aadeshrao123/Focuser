@@ -312,6 +312,9 @@ pub struct BlockingHealth {
     /// A keyword, wildcard or URL-path rule is active. Only the extension can
     /// enforce those; a hosts file has no way to express them.
     pub extension_only_rules: bool,
+    /// This session can report which app is in front, so app allowances can
+    /// count down. False on Wayland, which has no such protocol.
+    pub app_usage_measurable: bool,
 }
 
 impl BlockingHealth {
@@ -475,6 +478,7 @@ mod health_tests {
             extension_connected,
             hosts_writable,
             extension_only_rules: false,
+            app_usage_measurable: true,
         }
     }
 

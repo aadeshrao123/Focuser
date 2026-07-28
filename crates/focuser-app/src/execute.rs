@@ -372,6 +372,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 extension_connected: !ctx.connected_browsers().is_empty(),
                 hosts_writable: ctx.hosts_writable(),
                 extension_only_rules: engine.has_extension_only_rules(),
+                app_usage_measurable: focuser_common::session::app_usage_measurable(),
             }))
         }
 

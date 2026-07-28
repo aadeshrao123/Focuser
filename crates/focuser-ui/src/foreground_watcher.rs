@@ -78,9 +78,13 @@ fn foreground_app() -> Option<ForegroundSample> {
     {
         win::foreground_app()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
-        None
+        mac::foreground_app()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        linux::foreground_app()
     }
 }
 
@@ -91,9 +95,13 @@ fn user_idle_seconds() -> Option<u32> {
     {
         win::user_idle_seconds()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
-        Some(0)
+        mac::user_idle_seconds()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        linux::user_idle_seconds()
     }
 }
 
@@ -203,5 +211,118 @@ mod win {
         fn file_name_handles_empty() {
             assert_eq!(file_name(""), "");
         }
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod mac {
+    use super::ForegroundSample;
+    use objc2_app_kit::NSWorkspace;
+    use objc2_core_graphics::{CGEventSource, CGEventSourceStateID, CGEventType};
+
+    pub fn foreground_app() -> Option<ForegroundSample> {
+        let app = NSWorkspace::sharedWorkspace().frontmostApplication()?;
+        let pid = app.processIdentifier();
+        // AppKit reports -1 for an application that has no process.
+        if pid <= 0 {
+            return None;
+        }
+        let pid = pid as u32;
+
+        // Resolved through `process`, not from the bundle name, so the string
+        // matches what a rule is compared against.
+        let exe_name = focuser_common::process::name_for_pid(pid)?;
+        Some(ForegroundSample {
+            exe_name,
+            is_self: pid == std::process::id(),
+        })
+    }
+
+    /// `kCGAnyInputEventType` is `~0` and has no generated constant, so the
+    /// newtype is built from the value the header defines.
+    const ANY_INPUT_EVENT: CGEventType = CGEventType(u32::MAX);
+
+    pub fn user_idle_seconds() -> Option<u32> {
+        let seconds = CGEventSource::seconds_since_last_event_type(
+            CGEventSourceStateID::CombinedSessionState,
+            ANY_INPUT_EVENT,
+        );
+        // A negative or absurd reading means the API could not answer.
+        (seconds.is_finite() && seconds >= 0.0).then_some(seconds as u32)
+    }
+}
+
+/// X11 only, and deliberately so.
+///
+/// Wayland has no protocol for "which window is focused" — it was left out on
+/// purpose, so that one app cannot watch another. GNOME needs a shell
+/// extension and KDE offers nothing public, so there is no portable answer to
+/// implement. Under Wayland this reports nothing rather than reporting
+/// something wrong, and `session::app_usage_measurable` lets the app say so
+/// instead of leaving the user wondering why a timer never moves.
+#[cfg(target_os = "linux")]
+mod linux {
+    use super::ForegroundSample;
+    use x11rb::connection::Connection;
+    use x11rb::protocol::screensaver::ConnectionExt as _;
+    use x11rb::protocol::xproto::{AtomEnum, ConnectionExt as _};
+    use x11rb::rust_connection::RustConnection;
+
+    /// A connection per tick. The handshake is a local socket round trip every
+    /// five seconds, which is cheaper than holding one open across a suspend
+    /// or an X server restart and having to notice it died.
+    fn connect() -> Option<(RustConnection, u32)> {
+        if !focuser_common::session::app_usage_measurable() {
+            return None;
+        }
+        let (conn, screen) = x11rb::connect(None).ok()?;
+        let root = conn.setup().roots.get(screen)?.root;
+        Some((conn, root))
+    }
+
+    fn atom(conn: &RustConnection, name: &[u8]) -> Option<u32> {
+        Some(conn.intern_atom(false, name).ok()?.reply().ok()?.atom)
+    }
+
+    /// First 32-bit word of a window property, which is all these two hold.
+    fn first_word(
+        conn: &RustConnection,
+        window: u32,
+        property: u32,
+        kind: AtomEnum,
+    ) -> Option<u32> {
+        conn.get_property(false, window, property, kind, 0, 1)
+            .ok()?
+            .reply()
+            .ok()?
+            .value32()?
+            .next()
+    }
+
+    pub fn foreground_app() -> Option<ForegroundSample> {
+        let (conn, root) = connect()?;
+
+        let active = atom(&conn, b"_NET_ACTIVE_WINDOW")?;
+        let window = first_word(&conn, root, active, AtomEnum::WINDOW)?;
+        if window == 0 {
+            return None;
+        }
+
+        // _NET_WM_PID is a convention, not a guarantee. A window without one
+        // simply does not get counted.
+        let wm_pid = atom(&conn, b"_NET_WM_PID")?;
+        let pid = first_word(&conn, window, wm_pid, AtomEnum::CARDINAL)?;
+
+        let exe_name = focuser_common::process::name_for_pid(pid)?;
+        Some(ForegroundSample {
+            exe_name,
+            is_self: pid == std::process::id(),
+        })
+    }
+
+    pub fn user_idle_seconds() -> Option<u32> {
+        let (conn, root) = connect()?;
+        let info = conn.screensaver_query_info(root).ok()?.reply().ok()?;
+        Some(info.ms_since_user_input / 1000)
     }
 }

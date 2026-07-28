@@ -8,31 +8,29 @@
 
 use tauri_plugin_updater::UpdaterExt;
 
-/// Pick an executable to block. Returns its file name, which is what an
-/// `ExecutableName` rule matches on.
-#[tauri::command]
+/// Pick an executable to block. Returns the name an `ExecutableName` rule
+/// matches on, which is not always the file name — see `process::name_for_path`.
+///
+/// `(async)` is load-bearing. The plugin opens the dialog with
+/// `run_on_main_thread`, so waiting for it *from* the main thread deadlocks and
+/// the window hangs. That is what made Browse unusable on Linux.
+#[tauri::command(async)]
 pub fn pick_app_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
-    let (tx, rx) = std::sync::mpsc::channel();
+    let dialog = app.dialog().file().set_title("Select Application to Block");
 
-    app.dialog()
-        .file()
-        .set_title("Select Application to Block")
-        .add_filter("Executables", &["exe", "app", "sh", "AppImage"])
-        .add_filter("All Files", &["*"])
-        .pick_file(move |path| {
-            let result = path.map(|p| {
-                let path_str = p.to_string();
-                std::path::Path::new(&path_str)
-                    .file_name()
-                    .map(|f| f.to_string_lossy().to_string())
-                    .unwrap_or(path_str)
-            });
-            let _ = tx.send(result);
-        });
+    // Filters only where an executable actually carries an extension. rfd turns
+    // every filter entry into `*.ext`, so on Linux even an "All files" filter
+    // becomes `*.*` and hides every extensionless binary in /usr/bin.
+    #[cfg(windows)]
+    let dialog = dialog.add_filter("Programs", &["exe", "com", "bat", "cmd"]);
+    #[cfg(target_os = "macos")]
+    let dialog = dialog.add_filter("Applications", &["app"]);
 
-    rx.recv().map_err(|e| format!("Dialog error: {e}"))
+    Ok(dialog
+        .blocking_pick_file()
+        .map(|picked| focuser_common::process::name_for_path(&picked.to_string())))
 }
 
 /// Pick a Focuser configuration file and return its contents.

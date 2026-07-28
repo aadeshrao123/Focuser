@@ -141,6 +141,11 @@ export type BlockingHealth = {
 	 *  enforce those; a hosts file has no way to express them.
 	 */
 	extension_only_rules: boolean,
+	/**
+	 *  This session can report which app is in front, so app allowances can
+	 *  count down. False on Wayland, which has no such protocol.
+	 */
+	app_usage_measurable: boolean,
 };
 
 export type BreakConfig = 

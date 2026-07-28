@@ -15,6 +15,7 @@ import { TargetIcon } from "@/components/ui/target-icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
   useAllowances,
+  useBlockingHealth,
   useBrowserStatus,
   useCreateAllowance,
   useDeleteAllowance,
@@ -40,6 +41,15 @@ export function Allowances() {
   const hasWebsiteAllowance = (allowances.data ?? []).some(
     (a) => a.allowance.target.kind === "Domain",
   );
+
+  // App time comes from sampling the focused window, which Wayland does not
+  // let anyone ask about. Same rule as above: say so rather than show a timer
+  // that will never move.
+  const health = useBlockingHealth();
+  const hasAppAllowance = (allowances.data ?? []).some(
+    (a) => a.allowance.target.kind === "AppExecutable",
+  );
+  const appTimingBlind = hasAppAllowance && health.data?.app_usage_measurable === false;
 
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("Domain");
   const [value, setValue] = useState("");
@@ -74,6 +84,20 @@ export function Allowances() {
             Only the extension can see which tab is open, so without it the timer never starts.
             Those sites stay blocked in the meantime — an allowance that cannot be measured would
             otherwise be an unlimited pass. Install it from Settings.
+          </p>
+        </Card>
+      )}
+
+      {appTimingBlind && (
+        <Card className="mb-6 border-warning/40" padding="md">
+          <p className="flex items-center gap-2 font-medium text-sm text-warning">
+            <TriangleAlert aria-hidden className="size-4" />
+            Application allowances cannot be measured on Wayland
+          </p>
+          <p className="mt-1 text-muted-foreground text-sm">
+            Wayland has no way for one program to ask which window is in front, so the timer never
+            starts. Those apps stay blocked in the meantime. Logging in with an Xorg session makes
+            it work. Website allowances are unaffected.
           </p>
         </Card>
       )}

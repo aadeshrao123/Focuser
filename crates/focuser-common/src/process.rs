@@ -55,6 +55,37 @@ pub fn cmdline(pid: u32) -> Option<String> {
     imp::cmdline(pid)
 }
 
+/// The name [`list`] would report for the program at `path`.
+///
+/// A rule stores a name and blocking compares it against a running process, so
+/// picking a file from disk has to land on the same string the OS will hand
+/// back later. Each platform mangles it differently and none of them is the
+/// plain file name.
+pub fn name_for_path(path: &str) -> String {
+    imp::name_for_path(path)
+}
+
+/// The name [`list`] would report for one running process, without listing
+/// them all.
+///
+/// The foreground watcher knows a pid and needs the name a rule is written
+/// against. Going through the same per-OS source as [`list`] is what keeps an
+/// allowance and a block agreeing about what the app is called.
+#[cfg(not(windows))]
+pub fn name_for_pid(pid: u32) -> Option<String> {
+    imp::name_for_pid(pid)
+}
+
+/// The trailing path component, for the platforms where that is the whole job.
+fn file_name(path: &str) -> String {
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    trimmed
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(trimmed)
+        .to_string()
+}
+
 #[cfg(windows)]
 mod imp {
     use super::Process;
@@ -136,6 +167,12 @@ mod imp {
             killed
         }
     }
+
+    /// `szExeFile` is the file name, extension and all, so there is nothing to
+    /// resolve here.
+    pub fn name_for_path(path: &str) -> String {
+        super::file_name(path)
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -187,9 +224,79 @@ mod imp {
         super::unix_terminate(pid)
     }
 
+    /// `ps comm=` reports the binary *inside* the bundle, so picking
+    /// `Google Chrome.app` has to resolve to `Google Chrome`. The name is
+    /// usually the bundle's, but `CFBundleExecutable` is the only place that
+    /// actually says so.
+    pub fn name_for_path(path: &str) -> String {
+        let trimmed = path.trim_end_matches('/');
+        if !trimmed.ends_with(".app") {
+            return super::file_name(trimmed);
+        }
+
+        let bundle = std::path::Path::new(trimmed);
+        declared_executable(&bundle.join("Contents/Info.plist"))
+            .unwrap_or_else(|| super::file_name(trimmed.trim_end_matches(".app")))
+    }
+
+    /// `ps -p` rather than a full sweep: the caller already knows the pid and
+    /// runs on a timer.
+    pub fn name_for_pid(pid: u32) -> Option<String> {
+        let output = std::process::Command::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "comm="])
+            .output()
+            .ok()?;
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        (!path.is_empty()).then(|| super::file_name(&path))
+    }
+
+    fn declared_executable(info_plist: &std::path::Path) -> Option<String> {
+        let value = plist::Value::from_file(info_plist).ok()?;
+        let name = value
+            .as_dictionary()?
+            .get("CFBundleExecutable")?
+            .as_string()?
+            .trim()
+            .to_string();
+        (!name.is_empty()).then_some(name)
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn a_bundle_resolves_to_its_declared_executable() {
+            let dir = tempfile::tempdir().unwrap();
+            let bundle = dir.path().join("Google Chrome.app");
+            let contents = bundle.join("Contents");
+            std::fs::create_dir_all(&contents).unwrap();
+            std::fs::write(
+                contents.join("Info.plist"),
+                r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Google Chrome</string>
+</dict></plist>"#,
+            )
+            .unwrap();
+
+            let name = name_for_path(bundle.to_str().unwrap());
+            assert_eq!(name, "Google Chrome");
+        }
+
+        #[test]
+        fn a_bundle_without_a_plist_falls_back_to_its_own_name() {
+            let dir = tempfile::tempdir().unwrap();
+            let bundle = dir.path().join("Slack.app");
+            std::fs::create_dir_all(&bundle).unwrap();
+            assert_eq!(name_for_path(bundle.to_str().unwrap()), "Slack");
+        }
+
+        #[test]
+        fn a_bare_binary_keeps_its_file_name() {
+            assert_eq!(name_for_path("/usr/local/bin/node"), "node");
+        }
 
         #[test]
         fn a_ps_row_yields_the_executable_basename() {
@@ -250,6 +357,53 @@ mod imp {
 
     pub fn terminate(pid: u32) -> bool {
         super::unix_terminate(pid)
+    }
+
+    /// The kernel stores `comm` in 16 bytes including the terminator, so
+    /// `list` reports at most 15 characters. A rule holding the full file name
+    /// of a longer binary would never match a running one.
+    pub const COMM_LEN: usize = 15;
+
+    pub fn name_for_path(path: &str) -> String {
+        truncate_to_comm(&super::file_name(path))
+    }
+
+    /// Straight from `comm`, the same file `list` reads, so no truncation is
+    /// needed here — the kernel has already done it.
+    pub fn name_for_pid(pid: u32) -> Option<String> {
+        let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).ok()?;
+        let name = comm.trim();
+        (!name.is_empty()).then(|| name.to_string())
+    }
+
+    fn truncate_to_comm(name: &str) -> String {
+        match name.char_indices().nth(COMM_LEN) {
+            Some((cut, _)) => name[..cut].to_string(),
+            None => name.to_string(),
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn a_short_name_is_left_alone() {
+            assert_eq!(name_for_path("/usr/bin/firefox"), "firefox");
+        }
+
+        #[test]
+        fn a_long_name_is_cut_where_the_kernel_cuts_it() {
+            let name = name_for_path("/opt/bin/some-very-long-binary");
+            assert_eq!(name, "some-very-long-");
+            assert_eq!(name.chars().count(), COMM_LEN);
+        }
+
+        #[test]
+        fn truncation_never_splits_a_character() {
+            let cut = truncate_to_comm("ααααααααααααααααα");
+            assert_eq!(cut.chars().count(), COMM_LEN);
+        }
     }
 }
 
