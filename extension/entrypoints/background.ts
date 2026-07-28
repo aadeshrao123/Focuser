@@ -268,6 +268,20 @@ export default defineBackground(() => {
     },
   );
 
+  // Open the welcome page on install, and on a feature update. Patch releases
+  // stay quiet: a new tab for every bug fix is a nuisance, not news.
+  browser.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+    if (reason !== "install" && reason !== "update") return;
+
+    const version = browser.runtime.getManifest().version;
+    const minor = (v: string | undefined) => (v ?? "").split(".").slice(0, 2).join(".");
+    if (reason === "update" && minor(previousVersion) === minor(version)) return;
+
+    void browser.tabs.create({
+      url: browser.runtime.getURL(`/welcome.html?reason=${reason}` as never),
+    });
+  });
+
   // The service worker sleeps; an alarm is what wakes it. The interval covers
   // the window before the first alarm fires.
   browser.alarms.create("focuser-tick", { periodInMinutes: 0.5 });

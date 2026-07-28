@@ -144,27 +144,61 @@ async function getJson<T>(path: string): Promise<T | null> {
   }
 }
 
-async function postJson(path: string, body: unknown): Promise<boolean> {
+async function postJson<T = unknown>(path: string, body: unknown): Promise<T | null> {
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return response.ok;
+    if (!response.ok) return null;
+    return (await response.json().catch(() => ({}))) as T;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Where a site is listed, which is not the same as which list is selected. */
+export interface SiteStatus {
+  domain: string;
+  blocked: boolean;
+  lists: Array<{
+    id: string;
+    name: string;
+    enabled: boolean;
+    rule_kind: "domain" | "wildcard" | "keyword" | "url_path" | "everything";
+  }>;
 }
 
 export const fetchStatus = () => getJson<AppStatus>("/api/status");
 export const fetchLists = () => getJson<BlockListSummary[]>("/api/lists");
 
-export const addSite = (listId: string, domain: string) =>
-  postJson("/api/add-site", { list_id: listId, domain, rule_type: "domain" });
+export const fetchSiteStatus = (domain: string) =>
+  getJson<SiteStatus>(`/api/site-status?domain=${encodeURIComponent(domain)}`);
 
-export const removeSite = (listId: string, domain: string) =>
-  postJson("/api/remove-site", { list_id: listId, domain });
+export const addSite = (listId: string, domain: string) =>
+  postJson("/api/add-site", { list_id: listId, domain, rule_type: "domain" }).then(
+    (r) => r !== null,
+  );
+
+/**
+ * Removes the site from one list, reporting what actually happened.
+ *
+ * `removed` is the point: the API used to answer "ok" whether or not anything
+ * matched, so unblocking a site held by a *different* list looked like it had
+ * worked while the site stayed blocked.
+ */
+export async function removeSite(
+  listId: string,
+  domain: string,
+): Promise<{ removed: number; leftBehind: number } | null> {
+  const reply = await postJson<{ removed?: number; left_behind?: number }>("/api/remove-site", {
+    list_id: listId,
+    domain,
+  });
+  if (!reply) return null;
+  return { removed: reply.removed ?? 0, leftBehind: reply.left_behind ?? 0 };
+}
 
 /** Ask the desktop app to bring its window to the front. */
-export const showApp = () => postJson("/api/show", {});
+export const showApp = () => postJson("/api/show", {}).then((r) => r !== null);

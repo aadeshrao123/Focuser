@@ -18,6 +18,7 @@ use tracing::{debug, error, info};
 
 use crate::AppState;
 use focuser_common::host::{any_host_matches, canonical_host};
+use focuser_common::types::WebsiteMatchType;
 
 use crate::blocker;
 
@@ -242,6 +243,9 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
         ("POST", "/api/show") | ("GET", "/api/show") => {
             SHOW_WINDOW_REQUESTED.store(true, Ordering::Relaxed);
             ("200 OK", r#"{"ok":true}"#.into())
+        }
+        _ if path.starts_with("/api/site-status?") => {
+            api_site_status(path.split_once('?').map(|(_, q)| q).unwrap_or(""), state)
         }
         _ if path.starts_with("/api/check?") => api_check_domain(path, state),
         _ if path.starts_with("/api/blocked-count?") => api_blocked_count(path, state),
@@ -473,15 +477,31 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
         Err(e) => return ("404 Not Found", format!(r#"{{"error":"{}"}}"#, e)),
     };
 
+    let before = list.websites.len();
+    let mut left_behind = 0usize;
+
     if !rule_id.is_empty() {
         list.websites.retain(|r| r.id.to_string() != rule_id);
     } else if !domain.is_empty() {
         let domain_lower = domain.to_lowercase();
-        list.websites.retain(|r| match &r.match_type {
-            focuser_common::types::WebsiteMatchType::Domain(d) => d.to_lowercase() != domain_lower,
-            _ => true,
+        list.websites.retain(|rule| {
+            if !rule.matches_domain(&domain_lower) {
+                return true;
+            }
+            // Only rules that are *about* this host go. A keyword like "tube"
+            // matches youtube.com but belongs to the user's wider intent, so it
+            // is reported back instead of being deleted behind their back.
+            match rule.match_type {
+                WebsiteMatchType::Domain(_) | WebsiteMatchType::Wildcard(_) => false,
+                _ => {
+                    left_behind += 1;
+                    true
+                }
+            }
         });
     }
+
+    let removed = before - list.websites.len();
     list.updated_at = chrono::Utc::now();
 
     if let Err(e) = eng.db().update_block_list(&list) {
@@ -493,7 +513,59 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
     let _ = eng.refresh();
     let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
 
-    ("200 OK", r#"{"ok":true}"#.into())
+    // `removed` matters: removing nothing used to answer "ok" exactly like a
+    // real removal, so the popup reported success while the site stayed blocked.
+    (
+        "200 OK",
+        serde_json::json!({ "ok": true, "removed": removed, "left_behind": left_behind })
+            .to_string(),
+    )
+}
+
+/// Which lists hold a rule for this host, so a caller can say where a site is
+/// blocked rather than making the user guess.
+fn api_site_status(query: &str, state: &AppState) -> (&'static str, String) {
+    let domain = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("domain="))
+        .map(|raw| percent_decode(raw).to_lowercase())
+        .unwrap_or_default();
+
+    if domain.is_empty() {
+        return ("400 Bad Request", r#"{"error":"domain required"}"#.into());
+    }
+
+    let eng = state.engine.lock().unwrap();
+    let lists: Vec<serde_json::Value> = eng
+        .block_lists()
+        .iter()
+        .filter_map(|list| {
+            // Rule presence, not `should_block_domain`: a disabled list still
+            // holds the site, and that is what the caller needs to act on.
+            let matched = list
+                .websites
+                .iter()
+                .find(|rule| rule.enabled && rule.matches_domain(&domain))?;
+            Some(serde_json::json!({
+                "id": list.id.to_string(),
+                "name": list.name,
+                "enabled": list.enabled,
+                "rule_kind": match matched.match_type {
+                    WebsiteMatchType::Domain(_) => "domain",
+                    WebsiteMatchType::Wildcard(_) => "wildcard",
+                    WebsiteMatchType::Keyword(_) => "keyword",
+                    WebsiteMatchType::UrlPath(_) => "url_path",
+                    WebsiteMatchType::EntireInternet => "everything",
+                },
+            }))
+        })
+        .collect();
+
+    let blocked = eng.check_domain(&domain).is_some();
+    (
+        "200 OK",
+        serde_json::json!({ "domain": domain, "blocked": blocked, "lists": lists }).to_string(),
+    )
 }
 
 fn api_report_blocked(body: &str, state: &AppState) -> (&'static str, String) {
@@ -881,5 +953,98 @@ mod tests {
                 "allowed_domains should list {form}: {allowed:?}"
             );
         }
+    }
+
+    /// Two lists, the site only in the second. This is the reported bug: the
+    /// popup unblocked against whichever list its dropdown showed, the API
+    /// answered "ok", and the site stayed blocked.
+    fn two_lists_one_holding_youtube() -> (Arc<AppContext>, String, String) {
+        let mut ids = Vec::new();
+        let state = ctx_with_extension(|db| {
+            let empty = BlockList::new("d");
+            let mut videos = BlockList::new("videos");
+            videos.websites.push(WebsiteRule::domain("youtube.com"));
+            ids.push(empty.id.to_string());
+            ids.push(videos.id.to_string());
+            db.create_block_list(&empty).unwrap();
+            db.create_block_list(&videos).unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+        (state, addr, format!("{}|{}", ids[0], ids[1]))
+    }
+
+    #[test]
+    fn removing_from_the_wrong_list_reports_that_it_removed_nothing() {
+        let (_state, addr, ids) = two_lists_one_holding_youtube();
+        let (empty_id, _) = ids.split_once('|').unwrap();
+
+        let body = format!(r#"{{"list_id":"{empty_id}","domain":"youtube.com"}}"#);
+        let reply = request(&addr, "POST", "/api/remove-site", Some(&body));
+
+        assert!(reply.contains(r#""removed":0"#), "{reply}");
+    }
+
+    #[test]
+    fn removing_from_the_holding_list_actually_removes_it() {
+        let (_state, addr, ids) = two_lists_one_holding_youtube();
+        let (_, videos_id) = ids.split_once('|').unwrap();
+
+        let body = format!(r#"{{"list_id":"{videos_id}","domain":"youtube.com"}}"#);
+        let reply = request(&addr, "POST", "/api/remove-site", Some(&body));
+        assert!(reply.contains(r#""removed":1"#), "{reply}");
+
+        let after = request(&addr, "GET", "/api/site-status?domain=youtube.com", None);
+        assert!(after.contains(r#""blocked":false"#), "{after}");
+    }
+
+    #[test]
+    fn site_status_names_the_list_that_actually_holds_the_site() {
+        let (_state, addr, _) = two_lists_one_holding_youtube();
+
+        let reply = request(&addr, "GET", "/api/site-status?domain=youtube.com", None);
+
+        assert!(reply.contains(r#""blocked":true"#), "{reply}");
+        assert!(reply.contains(r#""name":"videos""#), "{reply}");
+        assert!(!reply.contains(r#""name":"d""#), "{reply}");
+        assert!(reply.contains(r#""rule_kind":"domain""#), "{reply}");
+    }
+
+    #[test]
+    fn site_status_reports_a_site_that_is_in_no_list() {
+        let (_state, addr, _) = two_lists_one_holding_youtube();
+
+        let reply = request(&addr, "GET", "/api/site-status?domain=example.com", None);
+
+        assert!(reply.contains(r#""blocked":false"#), "{reply}");
+        assert!(reply.contains(r#""lists":[]"#), "{reply}");
+    }
+
+    #[test]
+    fn a_subdomain_resolves_to_the_list_holding_its_parent() {
+        let (_state, addr, _) = two_lists_one_holding_youtube();
+
+        let reply = request(&addr, "GET", "/api/site-status?domain=m.youtube.com", None);
+
+        assert!(reply.contains(r#""name":"videos""#), "{reply}");
+    }
+
+    #[test]
+    fn a_keyword_rule_is_reported_but_not_deleted() {
+        let mut list_id = String::new();
+        let state = ctx_with_extension(|db| {
+            let mut list = BlockList::new("keywords");
+            list.websites.push(WebsiteRule::keyword("tube"));
+            list_id = list.id.to_string();
+            db.create_block_list(&list).unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+
+        let body = format!(r#"{{"list_id":"{list_id}","domain":"youtube.com"}}"#);
+        let reply = request(&addr, "POST", "/api/remove-site", Some(&body));
+
+        // Deleting a broad keyword because it happened to match one host would
+        // quietly unblock everything else it covers.
+        assert!(reply.contains(r#""removed":0"#), "{reply}");
+        assert!(reply.contains(r#""left_behind":1"#), "{reply}");
     }
 }
