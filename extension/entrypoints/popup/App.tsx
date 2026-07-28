@@ -1,6 +1,7 @@
 import {
   Ban,
   CircleCheck,
+  CircleHelp,
   ExternalLink,
   LoaderCircle,
   Minus,
@@ -86,11 +87,17 @@ export function App() {
     setBusy(true);
     setNote(null);
 
-    const ok = await addSite(listId, host);
+    const result = await addSite(listId, host);
     const name = snapshot?.lists.find((l) => l.id === listId)?.name ?? "the list";
-    setNote({ ok, text: ok ? `Blocked ${host} in ${name}` : "Could not reach the desktop app" });
+    setNote(
+      result === null
+        ? { ok: false, text: "Could not reach the desktop app" }
+        : result.duplicate
+          ? { ok: true, text: `${host} was already in ${name}` }
+          : { ok: true, text: `Blocked ${host} in ${name}` },
+    );
 
-    if (ok) {
+    if (result !== null) {
       await send({ type: "refresh" });
       await load(host);
     }
@@ -145,6 +152,10 @@ export function App() {
     ? "Blocking everything"
     : `${ruleCount} ${ruleCount === 1 ? "rule" : "rules"} active`;
   const accent = connected ? "rgb(139 92 246 / 0.6)" : "rgb(248 113 113 / 0.6)";
+  // `site === null` means the app could not answer, usually because it predates
+  // the site-status endpoint. Saying "not in any list" there is a guess, and a
+  // wrong one often enough to have added duplicates.
+  const statusKnown = site !== null;
   const listed = site?.lists ?? [];
 
   return (
@@ -221,7 +232,13 @@ export function App() {
 
         <div className="rounded-xl border border-border bg-elevated/50 px-3 py-2.5">
           <p className="truncate font-medium text-foreground text-sm">{host ?? "No site open"}</p>
-          {host && connected && (
+          {host && connected && !statusKnown && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs">
+              <CircleHelp className="size-3 shrink-0 text-warning" />
+              <span className="text-muted-foreground">Update the app to see this</span>
+            </p>
+          )}
+          {host && connected && statusKnown && (
             <p className="mt-1 flex items-center gap-1.5 text-xs">
               {listed.length > 0 ? (
                 <>
@@ -240,7 +257,7 @@ export function App() {
           )}
         </div>
 
-        {host && connected && (
+        {host && connected && statusKnown && (
           <>
             {listed.length > 0 ? (
               <button

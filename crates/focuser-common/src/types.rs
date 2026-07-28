@@ -103,7 +103,7 @@ impl BlockList {
 // ─── Website Blocking ───────────────────────────────────────────────
 
 /// How a website rule matches URLs/domains.
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum WebsiteMatchType {
     /// Exact domain match (e.g., "reddit.com" blocks reddit.com and *.reddit.com)
     Domain(String),

@@ -433,6 +433,19 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
         _ => WebsiteRule::domain(domain),
     };
 
+    // Adding the same site twice used to create a second identical rule, which
+    // is invisible in the popup and has to be deleted twice in the app.
+    let already = list
+        .websites
+        .iter()
+        .any(|existing| existing.match_type == rule.match_type);
+    if already {
+        return (
+            "200 OK",
+            serde_json::json!({ "ok": true, "added": 0, "duplicate": true }).to_string(),
+        );
+    }
+
     list.websites.push(rule);
     list.updated_at = chrono::Utc::now();
 
@@ -445,7 +458,10 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
     let _ = eng.refresh();
     let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
 
-    ("200 OK", r#"{"ok":true}"#.into())
+    (
+        "200 OK",
+        serde_json::json!({ "ok": true, "added": 1, "duplicate": false }).to_string(),
+    )
 }
 
 fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
@@ -1046,5 +1062,39 @@ mod tests {
         // quietly unblock everything else it covers.
         assert!(reply.contains(r#""removed":0"#), "{reply}");
         assert!(reply.contains(r#""left_behind":1"#), "{reply}");
+    }
+
+    #[test]
+    fn adding_the_same_site_twice_does_not_create_a_second_rule() {
+        let mut list_id = String::new();
+        let state = ctx_with_extension(|db| {
+            let list = BlockList::new("d");
+            list_id = list.id.to_string();
+            db.create_block_list(&list).unwrap();
+        });
+        let addr = start(Arc::clone(&state));
+        let body = format!(r#"{{"list_id":"{list_id}","domain":"youtube.com"}}"#);
+
+        let first = request(&addr, "POST", "/api/add-site", Some(&body));
+        let second = request(&addr, "POST", "/api/add-site", Some(&body));
+
+        assert!(first.contains(r#""added":1"#), "{first}");
+        assert!(second.contains(r#""duplicate":true"#), "{second}");
+
+        let eng = state.engine.lock().unwrap();
+        let count = eng.block_lists()[0].websites.len();
+        assert_eq!(count, 1, "a second identical rule was stored");
+    }
+
+    #[test]
+    fn an_unknown_endpoint_is_a_404_rather_than_an_empty_answer() {
+        // An older app 404s on endpoints a newer extension knows about. The
+        // extension has to be able to tell that apart from "nothing matched".
+        let state = ctx_with_extension(|_| {});
+        let addr = start(state);
+
+        let reply = request(&addr, "GET", "/api/does-not-exist", None);
+
+        assert!(reply.contains("not found"), "{reply}");
     }
 }

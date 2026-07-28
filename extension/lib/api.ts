@@ -173,13 +173,28 @@ export interface SiteStatus {
 export const fetchStatus = () => getJson<AppStatus>("/api/status");
 export const fetchLists = () => getJson<BlockListSummary[]>("/api/lists");
 
+/**
+ * `null` means the question could not be answered, which is not the same as
+ * "not blocked". An older desktop app has no such endpoint and 404s, and
+ * treating that as "not in any list" is how a site already on a list got
+ * offered for blocking a second time.
+ */
 export const fetchSiteStatus = (domain: string) =>
   getJson<SiteStatus>(`/api/site-status?domain=${encodeURIComponent(domain)}`);
 
-export const addSite = (listId: string, domain: string) =>
-  postJson("/api/add-site", { list_id: listId, domain, rule_type: "domain" }).then(
-    (r) => r !== null,
-  );
+/** `duplicate` distinguishes "already there" from a fresh add. */
+export async function addSite(
+  listId: string,
+  domain: string,
+): Promise<{ duplicate: boolean } | null> {
+  const reply = await postJson<{ duplicate?: boolean }>("/api/add-site", {
+    list_id: listId,
+    domain,
+    rule_type: "domain",
+  });
+  if (!reply) return null;
+  return { duplicate: reply.duplicate === true };
+}
 
 /**
  * Removes the site from one list, reporting what actually happened.
