@@ -108,10 +108,9 @@ export function Schedule() {
               ]}
             />
 
-            {/* Editor and summary side by side. The grid alone left most of a
-                maximised window empty, and the week was unreadable without
-                counting cells. */}
-            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
+            {/* Editor first, summary under it. Side by side squeezed the grid
+                into a column too narrow for 24 legible hours. */}
+            <div className="space-y-5">
               {mode === "always" ? (
                 <AlwaysPanel />
               ) : (
@@ -238,61 +237,83 @@ function WeekSummary({
 
   return (
     <Card padding="none" elevation="raised" className="edge-light overflow-hidden">
-      <div className="border-border border-b px-4 py-4">
-        <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-4 px-5 py-4">
+        <div>
           <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <CalendarRange aria-hidden className="size-3.5" />
             Blocking each week
           </span>
-          <Badge tone={total > 0 ? "primary" : "neutral"}>{share}%</Badge>
+          <p className="mt-1.5 flex items-baseline gap-2.5">
+            <span className="font-semibold text-3xl text-foreground tabular-nums">
+              {formatDuration(total * 3600)}
+            </span>
+            <span className="text-faint-foreground text-xs">of {WEEK_HOURS} hours</span>
+          </p>
         </div>
-        <p className="mt-2 font-semibold text-2xl text-foreground tabular-nums">
-          {formatDuration(total * 3600)}
-        </p>
-        <p className="mt-0.5 text-faint-foreground text-xs">of {WEEK_HOURS} hours in a week</p>
+
+        <div className="min-w-48 flex-1">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-faint-foreground text-xs">Coverage</span>
+            <Badge tone={total > 0 ? "primary" : "neutral"}>{share}%</Badge>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-elevated">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-300"
+              style={{ width: `${share}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          {dirty && (
+            <Badge tone="warning" outlined>
+              Unsaved
+            </Badge>
+          )}
+          <Button onClick={onSave} disabled={!dirty || saving} icon={dirty ? undefined : <Check />}>
+            {saving ? "Saving…" : dirty ? "Save schedule" : "Saved"}
+          </Button>
+        </div>
       </div>
 
-      <ul className="divide-y divide-border">
+      {/* One column per day, so the week reads left to right like the grid
+          above it rather than as a list running the other way. */}
+      <div className="grid grid-cols-2 gap-px border-border border-t bg-border sm:grid-cols-4 lg:grid-cols-7">
         {DAYS.map((day) => {
           const on = cells ? hoursOn(cells, day) : HOURS.length;
+          const text = cells ? describeDay(cells, day) : "All day";
           return (
-            <li key={day} className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-              <span
+            <div key={day} className="bg-surface px-4 py-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className={cn(
+                    "font-medium text-sm",
+                    on > 0 ? "text-foreground" : "text-faint-foreground",
+                  )}
+                >
+                  {day}
+                </span>
+                <span
+                  className={cn(
+                    "text-xs tabular-nums",
+                    on > 0 ? "text-primary" : "text-faint-foreground",
+                  )}
+                >
+                  {on > 0 ? `${on}h` : "off"}
+                </span>
+              </div>
+              <p
                 className={cn(
-                  "w-9 shrink-0 font-medium text-xs",
-                  on > 0 ? "text-foreground" : "text-faint-foreground",
-                )}
-              >
-                {day}
-              </span>
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-right text-xs",
+                  "mt-1 truncate text-xs",
                   on > 0 ? "text-muted-foreground" : "text-faint-foreground",
                 )}
-                title={cells ? describeDay(cells, day) : "All day"}
+                title={text}
               >
-                {cells ? describeDay(cells, day) : "All day"}
-              </span>
-            </li>
+                {text}
+              </p>
+            </div>
           );
         })}
-      </ul>
-
-      <div className="flex items-center gap-2 border-border border-t px-4 py-3.5">
-        <Button
-          onClick={onSave}
-          disabled={!dirty || saving}
-          icon={dirty ? undefined : <Check />}
-          className="flex-1"
-        >
-          {saving ? "Saving…" : dirty ? "Save schedule" : "Saved"}
-        </Button>
-        {dirty && (
-          <Badge tone="warning" outlined>
-            Unsaved
-          </Badge>
-        )}
       </div>
     </Card>
   );

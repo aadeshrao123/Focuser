@@ -1,6 +1,7 @@
 import { Pause, Play, SkipForward, Square, Timer } from "lucide-react";
 import { useState } from "react";
 import type { BlockList, PomodoroConfig } from "@/bindings";
+import { FlipClock } from "@/components/flip-clock";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { LiveBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,6 @@ import {
   useStartPomodoro,
   useStopPomodoro,
 } from "@/lib/commands";
-import { formatCountdown } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 
 const PHASE_LABEL = {
@@ -82,12 +82,10 @@ function Running({
 
   return (
     <div className="mt-4">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-semibold text-5xl text-foreground leading-none tabular-nums tracking-tight">
-            {formatCountdown(status.remaining_secs)}
-          </p>
-          <p className="mt-2.5 truncate text-muted-foreground text-sm">
+          <FlipClock seconds={status.remaining_secs} paused={status.paused} />
+          <p className="mt-3 truncate text-muted-foreground text-sm">
             {status.block_list_name} · cycle {status.current_cycle} of{" "}
             {status.config.cycles_until_long_break}
           </p>

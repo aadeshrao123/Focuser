@@ -92,7 +92,7 @@ export function ScheduleGrid({
           own heading, so the hours showing "12am" came out wide and the ones
           showing a dot came out narrow — 24 supposedly equal hours rendered at
           two different widths. */}
-      <table className="w-full min-w-[52rem] table-fixed select-none border-separate border-spacing-[2px]">
+      <table className="w-full min-w-[60rem] table-fixed select-none border-separate border-spacing-[3px]">
         <caption className="sr-only">
           Weekly schedule, one column per hour. Use the day and hour headings to fill a whole row or
           column.
@@ -100,16 +100,16 @@ export function ScheduleGrid({
         <thead>
           <tr>
             {/* Fixed layout takes every column width from the first row. */}
-            <th className="w-16" />
+            <th className="w-20" />
             {HOURS.map((hour) => (
-              <th key={hour} scope="col" className="pb-1.5">
+              <th key={hour} scope="col" className="pb-2">
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={() => onChange((prev) => toggleHour(prev, hour))}
                   title={`Toggle ${formatHour(hour)} on every day`}
                   className={cn(
-                    "w-full rounded text-center font-normal text-[10px] text-faint-foreground",
+                    "w-full rounded text-center font-normal text-[11px] text-faint-foreground",
                     "transition-colors hover:text-foreground disabled:pointer-events-none",
                   )}
                 >
@@ -129,15 +129,15 @@ export function ScheduleGrid({
             const on = hoursOn(selected, day);
             return (
               <tr key={day}>
-                <th scope="row" className="pr-2">
+                <th scope="row" className="pr-2.5">
                   <button
                     type="button"
                     disabled={disabled}
                     onClick={() => onChange((prev) => toggleDay(prev, day))}
                     title={`Toggle every hour on ${day}`}
                     className={cn(
-                      "flex w-full items-baseline justify-between gap-1 rounded px-1 py-0.5",
-                      "font-normal text-xs transition-colors disabled:pointer-events-none",
+                      "flex w-full items-baseline justify-between gap-1 rounded px-1.5 py-1",
+                      "font-normal text-sm transition-colors disabled:pointer-events-none",
                       on > 0 ? "text-foreground" : "text-muted-foreground",
                       "hover:bg-hover",
                     )}
@@ -145,7 +145,7 @@ export function ScheduleGrid({
                     <span>{day}</span>
                     <span
                       className={cn(
-                        "text-[10px] tabular-nums",
+                        "text-[11px] tabular-nums",
                         on > 0 ? "text-primary" : "text-faint-foreground",
                       )}
                     >
@@ -206,7 +206,7 @@ const Cell = memo(function Cell({
         }}
         onPointerEnter={() => onEnter(key)}
         className={cn(
-          "block h-8 w-full rounded-[5px] transition-colors duration-100",
+          "block h-11 w-full rounded-md transition-colors duration-100",
           "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
           on
             ? "bg-primary shadow-(--shadow-depth-sm) hover:bg-primary-hover"
