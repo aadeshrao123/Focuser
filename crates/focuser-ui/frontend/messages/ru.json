@@ -428,5 +428,6 @@
   "focus_preset_sprint": "Спринт",
   "update_available": "Доступно обновление",
   "update_version_ready": "Версия {version} готова",
-  "update_installing": "Установка…"
+  "update_installing": "Установка…",
+  "settings_autostart_pending": "Сохранено. Установщик также создал задачу автозапуска, для изменения которой нужны права администратора, поэтому настройка окончательно применится при следующем запуске Focuser."
 }

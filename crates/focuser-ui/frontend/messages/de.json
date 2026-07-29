@@ -412,5 +412,6 @@
   "focus_preset_sprint": "Sprint",
   "update_available": "Update verfügbar",
   "update_version_ready": "Version {version} ist bereit",
-  "update_installing": "Wird installiert…"
+  "update_installing": "Wird installiert…",
+  "settings_autostart_pending": "Gespeichert. Das Installationsprogramm hat außerdem eine Startaufgabe angelegt, deren Änderung Administratorrechte braucht. Die Einstellung wird beim nächsten Start von Focuser fertig übernommen."
 }

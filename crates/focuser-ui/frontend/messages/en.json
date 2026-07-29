@@ -246,6 +246,7 @@
   "settings_autostart": "Launch at login",
   "settings_autostart_description": "Focuser starts with your computer, so blocks are in place before you can talk yourself out of them.",
   "settings_autostart_unsupported": "Only available in the desktop app.",
+  "settings_autostart_pending": "Saved. The installer also registered a startup task that needs administrator rights to change, so this finishes applying the next time Focuser starts.",
   "settings_section_browsers": "Browsers",
   "settings_browsers_description": "The extension blocks pages properly. Without it, only whole domains can be stopped.",
   "settings_close_browsers": "Close browsers without the extension",

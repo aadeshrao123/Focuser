@@ -27,15 +27,23 @@ export function useAutostart() {
 
   const set = useMutation({
     mutationFn: (next: boolean) => invoke("set_autostart", { enabled: next }),
-    onSuccess: () => qc.invalidateQueries({ queryKey }),
+    // Settled, not success: the choice is saved even when the scheduled task
+    // refuses, so the toggle has to move either way.
+    onSettled: () => qc.invalidateQueries({ queryKey }),
   });
+
+  // Windows only, and only for the installer's logon task, which needs admin to
+  // change. The setting is already saved and startup finishes the job, so this
+  // is a note about timing rather than a failure.
+  const needsAdmin = String(set.error ?? "").includes("needs-admin");
 
   return {
     supported,
     value: enabled.data ?? false,
     isPending: supported && enabled.isPending,
     isSaving: set.isPending,
-    error: (enabled.error ?? set.error) as Error | null,
+    needsAdmin,
+    error: (enabled.error ?? (needsAdmin ? null : set.error)) as Error | null,
     set: (next: boolean) => set.mutate(next),
   };
 }

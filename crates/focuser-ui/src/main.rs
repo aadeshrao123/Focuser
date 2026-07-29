@@ -142,8 +142,11 @@ fn main() {
             // Once, on a fresh install. This used to re-enable autostart on
             // every launch whenever it found it off, which meant nobody could
             // ever turn it off — see #10.
+            // Applies the first-run default, then finishes any autostart change
+            // the UI could not make itself. If the logon task launched us we are
+            // elevated here, which is the one moment schtasks will cooperate.
             if let Ok(engine) = state_for_blocker.engine.lock() {
-                autostart::apply_default_once(app.handle(), engine.db());
+                autostart::reconcile(app.handle(), engine.db());
             }
 
             // Spawn background blocking loop

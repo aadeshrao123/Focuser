@@ -404,5 +404,6 @@
   "focus_preset_sprint": "スプリント",
   "update_available": "更新があります",
   "update_version_ready": "バージョン {version} の準備ができました",
-  "update_installing": "インストール中…"
+  "update_installing": "インストール中…",
+  "settings_autostart_pending": "保存しました。インストーラーが登録した起動タスクの変更には管理者権限が必要なため、この設定は次回 Focuser を起動したときに適用が完了します。"
 }

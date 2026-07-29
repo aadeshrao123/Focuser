@@ -420,5 +420,6 @@
   "focus_preset_sprint": "Sprint",
   "update_available": "Mise à jour disponible",
   "update_version_ready": "La version {version} est prête",
-  "update_installing": "Installation…"
+  "update_installing": "Installation…",
+  "settings_autostart_pending": "Enregistré. Le programme d'installation a aussi créé une tâche de démarrage qui exige des droits d'administrateur, ce réglage finira donc de s'appliquer au prochain démarrage de Focuser."
 }

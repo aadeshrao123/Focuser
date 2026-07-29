@@ -404,5 +404,6 @@
   "focus_preset_sprint": "冲刺",
   "update_available": "有可用更新",
   "update_version_ready": "版本 {version} 已就绪",
-  "update_installing": "正在安装…"
+  "update_installing": "正在安装…",
+  "settings_autostart_pending": "已保存。安装程序还注册了一个启动任务，修改它需要管理员权限，因此该设置会在下次启动 Focuser 时完成应用。"
 }

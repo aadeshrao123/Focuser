@@ -420,5 +420,6 @@
   "focus_preset_sprint": "Sprint",
   "update_available": "Atualização disponível",
   "update_version_ready": "A versão {version} está pronta",
-  "update_installing": "Instalando…"
+  "update_installing": "Instalando…",
+  "settings_autostart_pending": "Salvo. O instalador também registrou uma tarefa de inicialização que precisa de direitos de administrador para ser alterada, então isso termina de ser aplicado na próxima vez que o Focuser iniciar."
 }

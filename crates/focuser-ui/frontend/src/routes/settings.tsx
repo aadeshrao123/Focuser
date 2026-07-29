@@ -59,9 +59,11 @@ export function Settings() {
         <SettingRow
           label={m.settings_autostart()}
           description={
-            autostart.supported
-              ? m.settings_autostart_description()
-              : m.settings_autostart_unsupported()
+            autostart.needsAdmin
+              ? m.settings_autostart_pending()
+              : autostart.supported
+                ? m.settings_autostart_description()
+                : m.settings_autostart_unsupported()
           }
           control={
             <Switch

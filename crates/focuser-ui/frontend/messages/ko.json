@@ -404,5 +404,6 @@
   "focus_preset_sprint": "스프린트",
   "update_available": "업데이트가 있습니다",
   "update_version_ready": "버전 {version} 준비 완료",
-  "update_installing": "설치 중…"
+  "update_installing": "설치 중…",
+  "settings_autostart_pending": "저장했습니다. 설치 프로그램이 만든 시작 작업을 바꾸려면 관리자 권한이 필요해서, 이 설정은 다음에 Focuser를 시작할 때 적용이 끝납니다."
 }
