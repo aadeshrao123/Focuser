@@ -23,7 +23,8 @@
       ],
       "match": {
         "countPlural=one": "{count} sitio",
-        "countPlural=other": "{count} sitios"
+        "countPlural=other": "{count} sitios",
+        "countPlural=many": "{count} sitios"
       }
     }
   ],
@@ -38,7 +39,8 @@
       ],
       "match": {
         "countPlural=one": "{count} aplicación",
-        "countPlural=other": "{count} aplicaciones"
+        "countPlural=other": "{count} aplicaciones",
+        "countPlural=many": "{count} aplicaciones"
       }
     }
   ],
@@ -197,7 +199,8 @@
       ],
       "match": {
         "countPlural=one": "{count} excepción",
-        "countPlural=other": "{count} excepciones"
+        "countPlural=other": "{count} excepciones",
+        "countPlural=many": "{count} excepciones"
       }
     }
   ],
@@ -319,7 +322,8 @@
       ],
       "match": {
         "countPlural=one": "Importada {count} regla.",
-        "countPlural=other": "Importadas {count} reglas."
+        "countPlural=other": "Importadas {count} reglas.",
+        "countPlural=many": "Importadas {count} reglas."
       }
     }
   ],

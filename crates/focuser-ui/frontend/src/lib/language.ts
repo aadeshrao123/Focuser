@@ -15,10 +15,24 @@ import { getLocale, type Locale, locales, setLocale } from "@/paraglide/runtime.
 import { useSetSetting, useSetting } from "./commands";
 import { SETTING_KEYS } from "./settings";
 
-/** English names are deliberate: a language picker lists languages, not translations. */
+/**
+ * Each language is named in itself, never translated.
+ *
+ * Someone hunting for their own language scans for the word they recognise, and
+ * "Deutsch" is that word whether the interface is currently English or Japanese.
+ * Listing it as "German" only helps people who already read English.
+ */
 export const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
   es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  pt: "Português",
+  it: "Italiano",
+  ru: "Русский",
+  zh: "中文",
+  ja: "日本語",
+  ko: "한국어",
 };
 
 export function isLocale(value: string | null | undefined): value is Locale {
