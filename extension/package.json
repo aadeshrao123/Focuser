@@ -1,6 +1,6 @@
 {
   "name": "focuser-extension",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Focuser browser extension — enforces the desktop app's block lists inside the browser",
