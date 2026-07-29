@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "./button";
+import { errorMessage } from "@/lib/errors";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -67,7 +68,7 @@ export function InlineError({ error }: { error: Error | null }) {
   if (!error) return null;
   return (
     <p role="alert" className="mt-2 text-destructive text-sm">
-      {error.message}
+      {errorMessage(error)}
     </p>
   );
 }

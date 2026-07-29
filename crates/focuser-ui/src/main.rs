@@ -3,6 +3,7 @@
 mod api;
 mod blocker;
 mod foreground_watcher;
+mod i18n;
 mod native;
 mod typed_commands;
 
@@ -168,9 +169,16 @@ fn main() {
             let icon_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || warm_app_icons(&icon_state));
 
-            // System tray icon
-            let show = MenuItemBuilder::with_id("show", "Open Focuser").build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            // System tray icon. Built in the saved language; the tray exists
+            // before any window does, so it cannot ask the frontend.
+            let tray_locale = state_for_blocker
+                .engine
+                .lock()
+                .map(|e| i18n::saved_locale(e.db()))
+                .unwrap_or_else(|_| "en".to_string());
+            let tray_text = i18n::strings(&tray_locale);
+            let show = MenuItemBuilder::with_id("show", tray_text.tray_open).build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", tray_text.tray_quit).build(app)?;
             let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
 
             let icon = app.default_window_icon().cloned().unwrap();
@@ -198,7 +206,7 @@ fn main() {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
-                                let _ = window.eval(build_locked_modal_js(&reason));
+                                let _ = window.eval(build_locked_modal_js(&reason, &quit_state));
                             }
                             return;
                         }
@@ -220,6 +228,7 @@ fn main() {
 
             // Poll for "show window" and "install extension" requests
             let show_handle = app.handle().clone();
+            let show_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -245,7 +254,7 @@ fn main() {
 
                             // Inject themed in-app modal with retry
                             // The webview may not be ready immediately after show()
-                            let js = build_extension_modal_js(&browser_name);
+                            let js = build_extension_modal_js(&browser_name, &show_state);
                             let win = window.clone();
                             std::thread::spawn(move || {
                                 // Try multiple times with increasing delays
@@ -316,10 +325,20 @@ fn browser_launch_cmd(browser_name: &str) -> &'static str {
 /// Injected rather than routed through the frontend because the tray menu can
 /// be used while the window has never been opened, so there may be no React
 /// tree listening yet.
-fn build_locked_modal_js(reason: &str) -> String {
+fn build_locked_modal_js(reason: &str, state: &Arc<AppState>) -> String {
+    let locale = state
+        .engine
+        .lock()
+        .map(|e| i18n::saved_locale(e.db()))
+        .unwrap_or_else(|_| "en".to_string());
+    let text = i18n::strings(&locale);
     // The reason carries a user-chosen list name, so it goes in as JSON rather
-    // than being pasted into the source.
+    // than being pasted into the source. The translated strings go the same way:
+    // an apostrophe in a Spanish sentence would otherwise close a JS string.
     let reason = serde_json::to_string(reason).unwrap_or_else(|_| "\"a lock is active\"".into());
+    let locked_title = serde_json::to_string(text.locked_title).unwrap_or_default();
+    let locked_body = serde_json::to_string(text.locked_body).unwrap_or_default();
+    let locked_ok = serde_json::to_string(text.locked_ok).unwrap_or_default();
     format!(
         r##"(function() {{
   var id = 'focuser-locked-overlay';
@@ -337,15 +356,15 @@ fn build_locked_modal_js(reason: &str) -> String {
     'background:#16181d;color:#e8eaed;border:1px solid #2c3038;box-shadow:0 18px 50px rgba(0,0,0,.5)';
 
   var title = document.createElement('h2');
-  title.textContent = 'Focuser is locked';
+  title.textContent = {locked_title};
   title.style.cssText = 'margin:0 0 .5rem;font-size:1rem;font-weight:600';
 
   var body = document.createElement('p');
-  body.textContent = 'You asked Focuser to stay running until this lock ends, so it will not quit yet: ' + {reason} + '.';
+  body.textContent = {locked_body}.replace('{{reason}}', {reason});
   body.style.cssText = 'margin:0 0 1.25rem;font-size:.875rem;line-height:1.5;color:#9aa0aa';
 
   var button = document.createElement('button');
-  button.textContent = 'OK';
+  button.textContent = {locked_ok};
   button.style.cssText = 'padding:.45rem 1.1rem;border-radius:.4rem;border:0;cursor:pointer;' +
     'background:#4f7cff;color:#fff;font-size:.875rem';
   button.onclick = function() {{ overlay.remove(); }};
@@ -428,7 +447,7 @@ fn format_remaining(secs: u64) -> String {
     }
 }
 
-fn build_extension_modal_js(browser_name: &str) -> String {
+fn build_extension_modal_js(browser_name: &str, state: &Arc<AppState>) -> String {
     let (store_url, store_type) = extension_store_url(browser_name);
     let browser_exe = browser_launch_cmd(browser_name);
     let store_label = if store_type == "firefox" {
@@ -436,6 +455,20 @@ fn build_extension_modal_js(browser_name: &str) -> String {
     } else {
         "Chrome Web Store"
     };
+
+    let locale = state
+        .engine
+        .lock()
+        .map(|e| i18n::saved_locale(e.db()))
+        .unwrap_or_else(|_| "en".to_string());
+    let text = i18n::strings(&locale);
+
+    // Encoded as JSON so an apostrophe in a translation cannot close a JS
+    // string, then substituted in the page rather than here.
+    let ext_title = serde_json::to_string(text.extension_title).unwrap_or_default();
+    let ext_body = serde_json::to_string(text.extension_body).unwrap_or_default();
+    let ext_install = serde_json::to_string(text.extension_install).unwrap_or_default();
+    let ext_dismiss = serde_json::to_string(text.extension_dismiss).unwrap_or_default();
 
     format!(
         r##"(function() {{
@@ -458,21 +491,22 @@ fn build_extension_modal_js(browser_name: &str) -> String {
 
   var title = document.createElement('div');
   title.style.cssText = 'font-size:18px;font-weight:600;color:#f0f0f3';
-  title.textContent = 'Extension Required';
+  title.textContent = {ext_title};
 
   header.appendChild(icon);
   header.appendChild(title);
 
   var msg = document.createElement('p');
   msg.style.cssText = 'font-size:14px;line-height:1.6;color:#b0b0bc;margin-bottom:24px';
-  msg.innerHTML = 'Focuser closed <strong style="color:#f0f0f3">{browser_name}</strong> because the Focuser browser extension is not installed.<br><br>Install the extension from the <strong style="color:#f0f0f3">{store_label}</strong> to continue using {browser_name} while blocks are active.';
+  msg.textContent = {ext_body}.split('{{browser}}').join('{browser_name}').split('{{store}}').join('{store_label}');
 
   var btnRow = document.createElement('div');
   btnRow.style.cssText = 'display:flex;gap:12px;flex-direction:column';
 
   var installBtn = document.createElement('button');
   installBtn.style.cssText = 'width:100%;padding:12px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px';
-  installBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install Extension for {browser_name}';
+  installBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ';
+  installBtn.appendChild(document.createTextNode({ext_install}.split('{{browser}}').join('{browser_name}')));
   installBtn.onmouseenter = function() {{ installBtn.style.background = '#9d74fa'; installBtn.style.transform = 'translateY(-1px)'; }};
   installBtn.onmouseleave = function() {{ installBtn.style.background = '#8b5cf6'; installBtn.style.transform = 'translateY(0)'; }};
   installBtn.onclick = function() {{
@@ -486,7 +520,7 @@ fn build_extension_modal_js(browser_name: &str) -> String {
   }};
 
   var dismissBtn = document.createElement('button');
-  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.textContent = {ext_dismiss};
   dismissBtn.style.cssText = 'width:100%;padding:10px 20px;background:transparent;color:#6e6e7a;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s ease;font-family:inherit';
   dismissBtn.onmouseenter = function() {{ dismissBtn.style.color = '#b0b0bc'; dismissBtn.style.borderColor = 'rgba(255,255,255,0.15)'; }};
   dismissBtn.onmouseleave = function() {{ dismissBtn.style.color = '#6e6e7a'; dismissBtn.style.borderColor = 'rgba(255,255,255,0.08)'; }};

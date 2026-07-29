@@ -61,6 +61,12 @@
   "lists_creating": "Creating…",
 
   "common_loading": "Loading…",
+  "error_block_list_not_found": "That block list no longer exists. It may have been deleted in another window.",
+  "error_rule_not_found": "That rule no longer exists. It may have been deleted in another window.",
+  "error_allowance_not_found": "That allowance no longer exists. It may have been deleted in another window.",
+  "error_protected": "A lock is running on this list, so it cannot be changed until the lock expires.",
+  "error_unsupported": "That is not available on this platform.",
+  "error_transport": "Cannot reach the Focuser backend.",
   "common_error": "Something went wrong",
   "common_all": "All",
   "common_import": "Import",

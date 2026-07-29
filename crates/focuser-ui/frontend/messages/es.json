@@ -325,5 +325,11 @@
   ],
   "apps_kind_bundle_id": "ID del paquete",
   "exceptions_kind_local_files": "Archivos locales",
-  "table_remove": "Eliminar {target}"
+  "table_remove": "Eliminar {target}",
+  "error_block_list_not_found": "Esa lista de bloqueo ya no existe. Puede que se haya eliminado en otra ventana.",
+  "error_rule_not_found": "Esa regla ya no existe. Puede que se haya eliminado en otra ventana.",
+  "error_allowance_not_found": "Ese cupo ya no existe. Puede que se haya eliminado en otra ventana.",
+  "error_protected": "Hay un bloqueo activo en esta lista, así que no se puede cambiar hasta que expire.",
+  "error_unsupported": "Eso no está disponible en esta plataforma.",
+  "error_transport": "No se puede contactar con el motor de Focuser."
 }
