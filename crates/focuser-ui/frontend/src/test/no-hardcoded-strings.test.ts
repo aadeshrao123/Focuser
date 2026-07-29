@@ -129,6 +129,22 @@ function templateProps(source: string): string[] {
   return found;
 }
 
+/**
+ * Any template literal carrying a capitalised word, wherever it sits.
+ * `{v ? \`Version ${v} available\` : "…"}` is how the update badge shipped
+ * untranslated. Tailwind class strings are lowercase, so they do not trip it.
+ */
+function templateProse(source: string): string[] {
+  const found: string[] = [];
+  for (const match of source.matchAll(/`([^`]*\$\{[^`]*)`/g)) {
+    for (const chunk of (match[1] ?? "").split(/\$\{[^}]*\}/)) {
+      const text = chunk.replace(/\s+/g, " ").trim();
+      if (text && /\b[A-Z][a-z]{2,}/.test(text)) found.push(text);
+    }
+  }
+  return found;
+}
+
 /** `title="Some words"` — a literal where a message should be. */
 function literalProps(source: string): string[] {
   const found: string[] = [];
@@ -154,6 +170,7 @@ describe("user-facing strings come from the catalogue", () => {
       ...literalProps(source),
       ...ternaryLiterals(source),
       ...templateProps(source),
+      ...templateProse(source),
     ]
       .map((s) => s.trim())
       .filter((s) => !ALLOWED.has(s));

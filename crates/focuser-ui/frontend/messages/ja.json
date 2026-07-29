@@ -401,5 +401,8 @@
   ],
   "focus_preset_classic": "標準",
   "focus_preset_long": "長め",
-  "focus_preset_sprint": "スプリント"
+  "focus_preset_sprint": "スプリント",
+  "update_available": "更新があります",
+  "update_version_ready": "バージョン {version} の準備ができました",
+  "update_installing": "インストール中…"
 }

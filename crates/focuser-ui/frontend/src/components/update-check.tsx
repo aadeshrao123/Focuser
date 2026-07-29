@@ -1,74 +1,55 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { checkForUpdate, installUpdate, isTauri } from "@/lib/native";
+import { isTauri } from "@/lib/native";
+import { useInstallUpdate, useUpdate } from "@/lib/updates";
 import { m } from "@/paraglide/messages.js";
 
-type State =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "current" }
-  | { status: "available"; version?: string }
-  | { status: "installing" }
-  | { status: "failed"; message: string };
-
-/** Manual update check. Only the desktop app has an updater to talk to. */
+/**
+ * Reads the same query as the sidebar badge, so arriving from that badge does
+ * not ask you to check for the thing you were just told about.
+ */
 export function UpdateCheck() {
-  const [state, setState] = useState<State>({ status: "idle" });
+  const update = useUpdate();
+  const install = useInstallUpdate();
 
   if (!isTauri()) {
     return <span className="text-faint-foreground text-sm">{m.update_desktop_only()}</span>;
   }
 
-  async function check() {
-    setState({ status: "checking" });
-    try {
-      const result = await checkForUpdate();
-      setState(
-        result.available ? { status: "available", version: result.version } : { status: "current" },
-      );
-    } catch (e) {
-      setState({ status: "failed", message: String(e) });
-    }
-  }
-
-  async function install() {
-    setState({ status: "installing" });
-    try {
-      await installUpdate();
-      // The app restarts into the new version, so there is no success state.
-    } catch (e) {
-      setState({ status: "failed", message: String(e) });
-    }
-  }
+  const available = update.data?.available === true;
+  const version = update.data?.version;
+  const checking = update.isFetching;
+  // Show the updater's own message: "signature mismatch" is worth reading.
+  const failure = install.error ?? update.error;
 
   return (
     <div className="flex items-center gap-3">
-      {state.status === "current" && (
+      {!available && update.isSuccess && !checking && (
         <span className="text-muted-foreground text-sm">{m.update_up_to_date()}</span>
       )}
-      {state.status === "available" && (
+      {available && (
         <span className="text-success text-sm">
-          {state.version ? `Version ${state.version} available` : "Update available"}
+          {version ? m.update_version_ready({ version }) : m.update_available()}
         </span>
       )}
-      {state.status === "failed" && (
+      {failure && (
         <span role="alert" className="max-w-64 truncate text-destructive text-sm">
-          {state.message}
+          {String(failure)}
         </span>
       )}
 
-      {state.status === "available" ? (
-        <Button size="sm" onClick={install}>
-          {m.update_install_restart()}
+      {available ? (
+        <Button size="sm" onClick={() => install.mutate()} disabled={install.isPending}>
+          {install.isPending ? m.update_installing() : m.update_install_restart()}
         </Button>
       ) : (
         <Button
           variant="outline"
           size="sm"
-          onClick={check}
-          disabled={state.status === "checking" || state.status === "installing"}
+          onClick={() => update.refetch()}
+          disabled={checking}
+          data-update-check
         >
-          {state.status === "checking" ? m.update_checking() : m.update_check()}
+          {checking ? m.update_checking() : m.update_check()}
         </Button>
       )}
     </div>

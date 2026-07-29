@@ -1,7 +1,7 @@
 ; Focuser NSIS Installer Hooks
 ; 1. Creates a scheduled task to run Focuser at logon with highest privileges (no UAC prompt)
 ; 2. Registers the native messaging host for Chrome, Edge, and Firefox
-; 3. Starts the Focuser service in the background
+; 3. On uninstall, removes the data directory the bundle identifier does not cover
 
 !include "StrFunc.nsh"
 ${StrRep}
@@ -53,4 +53,22 @@ ${StrRep}
   Delete "$LOCALAPPDATA\Focuser\native-messaging\com.focuser.native.json"
   Delete "$LOCALAPPDATA\Focuser\native-messaging\com.focuser.native.firefox.json"
   RMDir "$LOCALAPPDATA\Focuser\native-messaging"
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  ; Tauri's "Delete app data" only clears paths named after the bundle id.
+  ; The database lives under ProjectDirs, %APPDATA%\focuser\Focuser, so
+  ; without this the checkbox left every block list behind.
+  ;
+  ; $UpdateMode is not optional: installing over an existing copy runs the
+  ; uninstaller first, and this would wipe the user's rules on every update.
+  ${If} $DeleteAppDataCheckboxState = 1
+  ${AndIf} $UpdateMode <> 1
+    SetShellVarContext current
+    RMDir /r "$APPDATA\focuser\Focuser"
+    RMDir "$APPDATA\focuser"
+    RMDir /r "$LOCALAPPDATA\focuser\Focuser"
+    RMDir "$LOCALAPPDATA\focuser"
+    RMDir "$LOCALAPPDATA\Focuser"
+  ${EndIf}
 !macroend

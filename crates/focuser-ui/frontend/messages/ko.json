@@ -401,5 +401,8 @@
   ],
   "focus_preset_classic": "기본",
   "focus_preset_long": "길게",
-  "focus_preset_sprint": "스프린트"
+  "focus_preset_sprint": "스프린트",
+  "update_available": "업데이트가 있습니다",
+  "update_version_ready": "버전 {version} 준비 완료",
+  "update_installing": "설치 중…"
 }

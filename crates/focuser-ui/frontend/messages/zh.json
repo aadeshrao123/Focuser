@@ -401,5 +401,8 @@
   ],
   "focus_preset_classic": "经典",
   "focus_preset_long": "长时",
-  "focus_preset_sprint": "冲刺"
+  "focus_preset_sprint": "冲刺",
+  "update_available": "有可用更新",
+  "update_version_ready": "版本 {version} 已就绪",
+  "update_installing": "正在安装…"
 }

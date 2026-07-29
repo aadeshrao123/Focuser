@@ -425,5 +425,8 @@
   ],
   "focus_preset_classic": "Классика",
   "focus_preset_long": "Длинный",
-  "focus_preset_sprint": "Спринт"
+  "focus_preset_sprint": "Спринт",
+  "update_available": "Доступно обновление",
+  "update_version_ready": "Версия {version} готова",
+  "update_installing": "Установка…"
 }

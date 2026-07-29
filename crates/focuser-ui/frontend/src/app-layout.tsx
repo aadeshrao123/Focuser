@@ -13,6 +13,7 @@ import { BlockingHealthBanner } from "@/components/blocking-health-banner";
 import { TitleBar } from "@/components/title-bar";
 import { AppIcon } from "@/components/ui/app-icon";
 import { LiveBadge } from "@/components/ui/badge";
+import { UpdatePill } from "@/components/update-pill";
 import { usePomodoroStatus } from "@/lib/commands";
 import { formatCountdown } from "@/lib/duration";
 import { useApplySavedLanguage } from "@/lib/language";
@@ -104,7 +105,11 @@ function Sidebar() {
         ))}
       </div>
 
-      <SessionPill />
+      {/* `mt-auto` on the group, not each child, or only the first moves. */}
+      <div className="mt-auto flex flex-col gap-2 pt-3">
+        <UpdatePill />
+        <SessionPill />
+      </div>
     </nav>
   );
 }
@@ -131,7 +136,7 @@ function SessionPill() {
   const phase = status.data.current_phase === "work" ? m.session_focus() : m.session_break();
 
   return (
-    <div className="glass-strong mt-auto rounded-lg border border-primary/25 p-3">
+    <div className="glass-strong rounded-lg border border-primary/25 p-3">
       <div className="flex items-center justify-between gap-2">
         <LiveBadge tone={status.data.current_phase === "work" ? "primary" : "success"}>
           {status.data.paused ? m.session_paused() : phase}

@@ -417,5 +417,8 @@
   ],
   "focus_preset_classic": "Classique",
   "focus_preset_long": "Long",
-  "focus_preset_sprint": "Sprint"
+  "focus_preset_sprint": "Sprint",
+  "update_available": "Mise à jour disponible",
+  "update_version_ready": "La version {version} est prête",
+  "update_installing": "Installation…"
 }

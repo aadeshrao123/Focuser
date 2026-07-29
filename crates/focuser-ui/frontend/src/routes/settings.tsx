@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BrowserStatusList } from "@/components/browser-status";
 import { ConfigTransfer } from "@/components/config-transfer";
 import { SettingRow, SettingsSection } from "@/components/setting-row";
@@ -37,6 +39,15 @@ export function Settings() {
   const reset = useResetSettings();
   const deleteAll = useDeleteAllData();
   const version = useAppVersion();
+
+  // The sidebar badge links here promising the update button, so find it.
+  const [params] = useSearchParams();
+  const highlightUpdates = params.get("highlight") === "updates";
+  const updatesRow = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlightUpdates) updatesRow.current?.scrollIntoView({ block: "center" });
+  }, [highlightUpdates]);
 
   return (
     // One column, not two. Splitting settings left/right meant a setting's
@@ -175,7 +186,13 @@ export function Settings() {
 
       <SettingsSection title={m.settings_section_about()}>
         <SettingRow label={m.settings_version()} control={<Version value={version.data} />} />
-        <SettingRow label={m.settings_updates()} control={<UpdateCheck />} />
+        <div ref={updatesRow}>
+          <SettingRow
+            label={m.settings_updates()}
+            control={<UpdateCheck />}
+            highlight={highlightUpdates}
+          />
+        </div>
       </SettingsSection>
 
       <InlineError

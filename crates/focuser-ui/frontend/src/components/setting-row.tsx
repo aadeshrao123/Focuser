@@ -40,14 +40,22 @@ export function SettingRow({
   description,
   htmlFor,
   control,
+  highlight,
 }: {
   label: string;
   description?: string;
   htmlFor?: string;
   control: ReactNode;
+  /** For arrivals from a link that promised this row specifically. */
+  highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-8 px-5 py-4 transition-colors hover:bg-hover/40">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-8 px-5 py-4 transition-colors",
+        highlight ? "bg-primary/10 ring-1 ring-primary/40 ring-inset" : "hover:bg-hover/40",
+      )}
+    >
       <div className="min-w-0">
         {htmlFor ? (
           <label htmlFor={htmlFor} className="font-medium text-foreground text-sm">
