@@ -2,13 +2,17 @@
 
 Focuser ships in ten languages:
 
-| Code | Language   | Code | Language |
-|------|------------|------|----------|
-| `en` | English    | `it` | Italiano |
-| `es` | Español    | `ru` | Русский  |
-| `fr` | Français   | `zh` | 中文      |
-| `de` | Deutsch    | `ja` | 日本語    |
-| `pt` | Português  | `ko` | 한국어    |
+| Language  | App  | Extension | Language | App  | Extension |
+|-----------|------|-----------|----------|------|-----------|
+| English   | `en` | `en`      | Italiano | `it` | `it`      |
+| Español   | `es` | `es`      | Русский  | `ru` | `ru`      |
+| Français  | `fr` | `fr`      | 中文      | `zh` | `zh_CN`   |
+| Deutsch   | `de` | `de`      | 日本語    | `ja` | `ja`      |
+| Português | `pt` | `pt_BR`   | 한국어    | `ko` | `ko`      |
+
+The two codes differ for Chinese and Portuguese because the extension is bound by Chrome's
+`_locales` list, which has no plain `pt` or `zh` — a `_locales/pt/` directory is ignored
+outright. The app uses BCP 47 and has no such limit. Use whichever column you are editing.
 
 If you speak another language well, you can add it, and you will do a better job of it
 than machine translation or than the maintainer guessing.
@@ -29,8 +33,8 @@ enough.
 crates/focuser-ui/frontend/messages/en.json  →  messages/<your-locale>.json
 ```
 
-Use a plain language code: `es`, `zh`, `de`, `fr`, `pt`. Only add a region (`pt-BR`) when
-the difference actually matters.
+Use a plain language code here: `es`, `zh`, `de`, `fr`, `pt`. Only add a region (`pt-BR`)
+when the difference actually matters. The extension is stricter — see below.
 
 **2. Register it** in `crates/focuser-ui/frontend/project.inlang/settings.json`:
 
@@ -124,6 +128,16 @@ extension/locales/en.yml  →  extension/locales/<your-locale>.yml
 
 Same rules: translate the values, keep every `{placeholder}`, keep every key. No
 registration step, the file being there is enough. The same ten languages are there today.
+
+**The filename has to be one Chrome recognises**, which is not the same as a BCP 47 tag:
+`pt_BR` and `pt_PT` but no plain `pt`, `zh_CN` and `zh_TW` but no plain `zh`, and an
+underscore rather than a hyphen. A directory Chrome does not recognise is ignored in
+silence, so a whole translation can appear to ship and reach nobody. `locales.test.ts`
+checks the name for you.
+
+To see your work, run `npm run preview` in `extension/` and pick your language from the
+dropdown. It renders the block page, the popup and the welcome page from the YAML on
+save, with no browser install and no need to change your own browser's language.
 
 Plurals look like this, and the count arrives as `$1`:
 
