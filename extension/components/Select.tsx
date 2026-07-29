@@ -1,3 +1,4 @@
+import { i18n } from "#i18n";
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -16,7 +17,7 @@ export function Select({
   options,
   onChange,
   ariaLabel,
-  placeholder = "Select…",
+  placeholder = i18n.t("select.placeholder"),
 }: {
   value: string;
   options: Option[];

@@ -94,8 +94,30 @@ If you do not, open the PR anyway. CI runs exactly these checks and will tell us
 
 ## The browser extension
 
-The extension is translated separately, under `extension/`, and follows the **browser's**
-language rather than the app's setting. Ask in the PR if you want to do both.
+The extension has its own catalogue, in YAML rather than JSON:
+
+```
+extension/locales/en.yml  →  extension/locales/<your-locale>.yml
+```
+
+Same rules: translate the values, keep every `{placeholder}`, keep every key. No
+registration step, the file being there is enough.
+
+Plurals look like this, and the count arrives as `$1`:
+
+```yml
+rulesActive:
+  1: 1 regla activa
+  n: $1 reglas activas
+```
+
+`@wxt-dev/i18n` only supports `1` and `n`. If your language needs `few` or `many`, say so
+in the pull request and we will work out what to do.
+
+**The extension follows the browser's language, not the app's setting.** That is a limit
+of the `browser.i18n` API, which has no way to change locale while running. So a Spanish
+browser gets a Spanish extension even if the app is set to English. The two catalogues are
+independent and you are welcome to do one without the other.
 
 ## Credit
 

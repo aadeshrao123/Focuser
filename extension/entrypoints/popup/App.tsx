@@ -1,3 +1,4 @@
+import { i18n } from "#i18n";
 import {
   Ban,
   CircleCheck,
@@ -91,10 +92,10 @@ export function App() {
     const name = snapshot?.lists.find((l) => l.id === listId)?.name ?? "the list";
     setNote(
       result === null
-        ? { ok: false, text: "Could not reach the desktop app" }
+        ? { ok: false, text: i18n.t("popup.unreachable") }
         : result.duplicate
-          ? { ok: true, text: `${host} was already in ${name}` }
-          : { ok: true, text: `Blocked ${host} in ${name}` },
+          ? { ok: true, text: i18n.t("popup.alreadyBlocked", { host, name }) }
+          : { ok: true, text: i18n.t("popup.blocked", { host, name }) },
     );
 
     if (result !== null) {
@@ -121,17 +122,20 @@ export function App() {
     const stubborn = site.lists.filter((l) => !REMOVABLE.has(l.rule_kind));
 
     if (results.some((r) => r === null)) {
-      setNote({ ok: false, text: "Could not reach the desktop app" });
+      setNote({ ok: false, text: i18n.t("popup.unreachable") });
     } else if (removed === 0 && stubborn.length === 0) {
-      setNote({ ok: false, text: `${host} was not in any list` });
+      setNote({ ok: false, text: i18n.t("popup.notInAnyListNote", { host }) });
     } else if (stubborn.length > 0) {
       setNote({
         ok: false,
-        text: `Still matched by a ${stubborn[0]?.rule_kind.replace("_", " ")} rule in ${stubborn[0]?.name}. Edit it in the app.`,
+        text: i18n.t("popup.stubborn", {
+          kind: stubborn[0]?.rule_kind.replace("_", " ") ?? "",
+          name: stubborn[0]?.name ?? "",
+        }),
       });
     } else {
       const names = removable.map((l) => l.name).join(", ");
-      setNote({ ok: true, text: `Unblocked ${host} in ${names}` });
+      setNote({ ok: true, text: i18n.t("popup.unblocked", { host, names }) });
     }
 
     await send({ type: "refresh" });
@@ -149,8 +153,8 @@ export function App() {
 
   const { connected, status, lists, ruleCount, blockEverything } = snapshot;
   const summary = blockEverything
-    ? "Blocking everything"
-    : `${ruleCount} ${ruleCount === 1 ? "rule" : "rules"} active`;
+    ? i18n.t("popup.blockingEverything")
+    : i18n.t("popup.rulesActive", ruleCount);
   const accent = connected ? "rgb(139 92 246 / 0.6)" : "rgb(248 113 113 / 0.6)";
   // `site === null` means the app could not answer, usually because it predates
   // the site-status endpoint. Saying "not in any list" there is a guess, and a
@@ -190,7 +194,7 @@ export function App() {
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-foreground text-sm leading-tight">Focuser</p>
           <p className="truncate text-faint-foreground text-xs">
-            {connected ? summary : "Desktop app not running"}
+            {connected ? summary : i18n.t("popup.notRunning")}
           </p>
         </div>
         <span
@@ -212,7 +216,7 @@ export function App() {
         <div className="relative mx-4 mb-4 flex items-start gap-2.5 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2.5">
           <TriangleAlert className="mt-px size-4 shrink-0 text-warning" />
           <p className="text-muted-foreground text-xs leading-relaxed">
-            Nothing is being blocked. Start the Focuser desktop app to restore your rules.
+            {i18n.t("popup.disconnected")}
           </p>
         </div>
       )}
@@ -227,15 +231,15 @@ export function App() {
 
       <section className="relative border-border border-t px-4 py-4">
         <p className="mb-2 font-medium text-[0.65rem] text-faint-foreground uppercase tracking-[0.12em]">
-          Current site
+          {i18n.t("popup.currentSite")}
         </p>
 
         <div className="rounded-xl border border-border bg-elevated/50 px-3 py-2.5">
-          <p className="truncate font-medium text-foreground text-sm">{host ?? "No site open"}</p>
+          <p className="truncate font-medium text-foreground text-sm">{host ?? i18n.t("popup.noSiteOpen")}</p>
           {host && connected && !statusKnown && (
             <p className="mt-1 flex items-center gap-1.5 text-xs">
               <CircleHelp className="size-3 shrink-0 text-warning" />
-              <span className="text-muted-foreground">Update the app to see this</span>
+              <span className="text-muted-foreground">{i18n.t("popup.updateApp")}</span>
             </p>
           )}
           {host && connected && statusKnown && (
@@ -244,13 +248,13 @@ export function App() {
                 <>
                   <Ban className="size-3 shrink-0 text-destructive" />
                   <span className="truncate text-muted-foreground">
-                    In {listed.map((l) => l.name).join(", ")}
+                    {i18n.t("popup.inLists", { names: listed.map((l) => l.name).join(", ") })}
                   </span>
                 </>
               ) : (
                 <>
                   <CircleCheck className="size-3 shrink-0 text-success" />
-                  <span className="text-muted-foreground">Not in any list</span>
+                  <span className="text-muted-foreground">{i18n.t("popup.notInAnyList")}</span>
                 </>
               )}
             </p>
@@ -267,18 +271,18 @@ export function App() {
                 className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border-strong bg-elevated px-3 py-2.5 font-medium text-foreground text-sm transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-50"
               >
                 <Minus className="size-4" />
-                Unblock everywhere
+                {i18n.t("popup.unblockEverywhere")}
               </button>
             ) : lists.length === 0 ? (
               <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
-                Create a block list in the desktop app first — there is nowhere to add this site
+                {i18n.t("popup.noBlockList")}
                 yet.
               </p>
             ) : (
               <>
                 <div className="mt-2.5">
                   <Select
-                    ariaLabel="Block list"
+                    ariaLabel={i18n.t("popup.blockList")}
                     value={listId}
                     onChange={setListId}
                     options={lists.map((l) => ({
@@ -295,7 +299,7 @@ export function App() {
                   className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 font-medium text-primary-foreground text-sm shadow-[0_6px_18px_-8px_var(--color-primary)] transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-0 disabled:pointer-events-none disabled:opacity-50"
                 >
                   <Plus className="size-4" />
-                  Block this site
+                  {i18n.t("popup.blockThisSite")}
                 </button>
               </>
             )}
@@ -318,7 +322,7 @@ export function App() {
           onClick={() => void showApp()}
           className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-muted-foreground text-sm transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          Open Focuser
+          {i18n.t("popup.openApp")}
           <ExternalLink className="size-3.5" />
         </button>
       </footer>

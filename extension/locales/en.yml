@@ -1,0 +1,102 @@
+# Focuser browser extension, English.
+#
+# The extension follows the *browser's* language, not the desktop app's setting.
+# That is a limit of `browser.i18n`, which has no way to change locale at
+# runtime. See TRANSLATING.md in the repository root to add a language.
+
+block:
+  reason:
+    domain: On a block list
+    keyword: Address contains a blocked word
+    urlPath: This part of the site is blocked
+    wildcard: Matches a blocked pattern
+    everything: Everything is blocked right now
+  attempt:
+    1: First time today
+    n: Attempt $1
+  goBack: Go back
+  closeTab: Close tab
+  pressEsc: Press
+  toGoBack: to go back
+  openApp: Open Focuser
+  privacy: Nothing here leaves your computer.
+
+popup:
+  blockingEverything: Blocking everything
+  rulesActive:
+    1: 1 rule active
+    n: $1 rules active
+  notRunning: Desktop app not running
+  disconnected: Nothing is being blocked. Start the Focuser desktop app to restore your rules.
+  currentSite: Current site
+  noSiteOpen: No site open
+  updateApp: Update the app to see this
+  inLists: In {names}
+  notInAnyList: Not in any list
+  unblockEverywhere: Unblock everywhere
+  noBlockList: Create a block list in the desktop app first, there is nowhere to add this site
+  blockThisSite: Block this site
+  blockList: Block list
+  openApp: Open Focuser
+  unreachable: Could not reach the desktop app
+  blocked: Blocked {host} in {name}
+  alreadyBlocked: "{host} was already in {name}"
+  notInAnyListNote: "{host} was not in any list"
+  stubborn: Still matched by a {kind} rule in {name}. Edit it in the app.
+  unblocked: Unblocked {host} in {names}
+
+select:
+  placeholder: Select…
+
+welcome:
+  headingUpdated: Focuser just got better
+  headingInstalled: Thanks for installing Focuser
+  introUpdated: Here is what changed in this version, and a quick reminder of how the pieces fit together.
+  introInstalled: Focuser keeps distracting sites out of your way while you work. Here is everything you need to get going.
+
+  setupTitle: One thing to set up
+  setupBody1: The extension does not hold your block lists. It asks the Focuser desktop app for them, which is what lets one set of rules cover your browser and your applications at the same time. Keep the app running and the extension looks after the browser side by itself.
+  setupBody2: If the app is closed, the toolbar icon shows a red mark and nothing gets blocked. That is the extension being honest with you rather than pretending to work.
+  openApp: Open the Focuser app
+  getApp: Get the desktop app
+
+  whatsNewVersion: What is new in {version}
+  whatsNew: What is new
+
+  new1Title: Rebuilt from scratch
+  new1Body: The extension was rewritten. It is smaller, faster to start, and one codebase now covers Chrome, Edge, Brave and Firefox.
+  new2Title: A block page worth reading
+  new2Body: It names the site, says which rule caught it, and counts how many times you have tried today. The message changes as that count climbs.
+  new3Title: The popup tells the truth
+  new3Body: It now shows which of your lists a site is actually in. Unblocking removes it from all of them instead of guessing at one.
+  new4Title: No flash of the site
+  new4Body: Blocking now takes effect before the page paints, so you never catch a glimpse of the thing you were avoiding.
+
+  point1Title: More than domains
+  point1Body: Match a whole site, a word in the address, a pattern, or one section of a site.
+  point2Title: Only when you meant it
+  point2Body: Lists can follow a weekly schedule or run for one focus session.
+  point3Title: Stays on your machine
+  point3Body: It talks to the Focuser app on your own computer and to nothing else.
+
+  waysTitle: The four ways to block something
+  waysIntro: Add these in the desktop app under Websites. The extension enforces all four.
+  colKind: Kind
+  colExample: Example
+  colCovers: What it covers
+  kindSite: Site
+  kindWord: Word
+  kindPattern: Pattern
+  kindSection: Section
+  coversSite: The site and everything under it
+  coversWord: Any address containing that word
+  coversPattern: Anything matching the pattern
+  coversSection: Just that part of a site
+
+  openSourceTitle: Free, and open source
+  openSourceBody1: Focuser is completely open source. Every line of the app and this extension is on GitHub, so you can read exactly what it does, check for yourself that nothing is sent anywhere, and change it if you want to.
+  openSourceBody2: If you want to help, the repository is the place. Pull requests are welcome, and so are bug reports and ideas.
+  star: Star the project
+  reportBug: Report a bug
+  contribute: Contribute code
+  thanks: Thank you for using Focuser. Good luck with whatever you are trying to get done.

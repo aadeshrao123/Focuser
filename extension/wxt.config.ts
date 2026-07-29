@@ -15,7 +15,12 @@ const ICONS = {
 };
 
 export default defineConfig({
-  modules: ["@wxt-dev/module-react"],
+  // `@wxt-dev/i18n` wraps `browser.i18n`, so the extension follows the
+  // *browser's* language rather than the desktop app's setting. That is the
+  // platform's own mechanism: there is no API to change the locale at runtime,
+  // and the only workaround is reloading the extension, which leaves already
+  // open pages in the old language.
+  modules: ["@wxt-dev/module-react", "@wxt-dev/i18n/module"],
   srcDir: ".",
   outDir: ".output",
 
@@ -26,6 +31,7 @@ export default defineConfig({
 
   manifest: ({ browser }) => ({
     name: "Focuser",
+    default_locale: "en",
     description:
       "Blocks distracting sites so you stay focused. Enforces the block lists you set in the Focuser desktop app.",
     // Only what is actually used. `webRequest` and `nativeMessaging` were

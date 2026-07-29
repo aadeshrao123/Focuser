@@ -1,3 +1,4 @@
+import { i18n } from "#i18n";
 import {
   ArrowUpRight,
   Ban,
@@ -27,48 +28,40 @@ function extensionVersion(): string {
 const VERSION = extensionVersion();
 
 /** Written down here rather than fetched, so the page works with no app running. */
-const WHATS_NEW = [
-  {
-    title: "Rebuilt from scratch",
-    body: "The extension was rewritten. It is smaller, faster to start, and one codebase now covers Chrome, Edge, Brave and Firefox.",
-  },
-  {
-    title: "A block page worth reading",
-    body: "It names the site, says which rule caught it, and counts how many times you have tried today. The message changes as that count climbs.",
-  },
-  {
-    title: "The popup tells the truth",
-    body: "It now shows which of your lists a site is actually in. Unblocking removes it from all of them instead of guessing at one.",
-  },
-  {
-    title: "No flash of the site",
-    body: "Blocking now takes effect before the page paints, so you never catch a glimpse of the thing you were avoiding.",
-  },
+// Built during render, not at module scope: `i18n.t` reads the locale when it
+// runs, so a module constant would freeze whichever language loaded first.
+const whatsNew = () => [
+  { title: i18n.t("welcome.new1Title"), body: i18n.t("welcome.new1Body") },
+  { title: i18n.t("welcome.new2Title"), body: i18n.t("welcome.new2Body") },
+  { title: i18n.t("welcome.new3Title"), body: i18n.t("welcome.new3Body") },
+  { title: i18n.t("welcome.new4Title"), body: i18n.t("welcome.new4Body") },
 ];
 
-const POINTS: Array<{ icon: ComponentType<{ className?: string }>; title: string; body: string }> = [
-  {
-    icon: Ban,
-    title: "More than domains",
-    body: "Match a whole site, a word in the address, a pattern, or one section of a site.",
-  },
-  {
-    icon: Timer,
-    title: "Only when you meant it",
-    body: "Lists can follow a weekly schedule or run for one focus session.",
-  },
-  {
-    icon: Lock,
-    title: "Stays on your machine",
-    body: "It talks to the Focuser app on your own computer and to nothing else.",
-  },
+const points = (): Array<{
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  body: string;
+}> => [
+  { icon: Ban, title: i18n.t("welcome.point1Title"), body: i18n.t("welcome.point1Body") },
+  { icon: Timer, title: i18n.t("welcome.point2Title"), body: i18n.t("welcome.point2Body") },
+  { icon: Lock, title: i18n.t("welcome.point3Title"), body: i18n.t("welcome.point3Body") },
 ];
 
-const RULE_TYPES = [
-  { kind: "Site", example: "reddit.com", covers: "The site and everything under it" },
-  { kind: "Word", example: "casino", covers: "Any address containing that word" },
-  { kind: "Pattern", example: "*.reddit.com", covers: "Anything matching the pattern" },
-  { kind: "Section", example: "reddit.com/r/all", covers: "Just that part of a site" },
+// `example` stays untranslated: a domain reads the same in every language, and
+// translating `reddit.com` would be nonsense.
+const ruleTypes = () => [
+  { kind: i18n.t("welcome.kindSite"), example: "reddit.com", covers: i18n.t("welcome.coversSite") },
+  { kind: i18n.t("welcome.kindWord"), example: "casino", covers: i18n.t("welcome.coversWord") },
+  {
+    kind: i18n.t("welcome.kindPattern"),
+    example: "*.reddit.com",
+    covers: i18n.t("welcome.coversPattern"),
+  },
+  {
+    kind: i18n.t("welcome.kindSection"),
+    example: "reddit.com/r/all",
+    covers: i18n.t("welcome.coversSection"),
+  },
 ];
 
 /** lucide dropped brand marks, so the GitHub logo is inline. */
@@ -111,43 +104,40 @@ export function Welcome() {
           )}
 
           <h1 className="mt-5 text-balance font-semibold text-4xl text-foreground leading-[1.1] sm:text-5xl">
-            {updated ? "Focuser just got better" : "Thanks for installing Focuser"}
+            {updated ? i18n.t("welcome.headingUpdated") : i18n.t("welcome.headingInstalled")}
           </h1>
           <p className="mt-4 max-w-xl text-pretty text-base text-muted-foreground leading-relaxed sm:text-lg">
             {updated
-              ? "Here is what changed in this version, and a quick reminder of how the pieces fit together."
-              : "Focuser keeps distracting sites out of your way while you work. Here is everything you need to get going."}
+              ? i18n.t("welcome.introUpdated")
+              : i18n.t("welcome.introInstalled")}
           </p>
         </header>
 
         <Card className="mt-12">
-          <SectionTitle icon={Laptop}>One thing to set up</SectionTitle>
+          <SectionTitle icon={Laptop}>{i18n.t("welcome.setupTitle")}</SectionTitle>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            The extension does not hold your block lists. It asks the Focuser desktop app for them,
-            which is what lets one set of rules cover your browser and your applications at the same
-            time. Keep the app running and the extension looks after the browser side by itself.
+            {i18n.t("welcome.setupBody1")}
           </p>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            If the app is closed, the toolbar icon shows a red mark and nothing gets blocked. That is
-            the extension being honest with you rather than pretending to work.
+            {i18n.t("welcome.setupBody2")}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <PrimaryButton onClick={() => void showApp()}>
               <Shield className="size-4" />
-              Open the Focuser app
+              {i18n.t("welcome.openApp")}
             </PrimaryButton>
             <SecondaryLink href={REPO}>
               <GitHubMark className="size-4" />
-              Get the desktop app
+              {i18n.t("welcome.getApp")}
             </SecondaryLink>
           </div>
         </Card>
 
         <section className="mt-14">
-          <h2 className="font-semibold text-2xl text-foreground">{VERSION ? `What is new in ${VERSION}` : "What is new"}</h2>
+          <h2 className="font-semibold text-2xl text-foreground">{VERSION ? i18n.t("welcome.whatsNewVersion", { version: VERSION }) : i18n.t("welcome.whatsNew")}</h2>
           <ol className="mt-6 space-y-4">
-            {WHATS_NEW.map((item, i) => (
+            {whatsNew().map((item, i) => (
               <li
                 key={item.title}
                 className="flex gap-4 rounded-2xl border border-border bg-surface/40 p-4 transition-colors hover:border-border-strong hover:bg-surface/70"
@@ -165,7 +155,7 @@ export function Welcome() {
         </section>
 
         <section className="mt-14 grid gap-4 sm:grid-cols-3">
-          {POINTS.map(({ icon: Icon, title, body }) => (
+          {points().map(({ icon: Icon, title, body }) => (
             <div
               key={title}
               className="rounded-2xl border border-border bg-surface/50 p-5 backdrop-blur-sm transition-colors hover:border-border-strong"
@@ -181,9 +171,9 @@ export function Welcome() {
 
         <Card className="mt-14 overflow-hidden p-0">
           <div className="p-6 sm:p-7">
-            <SectionTitle icon={Code}>The four ways to block something</SectionTitle>
+            <SectionTitle icon={Code}>{i18n.t("welcome.waysTitle")}</SectionTitle>
             <p className="mt-3 text-muted-foreground leading-relaxed">
-              Add these in the desktop app under Websites. The extension enforces all four.
+              {i18n.t("welcome.waysIntro")}
             </p>
           </div>
 
@@ -193,18 +183,18 @@ export function Welcome() {
               <thead>
                 <tr className="border-border border-y bg-elevated/40 text-faint-foreground text-xs">
                   <th scope="col" className="px-6 py-2.5 font-medium uppercase tracking-wide">
-                    Kind
+                    {i18n.t("welcome.colKind")}
                   </th>
                   <th scope="col" className="px-6 py-2.5 font-medium uppercase tracking-wide">
-                    Example
+                    {i18n.t("welcome.colExample")}
                   </th>
                   <th scope="col" className="px-6 py-2.5 font-medium uppercase tracking-wide">
-                    What it covers
+                    {i18n.t("welcome.colCovers")}
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {RULE_TYPES.map((row) => (
+                {ruleTypes().map((row) => (
                   <tr key={row.kind} className="border-border/60 border-b last:border-0">
                     <td className="px-6 py-3 font-medium text-foreground">{row.kind}</td>
                     <td className="px-6 py-3">
@@ -221,7 +211,7 @@ export function Welcome() {
         </Card>
 
         <Card className="mt-14">
-          <SectionTitle icon={Heart}>Free, and open source</SectionTitle>
+          <SectionTitle icon={Heart}>{i18n.t("welcome.openSourceTitle")}</SectionTitle>
           <p className="mt-3 text-muted-foreground leading-relaxed">
             Focuser is completely open source. Every line of the app and this extension is on
             GitHub, so you can read exactly what it does, check for yourself that nothing is sent
@@ -237,15 +227,15 @@ export function Welcome() {
           <div className="mt-6 flex flex-wrap gap-3">
             <SecondaryLink href={REPO}>
               <Star className="size-4 text-warning" />
-              Star the project
+              {i18n.t("welcome.star")}
             </SecondaryLink>
             <SecondaryLink href={`${REPO}/issues`}>
               <Bug className="size-4" />
-              Report a bug
+              {i18n.t("welcome.reportBug")}
             </SecondaryLink>
             <SecondaryLink href={`${REPO}/pulls`}>
               <Code className="size-4" />
-              Contribute code
+              {i18n.t("welcome.contribute")}
             </SecondaryLink>
           </div>
         </Card>

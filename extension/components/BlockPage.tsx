@@ -1,3 +1,4 @@
+import { i18n } from "#i18n";
 import {
   ArrowLeft,
   Clock,
@@ -35,21 +36,28 @@ export const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   "dice-5": Dice5,
 };
 
-const REASON_LABEL: Record<BlockContext["reason"], string> = {
-  domain: "On a block list",
-  keyword: "Address contains a blocked word",
-  "url-path": "This part of the site is blocked",
-  wildcard: "Matches a blocked pattern",
-  everything: "Everything is blocked right now",
+// Functions, not strings: `i18n.t` reads the locale when it runs, and a module
+// constant would freeze whatever was active when this file was imported.
+const REASON_LABEL: Record<BlockContext["reason"], () => string> = {
+  domain: () => i18n.t("block.reason.domain"),
+  keyword: () => i18n.t("block.reason.keyword"),
+  "url-path": () => i18n.t("block.reason.urlPath"),
+  wildcard: () => i18n.t("block.reason.wildcard"),
+  everything: () => i18n.t("block.reason.everything"),
 };
 
 /** Past this, a hostname at full display size wraps to three lines. */
 const LONG_HOSTNAME = 34;
 
-export function ordinal(n: number): string {
-  const suffix =
-    n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
-  return `${n}${suffix}`;
+/**
+ * How many times today, as a sentence.
+ *
+ * Was an English ordinal — "1st", "2nd", "3rd". Those do not translate: Spanish
+ * writes "1.º" and plenty of languages do not form ordinals that way at all, so
+ * the message carries the whole phrase and picks its own plural form.
+ */
+export function attemptLabel(n: number): string {
+  return i18n.t("block.attempt", n);
 }
 
 export function BlockPage({ context }: { context: BlockContext }) {
@@ -156,7 +164,7 @@ export function BlockPage({ context }: { context: BlockContext }) {
                   <HostName value={context.hostname} />
                 </h1>
                 <p className="mt-1.5 text-muted-foreground text-sm">
-                  {info.label} · {REASON_LABEL[context.reason]}
+                  {info.label} · {REASON_LABEL[context.reason]()}
                 </p>
               </div>
             </header>
@@ -178,7 +186,7 @@ export function BlockPage({ context }: { context: BlockContext }) {
 
             <div className="relative mt-6 flex flex-wrap items-center gap-2">
               <Chip icon={Clock}>
-                {context.count === 1 ? "First time today" : `${ordinal(context.count)} attempt`}
+                {attemptLabel(context.count)}
               </Chip>
               {context.reason !== "domain" && context.reason !== "everything" && (
                 <Chip icon={Target}>
@@ -194,7 +202,7 @@ export function BlockPage({ context }: { context: BlockContext }) {
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm shadow-[0_6px_20px_-8px_var(--color-primary)] transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_12px_28px_-10px_var(--color-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-0 active:bg-primary-active"
               >
                 <ArrowLeft className="size-4" />
-                Go back
+                {i18n.t("block.goBack")}
               </button>
               <button
                 type="button"
@@ -202,7 +210,7 @@ export function BlockPage({ context }: { context: BlockContext }) {
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border-strong bg-elevated/70 px-4 py-2.5 font-medium text-foreground text-sm transition-colors duration-200 hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 <X className="size-4" />
-                Close tab
+                {i18n.t("block.closeTab")}
               </button>
             </div>
           </article>
@@ -213,11 +221,11 @@ export function BlockPage({ context }: { context: BlockContext }) {
           style={{ animationDelay: "220ms" }}
         >
           <span className="inline-flex items-center gap-1.5">
-            Press
+            {i18n.t("block.pressEsc")}
             <kbd className="rounded border border-border-strong bg-elevated px-1.5 py-0.5 font-sans text-[0.68rem] text-muted-foreground">
               Esc
             </kbd>
-            to go back
+            {i18n.t("block.toGoBack")}
           </span>
           <span aria-hidden className="text-border-strong">
             ·
@@ -227,13 +235,13 @@ export function BlockPage({ context }: { context: BlockContext }) {
             onClick={() => void send({ type: "open-app" })}
             className="inline-flex items-center gap-1 rounded transition-colors hover:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            Open Focuser
+            {i18n.t("block.openApp")}
             <ExternalLink className="size-3" />
           </button>
         </footer>
 
         <p className="mt-3 text-center text-[0.7rem] text-faint-foreground/70">
-          Nothing here leaves your computer.
+          {i18n.t("block.privacy")}
         </p>
       </div>
     </div>

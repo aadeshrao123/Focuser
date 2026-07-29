@@ -2,36 +2,17 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { categoryInfo } from "@/lib/categories";
-import { ICONS, ordinal } from "./BlockPage";
+import { ICONS } from "./BlockPage";
 
 /** The real file the extension ships, not a fixture. */
 const premade = JSON.parse(
   readFileSync(
-    resolve(__dirname, "../../crates/focuser-ui/frontend/public/premade-lists.json"),
+    // The extension's own copy. Reaching across to `crates/` is what made the
+    // sources archive unbuildable for an AMO reviewer.
+    resolve(__dirname, "../public/premade-lists.json"),
     "utf8",
   ),
 ) as { categories: Record<string, unknown> };
-
-describe("ordinal", () => {
-  it("handles the teens, which do not follow the last-digit rule", () => {
-    expect(ordinal(11)).toBe("11th");
-    expect(ordinal(12)).toBe("12th");
-    expect(ordinal(13)).toBe("13th");
-    expect(ordinal(111)).toBe("111th");
-    expect(ordinal(112)).toBe("112th");
-  });
-
-  it("uses the last digit everywhere else", () => {
-    expect(ordinal(1)).toBe("1st");
-    expect(ordinal(2)).toBe("2nd");
-    expect(ordinal(3)).toBe("3rd");
-    expect(ordinal(4)).toBe("4th");
-    expect(ordinal(21)).toBe("21st");
-    expect(ordinal(22)).toBe("22nd");
-    expect(ordinal(103)).toBe("103rd");
-    expect(ordinal(137)).toBe("137th");
-  });
-});
 
 describe("ICONS", () => {
   it("has a glyph for every category the shipped lists can resolve to", () => {
