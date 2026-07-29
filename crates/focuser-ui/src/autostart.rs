@@ -29,6 +29,10 @@ pub const INITIALISED: &str = "autostart_initialised";
 pub const ENABLED: &str = "autostart_enabled";
 
 /// How far [`imp::set_task`] got.
+///
+/// Only Windows has a task to change, so everywhere else two of these are
+/// unreachable by construction rather than merely unused.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub enum TaskChange {
     Done,
     /// No such task: portable and dev builds never had one.
