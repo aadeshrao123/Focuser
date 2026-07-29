@@ -217,8 +217,12 @@ Building installers additionally needs the sidecar binaries in place:
 ```bash
 cargo build --release -p focuser-cli -p focuser-native
 # copy each into crates/focuser-ui/binaries/<name>-<target-triple>[.exe]
-cd crates/focuser-ui && cargo tauri build
+cd crates/focuser-ui && npx --yes @tauri-apps/cli@2 build
 ```
+
+`npx` rather than `cargo install tauri-cli`: the CLI ships as a prebuilt binary on npm, so
+this is a few seconds instead of the several minutes it takes to compile. `cargo tauri
+build` works too if you already have it installed.
 
 ### Developing the UI without rebuilding the app
 

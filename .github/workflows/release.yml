@@ -48,9 +48,6 @@ jobs:
           cache: npm
           cache-dependency-path: crates/focuser-ui/frontend/package-lock.json
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2" --locked
-
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -60,7 +57,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-${{ matrix.target }}-release-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ matrix.target }}-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-${{ matrix.target }}-release-
 
       - name: Install Linux dependencies
@@ -83,8 +80,13 @@ jobs:
           fi
           ls -la crates/focuser-ui/binaries/
 
+      # npx, not `cargo install tauri-cli`. The CLI ships as a prebuilt binary
+      # on npm; compiling it from source was taking ten minutes on Windows,
+      # longer than the build it exists to run. Not a devDependency either:
+      # `beforeBuildCommand` runs `npm ci`, which wipes node_modules and would
+      # delete the running binary out from under itself on Windows.
       - name: Build Tauri installer
-        run: cargo tauri build --target ${{ matrix.target }}
+        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }}
         working-directory: crates/focuser-ui
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
