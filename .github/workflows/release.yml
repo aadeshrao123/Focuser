@@ -49,16 +49,11 @@ jobs:
           cache-dependency-path: crates/focuser-ui/frontend/package-lock.json
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-${{ matrix.target }}-release-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-release-
+          # Matrix entries share a job id, so the target has to be in the key
+          # or all four platforms would fight over one cache.
+          key: ${{ matrix.target }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
