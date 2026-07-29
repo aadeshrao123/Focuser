@@ -1,8 +1,11 @@
 /**
- * "Launch at login" lives in the Tauri autostart plugin, not the command core —
- * it edits an OS-level registration that only the desktop app owns. In the
- * browser harness there is nothing to register, so the query is disabled and the
- * page shows the control as unavailable rather than pretending it works.
+ * "Launch at login" is an OS-level registration only the desktop app owns, so
+ * it lives outside the command core. In the browser harness there is nothing to
+ * register and the page shows the control as unavailable.
+ *
+ * Goes through our own commands rather than `plugin:autostart|*` because on
+ * Windows the installer also creates a scheduled task, and the plugin knows
+ * nothing about it.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,14 +20,13 @@ export function useAutostart() {
 
   const enabled = useQuery({
     queryKey,
-    queryFn: () => invoke<boolean>("plugin:autostart|is_enabled"),
+    queryFn: () => invoke<boolean>("is_autostart_enabled"),
     enabled: supported,
     refetchInterval: false,
   });
 
   const set = useMutation({
-    mutationFn: (next: boolean) =>
-      invoke(next ? "plugin:autostart|enable" : "plugin:autostart|disable"),
+    mutationFn: (next: boolean) => invoke("set_autostart", { enabled: next }),
     onSuccess: () => qc.invalidateQueries({ queryKey }),
   });
 

@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod autostart;
 mod blocker;
 mod foreground_watcher;
 mod i18n;
@@ -134,16 +135,15 @@ fn main() {
             native::open_browser_url,
             native::check_for_update,
             native::do_update,
+            autostart::is_autostart_enabled,
+            autostart::set_autostart,
         ])
         .setup(move |app| {
-            // Enable autostart by default on first run
-            {
-                use tauri_plugin_autostart::ManagerExt;
-                let autostart = app.autolaunch();
-                if !autostart.is_enabled().unwrap_or(false) {
-                    let _ = autostart.enable();
-                    info!("Autostart enabled by default");
-                }
+            // Once, on a fresh install. This used to re-enable autostart on
+            // every launch whenever it found it off, which meant nobody could
+            // ever turn it off — see #10.
+            if let Ok(engine) = state_for_blocker.engine.lock() {
+                autostart::apply_default_once(app.handle(), engine.db());
             }
 
             // Spawn background blocking loop
