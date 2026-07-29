@@ -1,0 +1,92 @@
+# Focuser, de.
+#
+# First draft, not reviewed by a native speaker. Corrections welcome:
+# see TRANSLATING.md in the repository root.
+
+block:
+  reason:
+    domain: Auf einer Sperrliste
+    keyword: Die Adresse enthält ein gesperrtes Wort
+    urlPath: Dieser Teil der Seite ist gesperrt
+    wildcard: Passt auf ein gesperrtes Muster
+    everything: Gerade ist alles gesperrt
+  attempt:
+    '1': Zum ersten Mal heute
+    'n': Versuch $1
+  goBack: Zurück
+  closeTab: Tab schließen
+  pressEsc: Drücke
+  toGoBack: um zurückzugehen
+  openApp: Focuser öffnen
+  privacy: Nichts davon verlässt deinen Rechner.
+popup:
+  blockingEverything: Alles wird blockiert
+  rulesActive:
+    '1': 1 Regel aktiv
+    'n': $1 Regeln aktiv
+  notRunning: Die Desktop-App läuft nicht
+  disconnected: Es wird nichts blockiert. Starte die Focuser-Desktop-App, um deine Regeln wiederherzustellen.
+  currentSite: Aktuelle Seite
+  noSiteOpen: Keine Seite geöffnet
+  updateApp: Aktualisiere die App, um das zu sehen
+  inLists: In {names}
+  notInAnyList: In keiner Liste
+  unblockEverywhere: Überall entsperren
+  noBlockList: Erstelle zuerst eine Sperrliste in der Desktop-App, es gibt noch keinen Ort für diese Seite
+  blockThisSite: Diese Seite sperren
+  blockList: Sperrliste
+  openApp: Focuser öffnen
+  unreachable: Die Desktop-App ist nicht erreichbar
+  blocked: '{host} in {name} gesperrt'
+  alreadyBlocked: '{host} war bereits in {name}'
+  notInAnyListNote: '{host} war in keiner Liste'
+  stubborn: Wird weiterhin von einer {kind}-Regel in {name} erfasst. Bearbeite sie in der App.
+  unblocked: '{host} in {names} entsperrt'
+select:
+  placeholder: Auswählen…
+welcome:
+  headingUpdated: Focuser ist gerade besser geworden
+  headingInstalled: Danke, dass du Focuser installiert hast
+  introUpdated: Das hat sich in dieser Version geändert, mit einer kurzen Erinnerung daran, wie die Teile zusammenpassen.
+  introInstalled: Focuser hält ablenkende Seiten aus dem Weg, während du arbeitest. Hier ist alles, was du zum Loslegen brauchst.
+  setupTitle: Eine Sache ist einzurichten
+  setupBody1: Die Erweiterung hält deine Sperrlisten nicht selbst. Sie fragt die Focuser-Desktop-App danach, und genau das lässt einen Satz Regeln gleichzeitig für Browser und Anwendungen gelten. Lass die App laufen, dann kümmert sich die Erweiterung allein um den Browser.
+  setupBody2: Ist die App geschlossen, zeigt das Symbol in der Leiste eine rote Markierung und es wird nichts blockiert. Das ist die Erweiterung, die ehrlich zu dir ist, statt so zu tun, als würde sie arbeiten.
+  openApp: Die Focuser-App öffnen
+  getApp: Desktop-App herunterladen
+  whatsNewVersion: Neu in Version {version}
+  whatsNew: Was ist neu
+  new1Title: Von Grund auf neu gebaut
+  new1Body: Die Erweiterung wurde neu geschrieben. Sie ist kleiner, startet schneller, und eine Codebasis deckt jetzt Chrome, Edge, Brave und Firefox ab.
+  new2Title: Eine Sperrseite, die sich zu lesen lohnt
+  new2Body: Sie nennt die Seite, sagt welche Regel gegriffen hat, und zählt, wie oft du es heute versucht hast. Der Text ändert sich, während diese Zahl steigt.
+  new3Title: Das Fenster sagt die Wahrheit
+  new3Body: Es zeigt jetzt, in welchen deiner Listen eine Seite tatsächlich steht. Entsperren nimmt sie aus allen heraus, statt eine zu raten.
+  new4Title: Kein Aufblitzen der Seite
+  new4Body: Das Blockieren greift, bevor die Seite gezeichnet wird, du erhaschst also nie einen Blick auf das, was du vermeiden wolltest.
+  point1Title: Mehr als Domains
+  point1Body: Sperre eine ganze Seite, ein Wort in der Adresse, ein Muster, oder einen einzelnen Bereich einer Seite.
+  point2Title: Nur wenn du es so wolltest
+  point2Body: Listen können einem Wochenplan folgen oder für eine einzelne Fokussitzung laufen.
+  point3Title: Bleibt auf deinem Rechner
+  point3Body: Sie spricht mit der Focuser-App auf deinem eigenen Computer und mit sonst nichts.
+  waysTitle: Die vier Arten, etwas zu sperren
+  waysIntro: Lege sie in der Desktop-App unter Websites an. Die Erweiterung setzt alle vier durch.
+  colKind: Art
+  colExample: Beispiel
+  colCovers: Was es abdeckt
+  kindSite: Seite
+  kindWord: Wort
+  kindPattern: Muster
+  kindSection: Bereich
+  coversSite: Die Seite und alles darunter
+  coversWord: Jede Adresse, die dieses Wort enthält
+  coversPattern: Alles, was auf das Muster passt
+  coversSection: Nur diesen Teil einer Seite
+  openSourceTitle: Kostenlos und quelloffen
+  openSourceBody1: Focuser ist vollständig quelloffen. Jede Zeile der App und dieser Erweiterung liegt auf GitHub, du kannst also genau nachlesen, was sie tut, dich selbst davon überzeugen, dass nichts irgendwohin geschickt wird, und sie ändern, wenn du magst.
+  openSourceBody2: Wenn du helfen willst, ist das Repository der richtige Ort. Pull Requests sind willkommen, Fehlerberichte und Ideen ebenso.
+  star: Dem Projekt einen Stern geben
+  reportBug: Fehler melden
+  contribute: Code beitragen
+  thanks: Danke, dass du Focuser benutzt. Viel Erfolg bei dem, was du dir vorgenommen hast.

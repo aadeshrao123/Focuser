@@ -1,0 +1,92 @@
+# Focuser, fr.
+#
+# First draft, not reviewed by a native speaker. Corrections welcome:
+# see TRANSLATING.md in the repository root.
+
+block:
+  reason:
+    domain: Dans une liste de blocage
+    keyword: L'adresse contient un mot bloqué
+    urlPath: Cette partie du site est bloquée
+    wildcard: Correspond à un motif bloqué
+    everything: Tout est bloqué en ce moment
+  attempt:
+    '1': Première fois aujourd'hui
+    'n': Tentative $1
+  goBack: Retour
+  closeTab: Fermer l'onglet
+  pressEsc: Appuyez sur
+  toGoBack: pour revenir
+  openApp: Ouvrir Focuser
+  privacy: Rien de tout cela ne quitte votre ordinateur.
+popup:
+  blockingEverything: Tout est bloqué
+  rulesActive:
+    '1': 1 règle active
+    'n': $1 règles actives
+  notRunning: L'application de bureau n'est pas lancée
+  disconnected: Rien n'est bloqué. Lancez l'application de bureau Focuser pour rétablir vos règles.
+  currentSite: Site actuel
+  noSiteOpen: Aucun site ouvert
+  updateApp: Mettez l'application à jour pour voir ceci
+  inLists: Dans {names}
+  notInAnyList: Dans aucune liste
+  unblockEverywhere: Débloquer partout
+  noBlockList: Créez d'abord une liste de blocage dans l'application de bureau, il n'y a nulle part où ajouter ce site
+  blockThisSite: Bloquer ce site
+  blockList: Liste de blocage
+  openApp: Ouvrir Focuser
+  unreachable: Impossible de joindre l'application de bureau
+  blocked: '{host} bloqué dans {name}'
+  alreadyBlocked: '{host} était déjà dans {name}'
+  notInAnyListNote: '{host} n''était dans aucune liste'
+  stubborn: Toujours capturé par une règle de type {kind} dans {name}. Modifiez-la dans l'application.
+  unblocked: '{host} débloqué dans {names}'
+select:
+  placeholder: Choisir…
+welcome:
+  headingUpdated: Focuser vient de s'améliorer
+  headingInstalled: Merci d'avoir installé Focuser
+  introUpdated: Voici ce qui a changé dans cette version, et un rappel rapide de la façon dont tout s'articule.
+  introInstalled: Focuser écarte de votre chemin les sites qui distraient pendant que vous travaillez. Voici tout ce qu'il faut pour démarrer.
+  setupTitle: Une seule chose à configurer
+  setupBody1: L'extension ne contient pas vos listes de blocage. Elle les demande à l'application de bureau Focuser, ce qui permet à un même jeu de règles de couvrir à la fois votre navigateur et vos applications. Laissez l'application ouverte et l'extension s'occupe seule du navigateur.
+  setupBody2: Si l'application est fermée, l'icône de la barre d'outils affiche une marque rouge et rien n'est bloqué. C'est l'extension qui est honnête avec vous plutôt que de faire semblant de fonctionner.
+  openApp: Ouvrir l'application Focuser
+  getApp: Télécharger l'application de bureau
+  whatsNewVersion: Nouveautés de la version {version}
+  whatsNew: Nouveautés
+  new1Title: Reconstruite de zéro
+  new1Body: L'extension a été réécrite. Elle est plus légère, démarre plus vite, et une seule base de code couvre désormais Chrome, Edge, Brave et Firefox.
+  new2Title: Une page de blocage qui mérite d'être lue
+  new2Body: Elle nomme le site, indique quelle règle l'a arrêté, et compte le nombre de tentatives du jour. Le message change à mesure que ce compte grimpe.
+  new3Title: La fenêtre dit la vérité
+  new3Body: Elle montre maintenant dans quelles listes un site se trouve réellement. Le déblocage le retire de toutes, au lieu d'en deviner une.
+  new4Title: Plus d'aperçu du site
+  new4Body: Le blocage prend effet avant que la page ne s'affiche, vous n'apercevez donc jamais ce que vous cherchiez à éviter.
+  point1Title: Plus que des domaines
+  point1Body: Bloquez un site entier, un mot dans l'adresse, un motif, ou une seule section d'un site.
+  point2Title: Seulement quand vous le voulez
+  point2Body: Les listes peuvent suivre un horaire hebdomadaire ou durer une seule session de concentration.
+  point3Title: Reste sur votre machine
+  point3Body: Elle parle à l'application Focuser de votre propre ordinateur, et à rien d'autre.
+  waysTitle: Les quatre façons de bloquer quelque chose
+  waysIntro: Ajoutez-les dans l'application de bureau, sous Sites web. L'extension applique les quatre.
+  colKind: Type
+  colExample: Exemple
+  colCovers: Ce que cela couvre
+  kindSite: Site
+  kindWord: Mot
+  kindPattern: Motif
+  kindSection: Section
+  coversSite: Le site et tout ce qu'il contient
+  coversWord: Toute adresse contenant ce mot
+  coversPattern: Tout ce qui correspond au motif
+  coversSection: Uniquement cette partie d'un site
+  openSourceTitle: Gratuit, et open source
+  openSourceBody1: 'Focuser est entièrement open source. Chaque ligne de l''application et de cette extension est sur GitHub : vous pouvez lire exactement ce qu''elle fait, vérifier par vous-même que rien n''est envoyé nulle part, et la modifier si vous le souhaitez.'
+  openSourceBody2: Si vous voulez aider, le dépôt est l'endroit. Les pull requests sont les bienvenues, les rapports de bugs et les idées aussi.
+  star: Mettre une étoile au projet
+  reportBug: Signaler un bug
+  contribute: Contribuer au code
+  thanks: Merci d'utiliser Focuser. Bonne chance pour ce que vous cherchez à accomplir.

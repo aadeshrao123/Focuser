@@ -1,0 +1,92 @@
+# Focuser, pt.
+#
+# First draft, not reviewed by a native speaker. Corrections welcome:
+# see TRANSLATING.md in the repository root.
+
+block:
+  reason:
+    domain: Em uma lista de bloqueio
+    keyword: O endereço contém uma palavra bloqueada
+    urlPath: Esta parte do site está bloqueada
+    wildcard: Corresponde a um padrão bloqueado
+    everything: No momento está tudo bloqueado
+  attempt:
+    '1': Primeira vez hoje
+    'n': Tentativa $1
+  goBack: Voltar
+  closeTab: Fechar aba
+  pressEsc: Pressione
+  toGoBack: para voltar
+  openApp: Abrir o Focuser
+  privacy: Nada disso sai do seu computador.
+popup:
+  blockingEverything: Bloqueando tudo
+  rulesActive:
+    '1': 1 regra ativa
+    'n': $1 regras ativas
+  notRunning: O aplicativo de desktop não está em execução
+  disconnected: Nada está sendo bloqueado. Abra o aplicativo de desktop do Focuser para restaurar suas regras.
+  currentSite: Site atual
+  noSiteOpen: Nenhum site aberto
+  updateApp: Atualize o aplicativo para ver isto
+  inLists: Em {names}
+  notInAnyList: Em nenhuma lista
+  unblockEverywhere: Desbloquear em todo lugar
+  noBlockList: Crie primeiro uma lista de bloqueio no aplicativo de desktop, não há onde adicionar este site
+  blockThisSite: Bloquear este site
+  blockList: Lista de bloqueio
+  openApp: Abrir o Focuser
+  unreachable: Não foi possível contatar o aplicativo de desktop
+  blocked: '{host} bloqueado em {name}'
+  alreadyBlocked: '{host} já estava em {name}'
+  notInAnyListNote: '{host} não estava em nenhuma lista'
+  stubborn: Ainda é pego por uma regra do tipo {kind} em {name}. Edite-a no aplicativo.
+  unblocked: '{host} desbloqueado em {names}'
+select:
+  placeholder: Escolher…
+welcome:
+  headingUpdated: O Focuser acabou de melhorar
+  headingInstalled: Obrigado por instalar o Focuser
+  introUpdated: Isto é o que mudou nesta versão, e um lembrete rápido de como as peças se encaixam.
+  introInstalled: O Focuser mantém os sites que distraem fora do seu caminho enquanto você trabalha. Aqui está tudo o que você precisa para começar.
+  setupTitle: Uma coisa para configurar
+  setupBody1: A extensão não guarda suas listas de bloqueio. Ela as pede ao aplicativo de desktop do Focuser, e é isso que permite que um mesmo conjunto de regras cubra o navegador e os aplicativos ao mesmo tempo. Deixe o aplicativo aberto e a extensão cuida sozinha do lado do navegador.
+  setupBody2: Se o aplicativo estiver fechado, o ícone da barra mostra uma marca vermelha e nada é bloqueado. Isso é a extensão sendo honesta com você em vez de fingir que funciona.
+  openApp: Abrir o aplicativo Focuser
+  getApp: Baixar o aplicativo de desktop
+  whatsNewVersion: Novidades da versão {version}
+  whatsNew: Novidades
+  new1Title: Reconstruída do zero
+  new1Body: A extensão foi reescrita. É menor, inicia mais rápido, e um único código agora cobre Chrome, Edge, Brave e Firefox.
+  new2Title: Uma página de bloqueio que vale a pena ler
+  new2Body: Ela nomeia o site, diz qual regra o pegou, e conta quantas vezes você tentou hoje. A mensagem muda conforme essa contagem sobe.
+  new3Title: O menu diz a verdade
+  new3Body: Agora mostra em quais das suas listas um site realmente está. Desbloquear o remove de todas elas em vez de adivinhar uma.
+  new4Title: Sem lampejo do site
+  new4Body: O bloqueio passa a valer antes de a página ser desenhada, então você nunca vê de relance aquilo que estava evitando.
+  point1Title: Mais do que domínios
+  point1Body: Bloqueie um site inteiro, uma palavra no endereço, um padrão, ou apenas uma seção de um site.
+  point2Title: Só quando você quis
+  point2Body: As listas podem seguir um horário semanal ou durar uma única sessão de foco.
+  point3Title: Fica no seu computador
+  point3Body: Ela conversa com o aplicativo Focuser do seu próprio computador e com mais nada.
+  waysTitle: As quatro formas de bloquear algo
+  waysIntro: Adicione no aplicativo de desktop, em Sites. A extensão aplica as quatro.
+  colKind: Tipo
+  colExample: Exemplo
+  colCovers: O que cobre
+  kindSite: Site
+  kindWord: Palavra
+  kindPattern: Padrão
+  kindSection: Seção
+  coversSite: O site e tudo o que está abaixo dele
+  coversWord: Qualquer endereço que contenha essa palavra
+  coversPattern: Qualquer coisa que corresponda ao padrão
+  coversSection: Apenas aquela parte de um site
+  openSourceTitle: Gratuito e de código aberto
+  openSourceBody1: O Focuser é totalmente de código aberto. Cada linha do aplicativo e desta extensão está no GitHub, então você pode ler exatamente o que ele faz, verificar por conta própria que nada é enviado a lugar nenhum, e alterá-lo se quiser.
+  openSourceBody2: Se quiser ajudar, o repositório é o lugar. Pull requests são bem-vindas, e relatos de bugs e ideias também.
+  star: Dar uma estrela ao projeto
+  reportBug: Relatar um problema
+  contribute: Contribuir com código
+  thanks: Obrigado por usar o Focuser. Boa sorte com o que você estiver tentando fazer.

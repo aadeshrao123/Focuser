@@ -1,0 +1,92 @@
+# Focuser, zh.
+#
+# First draft, not reviewed by a native speaker. Corrections welcome:
+# see TRANSLATING.md in the repository root.
+
+block:
+  reason:
+    domain: 在拦截清单中
+    keyword: 网址里含有被拦截的词
+    urlPath: 网站的这一部分被拦截了
+    wildcard: 匹配到一条拦截规则
+    everything: 现在所有网站都被拦截
+  attempt:
+    '1': 今天第一次
+    'n': 第 $1 次尝试
+  goBack: 返回
+  closeTab: 关闭标签页
+  pressEsc: 按
+  toGoBack: 返回上一页
+  openApp: 打开 Focuser
+  privacy: 这些内容都不会离开你的电脑。
+popup:
+  blockingEverything: 正在拦截所有网站
+  rulesActive:
+    '1': 1 条规则生效中
+    'n': $1 条规则生效中
+  notRunning: 桌面应用未运行
+  disconnected: 目前没有拦截任何内容。启动 Focuser 桌面应用即可恢复你的规则。
+  currentSite: 当前网站
+  noSiteOpen: 没有打开的网站
+  updateApp: 更新应用后即可看到
+  inLists: 位于 {names}
+  notInAnyList: 不在任何清单中
+  unblockEverywhere: 从所有清单中解除
+  noBlockList: 请先在桌面应用中创建一个拦截清单，现在还没有地方放这个网站
+  blockThisSite: 拦截此网站
+  blockList: 拦截清单
+  openApp: 打开 Focuser
+  unreachable: 无法连接到桌面应用
+  blocked: 已在 {name} 中拦截 {host}
+  alreadyBlocked: '{host} 已经在 {name} 中了'
+  notInAnyListNote: '{host} 不在任何清单中'
+  stubborn: 它仍被 {name} 中的一条{kind}规则拦截。请在应用中修改。
+  unblocked: 已在 {names} 中解除对 {host} 的拦截
+select:
+  placeholder: 请选择…
+welcome:
+  headingUpdated: Focuser 刚刚变得更好了
+  headingInstalled: 感谢你安装 Focuser
+  introUpdated: 这是本次版本的改动，以及各部分如何配合的简要说明。
+  introInstalled: Focuser 会在你工作时把让人分心的网站挡在外面。开始使用需要知道的都在这里。
+  setupTitle: 只需设置一件事
+  setupBody1: 拦截清单并不保存在扩展里。扩展会向 Focuser 桌面应用索取，正因如此，同一套规则才能同时管住浏览器和电脑上的程序。让应用保持运行，浏览器这边就交给扩展。
+  setupBody2: 如果应用已关闭，工具栏图标上会出现红色标记，此时不会拦截任何内容。这是扩展在如实告诉你，而不是假装还在工作。
+  openApp: 打开 Focuser 应用
+  getApp: 下载桌面应用
+  whatsNewVersion: '{version} 版本更新内容'
+  whatsNew: 更新内容
+  new1Title: 彻底重写
+  new1Body: 扩展已经重写。体积更小，启动更快，一套代码现在同时支持 Chrome、Edge、Brave 和 Firefox。
+  new2Title: 值得一读的拦截页面
+  new2Body: 它会说明是哪个网站、哪条规则拦下了它，并统计你今天试了多少次。次数越多，页面上的话也会跟着变。
+  new3Title: 弹窗说的是实话
+  new3Body: 现在它会显示某个网站真正出现在哪些清单里。解除拦截会把它从所有清单中移除，而不是猜一个。
+  new4Title: 网站不再一闪而过
+  new4Body: 拦截在页面绘制之前就生效，所以你不会瞥见本想避开的内容。
+  point1Title: 不只是域名
+  point1Body: 可以拦截整个网站、网址中的某个词、某种规则，或者网站中的某一个板块。
+  point2Title: 只在你希望的时候
+  point2Body: 清单可以按每周的时间表运行，也可以只在一次专注时段内生效。
+  point3Title: 只留在你的电脑上
+  point3Body: 它只与你自己电脑上的 Focuser 应用通信，不与其他任何地方通信。
+  waysTitle: 拦截的四种方式
+  waysIntro: 在桌面应用的「网站」页面中添加。这四种扩展都会执行。
+  colKind: 类型
+  colExample: 示例
+  colCovers: 涵盖范围
+  kindSite: 网站
+  kindWord: 词
+  kindPattern: 规则
+  kindSection: 板块
+  coversSite: 该网站及其下的一切
+  coversWord: 任何含有这个词的网址
+  coversPattern: 任何符合该规则的网址
+  coversSection: 只限网站的那一部分
+  openSourceTitle: 免费且开源
+  openSourceBody1: Focuser 完全开源。应用和这个扩展的每一行代码都在 GitHub 上，你可以看清它到底做了什么，自己确认没有任何数据被发送出去，也可以按自己的想法修改。
+  openSourceBody2: 想出一份力，就来仓库看看。欢迎提交拉取请求，也欢迎报告问题和提出想法。
+  star: 给项目点个星
+  reportBug: 报告问题
+  contribute: 贡献代码
+  thanks: 感谢使用 Focuser。祝你顺利完成手头的事。

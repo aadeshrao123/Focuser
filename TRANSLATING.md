@@ -1,10 +1,22 @@
 # Translating Focuser
 
-Focuser ships in English and Spanish. If you speak another language well, you can add it,
-and you will do a better job of it than machine translation or than the maintainer guessing.
+Focuser ships in ten languages:
 
-**The Spanish is a first draft and has not been reviewed by a native speaker.** If you are
-one, corrections are more welcome than a new language.
+| Code | Language   | Code | Language |
+|------|------------|------|----------|
+| `en` | English    | `it` | Italiano |
+| `es` | Español    | `ru` | Русский  |
+| `fr` | Français   | `zh` | 中文      |
+| `de` | Deutsch    | `ja` | 日本語    |
+| `pt` | Português  | `ko` | 한국어    |
+
+If you speak another language well, you can add it, and you will do a better job of it
+than machine translation or than the maintainer guessing.
+
+**Everything except English is a first draft and has not been reviewed by a native
+speaker.** If you are one, corrections are more welcome than a new language. Fixing an
+awkward sentence in a language we already ship is the single most useful thing you can do
+here.
 
 You do not need to know Rust. You do not need to run the app. Editing one JSON file is
 enough.
@@ -23,8 +35,17 @@ the difference actually matters.
 **2. Register it** in `crates/focuser-ui/frontend/project.inlang/settings.json`:
 
 ```json
-"locales": ["en", "es"]
+"locales": ["en", "es", "fr", "de", "pt", "it", "ru", "zh", "ja", "ko"]
 ```
+
+**3b. Add the tray strings.** Nine strings live in Rust rather than the webview: the tray
+menu, and two dialogs the app draws before any window exists. Copy a block in
+`crates/focuser-ui/src/i18n.rs` and add your language to the `match` below it. A test
+fails if you skip this, because the tray sitting in English while the window is in your
+language looks broken.
+
+**3c. Name your language** in `crates/focuser-ui/frontend/src/lib/language.ts`, written in
+itself: `Deutsch`, not `German`. That is what someone scans for in the settings list.
 
 **3. Translate the values, never the keys.**
 
@@ -37,7 +58,8 @@ the difference actually matters.
 
 `websites_title` stays exactly as it is. Only the text on the right changes.
 
-**4. Open a pull request.** That is the whole job.
+**4. Open a pull request.** That is the whole job. Steps 3b and 3c are three lines each;
+if you would rather only do the JSON, say so in the PR and we will finish it.
 
 ## The rules that matter
 
@@ -101,7 +123,7 @@ extension/locales/en.yml  →  extension/locales/<your-locale>.yml
 ```
 
 Same rules: translate the values, keep every `{placeholder}`, keep every key. No
-registration step, the file being there is enough.
+registration step, the file being there is enough. The same ten languages are there today.
 
 Plurals look like this, and the count arrives as `$1`:
 
@@ -111,8 +133,10 @@ rulesActive:
   n: $1 reglas activas
 ```
 
-`@wxt-dev/i18n` only supports `1` and `n`. If your language needs `few` or `many`, say so
-in the pull request and we will work out what to do.
+`@wxt-dev/i18n` only supports `1` and `n`. If your language needs `few` or `many`, the
+trick that works is to reword so the number stops governing the noun — the Russian file
+says "Активных правил: $1" rather than trying to pick an ending. Say so in the pull
+request if that does not work for your language and we will figure something out.
 
 **The extension follows the browser's language, not the app's setting.** That is a limit
 of the `browser.i18n` API, which has no way to change locale while running. So a Spanish

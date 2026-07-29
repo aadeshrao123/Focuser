@@ -1,0 +1,92 @@
+# Focuser, ja.
+#
+# First draft, not reviewed by a native speaker. Corrections welcome:
+# see TRANSLATING.md in the repository root.
+
+block:
+  reason:
+    domain: ブロックリストに入っています
+    keyword: アドレスにブロック対象の語が含まれています
+    urlPath: サイトのこの部分はブロックされています
+    wildcard: ブロック対象のパターンに一致します
+    everything: いまはすべてブロック中です
+  attempt:
+    '1': 今日はこれが最初です
+    'n': $1 回目
+  goBack: 戻る
+  closeTab: タブを閉じる
+  pressEsc: 押す
+  toGoBack: で前のページへ
+  openApp: Focuser を開く
+  privacy: これらの情報がこの端末の外に出ることはありません。
+popup:
+  blockingEverything: すべてブロック中
+  rulesActive:
+    '1': 有効なルール 1 件
+    'n': 有効なルール $1 件
+  notRunning: デスクトップアプリが起動していません
+  disconnected: 現在なにもブロックされていません。Focuser デスクトップアプリを起動するとルールが元に戻ります。
+  currentSite: 現在のサイト
+  noSiteOpen: 開いているサイトがありません
+  updateApp: これを見るにはアプリを更新してください
+  inLists: '{names} に登録済み'
+  notInAnyList: どのリストにもありません
+  unblockEverywhere: すべてのリストから解除
+  noBlockList: 先にデスクトップアプリでブロックリストを作ってください。まだこのサイトを入れる場所がありません
+  blockThisSite: このサイトをブロック
+  blockList: ブロックリスト
+  openApp: Focuser を開く
+  unreachable: デスクトップアプリに接続できませんでした
+  blocked: '{host} を {name} でブロックしました'
+  alreadyBlocked: '{host} はすでに {name} にありました'
+  notInAnyListNote: '{host} はどのリストにもありませんでした'
+  stubborn: '{name} の{kind}ルールにまだ引っかかっています。アプリで編集してください。'
+  unblocked: '{host} を {names} から解除しました'
+select:
+  placeholder: 選択…
+welcome:
+  headingUpdated: Focuser がさらに良くなりました
+  headingInstalled: Focuser をインストールしていただきありがとうございます
+  introUpdated: このバージョンでの変更点と、各部分がどう噛み合うかの簡単なおさらいです。
+  introInstalled: Focuser は作業中、気を散らすサイトを視界から遠ざけます。始めるのに必要なことはすべてここにあります。
+  setupTitle: 設定することはひとつだけ
+  setupBody1: ブロックリストは拡張機能ではなく Focuser デスクトップアプリが持っています。拡張機能はそれを問い合わせる形なので、ひとつのルールでブラウザーとアプリの両方をまとめて扱えます。アプリを起動したままにしておけば、ブラウザー側は拡張機能が引き受けます。
+  setupBody2: アプリが閉じているときはツールバーのアイコンに赤い印が付き、なにもブロックされません。動いているふりをせず、正直に伝えるためです。
+  openApp: Focuser アプリを開く
+  getApp: デスクトップアプリを入手
+  whatsNewVersion: バージョン {version} の新機能
+  whatsNew: 新着情報
+  new1Title: 一から作り直しました
+  new1Body: 拡張機能を書き直しました。より軽く、起動も速く、ひとつのコードで Chrome、Edge、Brave、Firefox に対応します。
+  new2Title: 読む価値のあるブロック画面
+  new2Body: サイト名と、どのルールで止まったかを示し、今日何回試したかを数えます。その回数が増えると文面も変わります。
+  new3Title: ポップアップは正直です
+  new3Body: サイトが実際にどのリストに入っているかを表示します。解除はそのすべてから取り除き、どれかを推測したりしません。
+  new4Title: サイトが一瞬映ることはありません
+  new4Body: ページが描画される前にブロックが働くので、避けたかったものが目に入ることはありません。
+  point1Title: ドメインだけではありません
+  point1Body: サイト全体、アドレス内の語、パターン、あるいはサイトの一部分だけをブロックできます。
+  point2Title: 自分で決めたときだけ
+  point2Body: リストは週単位のスケジュールで動かすことも、集中セッションのあいだだけ有効にすることもできます。
+  point3Title: この端末の中で完結します
+  point3Body: やり取りするのは自分の端末で動く Focuser アプリだけで、他のどこにも接続しません。
+  waysTitle: ブロックの四つの方法
+  waysIntro: デスクトップアプリの「ウェブサイト」で追加します。拡張機能は四つすべてを適用します。
+  colKind: 種類
+  colExample: 例
+  colCovers: 対象範囲
+  kindSite: サイト
+  kindWord: 語
+  kindPattern: パターン
+  kindSection: セクション
+  coversSite: そのサイトと配下のすべて
+  coversWord: その語を含むすべてのアドレス
+  coversPattern: パターンに一致するすべて
+  coversSection: サイトのその部分だけ
+  openSourceTitle: 無料、そしてオープンソース
+  openSourceBody1: Focuser は完全なオープンソースです。アプリとこの拡張機能のすべてのコードが GitHub にあるので、なにをしているかをそのまま読み、どこにも送信していないことを自分で確かめ、好きなように変更できます。
+  openSourceBody2: 手を貸してくださるならリポジトリへどうぞ。プルリクエストはもちろん、不具合の報告やアイデアも歓迎します。
+  star: プロジェクトにスターを付ける
+  reportBug: 不具合を報告
+  contribute: コードで貢献する
+  thanks: Focuser をお使いいただきありがとうございます。取り組んでいることがうまくいきますように。
