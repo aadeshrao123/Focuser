@@ -1,15 +1,12 @@
 <p align="center">
-  <img src="assets/branding/focuser-icon-256.png" alt="Focuser" width="128" height="128">
+  <img src="assets/branding/focuser-banner.png" alt="Focuser — stop doomscrolling, start doing. Free and open source. Blocks websites and applications. Never leaves your computer." width="100%">
 </p>
-
-<h1 align="center">Focuser</h1>
-
-<p align="center"><strong>Stop doomscrolling. Start doing.</strong></p>
 
 <p align="center">
   <a href="https://github.com/aadeshrao123/Focuser/releases">Download</a> &middot;
   <a href="https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj">Chrome Extension</a> &middot;
-  <a href="https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/">Firefox Extension</a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/">Firefox Extension</a> &middot;
+  <a href="TRANSLATING.md">Translate it</a>
 </p>
 
 ---
@@ -18,7 +15,11 @@ Focuser is a free, open-source website and application blocker built in Rust. Th
 
 It sits quietly in your system tray, blocks the sites you told it to block, and kills the apps you told it to kill. No cloud. No accounts. No telemetry. Just you vs. your distractions, and for once, you win.
 
+It speaks ten languages: English, Español, Français, Deutsch, Português, Italiano, Русский, 中文, 日本語 and 한국어.
+
 ## Screenshots
+
+### The desktop app
 
 <details>
 <summary><strong>Dashboard</strong> - What is blocked right now, and a Pomodoro timer to start a session</summary>
@@ -80,6 +81,34 @@ It sits quietly in your system tray, blocks the sites you told it to block, and 
 <img src="assets/screenshots/settings.png" alt="Settings page showing startup, browser, extension and data options" width="100%">
 </details>
 
+### The browser extension
+
+<details>
+<summary><strong>Block page</strong> - Names the site, says which rule caught it, and counts how many times you have tried today</summary>
+<br>
+<p>The block happens before the page is drawn, so you never catch a glimpse of what you were avoiding. The message changes as the count climbs — the first visit of the day reads differently from the fourteenth.</p>
+<img src="assets/screenshots/extension/block-page.png" alt="Block page for reddit.com, showing the category, the matching rule and a first-visit-today badge" width="100%">
+<br><br>
+<img src="assets/screenshots/extension/block-page-repeat.png" alt="Block page for youtube.com on the fourteenth attempt of the day, with a different message" width="100%">
+<br><br>
+<p>Keyword rules say which word matched, not just that something did.</p>
+<img src="assets/screenshots/extension/block-page-keyword.png" alt="Block page for a gambling site, showing that the address contained a blocked word" width="100%">
+</details>
+
+<details>
+<summary><strong>Toolbar popup</strong> - Block the site you are on, or take it out of every list at once</summary>
+<br>
+<p>Shows which of your lists a site is actually in, rather than guessing one. Unblocking removes it from all of them. If the desktop app is closed the icon carries a red mark and the popup says so plainly, instead of pretending to work.</p>
+<img src="assets/screenshots/extension/popup.png" alt="Extension popup showing rules active, today's counts, the current site and a block button" width="100%">
+</details>
+
+<details>
+<summary><strong>Welcome page</strong> - What to set up, and what changed in this version</summary>
+<br>
+<p>Shown once on install and again after an update. Explains the one thing that needs setting up, which is keeping the desktop app running, and lays out the four kinds of rule side by side.</p>
+<img src="assets/screenshots/extension/welcome.png" alt="Extension welcome page explaining that the extension asks the desktop app for block lists" width="100%">
+</details>
+
 ## What it does
 
 - **Block websites** - Add domains, keywords, wildcards, or URL paths. Or just block the entire internet and whitelist only what you need. Your call. Keywords, wildcards and URL paths are enforced by the browser extension, since a hosts file has no way to express a pattern. Focuser tells you on the Websites page when you have one of those rules and no extension installed.
@@ -101,6 +130,7 @@ It sits quietly in your system tray, blocks the sites you told it to block, and 
 - **Auto-elevates on Windows** - Requests admin rights on launch so it can actually modify your hosts file. No manual "Run as Administrator" needed.
 - **System tray** - Runs in the background after you close the window. Double-click the tray icon to bring it back. Closing the app doesn't stop the blocking.
 - **Import/Export** - Export your entire config (block lists, rules, schedules, exceptions) to a file. Import it on another machine. Move between computers without starting over.
+- **Ten languages** - English, Spanish, French, German, Portuguese, Italian, Russian, Chinese, Japanese and Korean, across the whole app and the whole extension — window, tray menu, block page, popup and welcome page. The app follows a setting; the extension follows your browser, because `browser.i18n` has no way to change locale while running. Plurals go through `Intl.PluralRules`, so Russian gets one/few/many and Japanese gets the single form it actually uses.
 
 ## Privacy
 
@@ -223,7 +253,8 @@ npm run build                        # produces extension/.output/chrome-mv3/
 npm run build:firefox                # produces extension/.output/firefox-mv3/
 npm test
 npm run dev                          # live-reloading browser with the extension loaded
-npm run preview                      # the block page in an ordinary tab, for UI work
+npm run preview                      # block page, popup and welcome page in an ordinary
+                                     # tab, with a picker for all ten languages
 ```
 
 - **Chrome**: `chrome://extensions` → Developer mode → Load unpacked → `extension/.output/chrome-mv3/`
@@ -260,7 +291,7 @@ cd crates/focuser-ui/frontend && npm run typecheck && npm run lint && npm test
 - **Browser extension improvements** - Better block page, usage tracking, Firefox quirks
 - **UI polish** - If you have design skills and opinions, we want both
 - **Anti-circumvention** - Making it harder to bypass blocks (for people who want that)
-- **Translations** - The UI is English-only right now
+- **Translations** - Ten languages ship, and every one but English is a first draft written without a native speaker checking it. Fixing an awkward sentence in a language we already have is more useful than adding an eleventh. See [TRANSLATING.md](TRANSLATING.md); it is one file and no Rust.
 
 ### Found a bug?
 
