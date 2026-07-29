@@ -9,6 +9,9 @@ import { defineConfig } from "vite";
  */
 export default defineConfig({
   root: __dirname,
+  // The extension's own static files, so /icons/icon128.png on the welcome page
+  // resolves instead of rendering a broken-image box.
+  publicDir: resolve(__dirname, "../public"),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

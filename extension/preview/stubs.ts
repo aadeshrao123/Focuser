@@ -14,6 +14,7 @@
  * being previewed.
  */
 import { load } from "js-yaml";
+import pkg from "../package.json";
 
 export type PopupMode = "connected" | "disconnected" | "no-lists";
 
@@ -93,7 +94,9 @@ export function install() {
       runtime: {
         // Present so `@wxt-dev/browser` picks this object over `globalThis.chrome`.
         id: "focuser-preview",
-        getManifest: () => ({ version: "0.6.3" }),
+        // Read rather than hardcoded: the welcome page prints this, and a stale
+        // number here means store screenshots taken from the preview are wrong.
+        getManifest: () => ({ version: pkg.version }),
         sendMessage: async () => ({
           type: "status",
           connected: popupMode !== "disconnected",
