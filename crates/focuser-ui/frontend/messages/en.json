@@ -1,6 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-
   "nav_dashboard": "Dashboard",
   "nav_block_lists": "Block Lists",
   "nav_websites": "Websites",
@@ -9,33 +8,85 @@
   "nav_allowances": "Allowances",
   "nav_statistics": "Statistics",
   "nav_settings": "Settings",
-
   "nav_landmark": "Main",
   "session_focus": "Focus",
   "session_break": "Break",
   "session_paused": "Paused",
-
   "count_sites": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} site",
         "countPlural=other": "{count} sites"
       }
     }
   ],
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} new site",
+        "countPlural=other": "{count} new sites"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} site or app",
+        "countPlural=other": "{count} sites and apps"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} block list",
+        "countPlural=other": "{count} block lists"
+      }
+    }
+  ],
   "count_apps": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} app",
         "countPlural=other": "{count} apps"
       }
     }
   ],
-
   "dashboard_title": "Dashboard",
   "dashboard_description": "Where things stand right now.",
   "dashboard_blocked_today": "Blocked today",
@@ -57,9 +108,7 @@
   "dashboard_create_list": "Create a block list",
   "dashboard_locked_tooltip": "Locked until the protection window expires",
   "dashboard_enable_list": "Enable {name}",
-
   "lists_creating": "Creating…",
-
   "common_loading": "Loading…",
   "error_block_list_not_found": "That block list no longer exists. It may have been deleted in another window.",
   "error_rule_not_found": "That rule no longer exists. It may have been deleted in another window.",
@@ -74,7 +123,6 @@
   "common_install": "Install",
   "common_clear": "Clear",
   "common_block_list": "Block list",
-
   "table_search_placeholder": "Search {count} {noun}…",
   "table_search_label": "Search {noun}",
   "table_showing": "Showing {visible} of {total} {noun}.",
@@ -92,43 +140,65 @@
   "focus_starting": "Starting…",
   "focus_no_lists": "Create a block list first, a session needs something to block.",
   "focus_loading_presets": "Loading presets…",
+  "focus_preset_classic": "Classic",
+  "focus_preset_long": "Long",
+  "focus_preset_sprint": "Sprint",
   "focus_cycles": "Cycles before a long break",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} cycle",
+        "countPlural=other": "{count} cycles"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes} min",
+  "timer_remaining": "{time} remaining",
   "focus_one_session": "One session",
   "focus_phase_progress": "Phase progress",
-
   "noun_rule": "rule",
   "noun_exception": "exception",
   "noun_application": "application",
-
   "titlebar_minimise": "Minimise",
+  "titlebar_maximise": "Maximise",
+  "titlebar_restore": "Restore",
   "titlebar_close": "Close",
-
   "health_title": "Blocking is not in force",
   "health_body": "Focuser cannot write the system hosts file, and no browser extension is connected, so your rules are saved but nothing is being blocked. Install the browser extension, or restart Focuser as administrator.",
-
   "browser_extension_connected": "Extension connected",
   "browser_running_without": "Running without the extension",
   "browser_not_running": "Not running",
-
   "config_confirm_delete": "Click again to delete everything",
-
+  "config_saved_to": "Saved to {path}",
+  "config_downloaded": "Downloaded",
+  "config_imported": "Imported {lists}",
   "update_desktop_only": "Desktop app only",
   "update_up_to_date": "Up to date",
   "update_install_restart": "Install and restart",
-
+  "update_check": "Check for updates",
+  "update_checking": "Checking…",
+  "common_retry": "Retry",
+  "common_retrying": "Retrying…",
   "focus_dial_focus": "Focus",
   "focus_dial_short_break": "Short break",
   "focus_dial_long_break": "Long break",
-
   "grid_aria": "Weekly schedule, one column per hour. Use the day and hour headings to fill a whole row or column.",
   "grid_legend_blocking": "Blocking",
   "grid_legend_off": "Off",
   "grid_hint": "Drag to paint · click a day or hour heading to fill the whole row or column",
   "grid_presets": "Presets",
+  "schedule_toggle_hour": "Toggle {hour} on every day",
+  "schedule_toggle_day": "Toggle every hour on {day}",
   "schedule_always_heading": "Blocking is always on",
   "schedule_always_body_before": "This list applies whenever it is enabled, at any hour of any day. Switch to",
   "schedule_always_body_after": "to limit it to certain hours, useful when you only want to be blocked during work, or only in the evenings.",
-
   "table_site_or_app": "Site or app",
   "table_attempts": "Attempts",
   "table_blocked": "Blocked",
@@ -136,7 +206,6 @@
   "table_share": "Share",
   "table_busiest_day": "Busiest day",
   "table_caption": "Sites and apps by blocked attempts, busiest first",
-
   "schedule_title": "Schedule",
   "schedule_description": "When this block list is active.",
   "schedule_mode_always": "Always active",
@@ -149,7 +218,6 @@
   "schedule_all_day": "All day",
   "schedule_weekly_total": "Blocking each week",
   "schedule_of_hours": "of {total} hours",
-
   "statistics_title": "Statistics",
   "statistics_description": "What Focuser has been keeping you away from.",
   "statistics_date_range": "Date range",
@@ -166,9 +234,9 @@
   "statistics_chart_empty_title": "Nothing recorded yet",
   "statistics_chart_empty_description": "Sites and apps get their own charts here once something is blocked.",
   "statistics_most_blocked": "Most blocked",
+  "statistics_showing_top": "Showing the top {limit} of {total}.",
   "statistics_table_empty_title": "Nothing recorded yet",
   "statistics_table_empty_description": "Numbers appear here once a block list starts turning things away.",
-
   "settings_title": "Settings",
   "settings_description": "How Focuser behaves on this machine.",
   "settings_section_startup": "Startup",
@@ -198,22 +266,25 @@
   "settings_delete_all_action": "Delete all data",
   "settings_section_language": "Language",
   "settings_language": "Interface language",
-  "settings_language_description": "Focuser ships in English. Other languages come from people who speak them, so see TRANSLATING.md if one is missing or wrong.",
+  "settings_language_description": "Every language but English is a first draft, written without a native speaker checking it. If something reads badly in yours, TRANSLATING.md explains how to fix it.",
   "settings_section_about": "About",
   "settings_version": "Version",
   "settings_updates": "Updates",
-
   "count_exceptions": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} exception",
         "countPlural=other": "{count} exceptions"
       }
     }
   ],
-
   "lists_title": "Block Lists",
   "lists_description": "Group the sites and apps you want blocked together. Each list can be scheduled and locked on its own.",
   "lists_new_placeholder": "Name a new block list — “Deep work”, “Evenings”…",
@@ -223,6 +294,7 @@
   "lists_empty_description": "Create one above, then add the sites and apps that pull you away.",
   "lists_badge_enabled": "Enabled",
   "lists_badge_off": "Off",
+  "lists_badge_locked": "Locked · {duration}",
   "lists_badge_scheduled": "Scheduled",
   "lists_toggle_locked": "A lock is running, so this cannot be turned off",
   "lists_toggle_hint": "Turn this list on or off",
@@ -242,7 +314,6 @@
   "lists_locking": "Locking…",
   "lists_lock_action": "Lock for {duration}",
   "lists_cancel": "Cancel",
-
   "allowances_title": "Allowances",
   "allowances_description": "A daily budget instead of an outright block. When it runs out, the site or app is blocked for the rest of the day.",
   "allowances_kind_website": "Website",
@@ -272,7 +343,6 @@
   "allowances_extension_needed_body": "Only the extension can see which tab is open, so without it the timer never starts. Those sites stay blocked in the meantime, because an allowance that cannot be measured would otherwise be an unlimited pass. Install it from Settings.",
   "allowances_wayland_title": "Application allowances cannot be measured on Wayland",
   "allowances_wayland_body": "Wayland has no way for one program to ask which window is in front, so the timer never starts. Those apps stay blocked in the meantime. Logging in with an Xorg session makes it work. Website allowances are unaffected.",
-
   "apps_title": "Applications",
   "apps_description": "Programs to close while blocking is active.",
   "apps_kind_executable_name": "Executable name",
@@ -285,60 +355,55 @@
   "apps_browse_title": "Pick an application from disk",
   "apps_empty_title": "No applications blocked",
   "apps_empty_description": "Add an executable name like {example}, or browse for one on disk.",
-
   "websites_title": "Websites",
   "websites_description": "Domains, keywords and URL patterns to block.",
   "websites_tab_blocked": "Blocked",
   "websites_tab_exceptions": "Exceptions",
   "websites_tab_import": "Bulk import",
-
   "websites_kind_domain": "Domain",
   "websites_kind_keyword": "Keyword",
   "websites_kind_wildcard": "Wildcard",
   "websites_kind_url_path": "URL path",
   "websites_kind_entire_internet": "Entire internet",
-
   "websites_hint_domain": "Covers www. and every subdomain.",
   "websites_hint_keyword": "Blocks any URL containing this word. Extension only.",
   "websites_hint_wildcard": "* matches any run of characters, and *.reddit.com covers reddit.com too. Extension only.",
   "websites_hint_url_path": "Blocks URLs containing this path. Extension only.",
   "websites_hint_entire_internet": "Blocks every site except your exceptions, so add those first. Extension only.",
   "websites_hint_catch_all": "This matches every site, including local pages and your own machine. Pick Entire internet instead if that is what you want, and add exceptions first.",
-
   "websites_add": "Add",
   "websites_confirm_block_everything": "Block every site?",
   "websites_value_label": "Value to block",
   "websites_empty_title": "Nothing blocked yet",
   "websites_empty_description": "Add a domain above, or import one of the curated starter lists.",
-
   "websites_extension_needed_title": "Keyword, wildcard and URL path rules need the browser extension",
   "websites_extension_needed_body": "Focuser blocks plain domains through the hosts file, but that file has no way to express a pattern. Those rules are being ignored right now. Install the extension from Settings and they start working straight away. Domain rules are unaffected.",
-
   "websites_no_lists_title": "No block lists yet",
   "websites_no_lists_description": "Create one on the Block Lists page first.",
-
   "exceptions_kind_local_files": "Local files",
   "exceptions_intro": "Exceptions stay reachable even when a rule above would block them.",
   "exceptions_allow": "Allow",
   "exceptions_value_label": "Value to allow",
   "exceptions_empty_title": "No exceptions",
   "exceptions_empty_description": "An exception stays reachable even when a rule above would block it.",
-
   "starter_lists_label": "Or import a starter list",
   "starter_lists_import": "Import",
   "starter_lists_picker_label": "Starter list",
   "starter_lists_added": "Added {added}{alreadyThere}.",
   "starter_lists_already_there": " · {count} already there",
-
   "import_intro": "One value per line. Blank lines, duplicates and # comments are skipped.",
   "import_action": "Import",
   "import_pending": "Importing…",
   "import_values_label": "Values to import",
-
   "import_added": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Imported {count} rule.",
         "countPlural=other": "Imported {count} rules."

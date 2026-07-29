@@ -11,20 +11,20 @@ block:
     wildcard: Coincide con un patrón bloqueado
     everything: Ahora mismo está todo bloqueado
   attempt:
-    1: Primera vez hoy
-    n: Intento $1
+    '1': Primera vez hoy
+    'n': Intento $1
   goBack: Volver
   closeTab: Cerrar pestaña
   pressEsc: Pulsa
   toGoBack: para volver
   openApp: Abrir Focuser
   privacy: Nada de esto sale de tu ordenador.
-
+  blocked: Bloqueado
 popup:
   blockingEverything: Bloqueando todo
   rulesActive:
-    1: 1 regla activa
-    n: $1 reglas activas
+    '1': 1 regla activa
+    'n': $1 reglas activas
   notRunning: La aplicación de escritorio no está en marcha
   disconnected: No se está bloqueando nada. Abre la aplicación de escritorio de Focuser para restaurar tus reglas.
   currentSite: Sitio actual
@@ -38,30 +38,30 @@ popup:
   blockList: Lista de bloqueo
   openApp: Abrir Focuser
   unreachable: No se ha podido contactar con la aplicación de escritorio
-  blocked: "{host} bloqueado en {name}"
-  alreadyBlocked: "{host} ya estaba en {name}"
-  notInAnyListNote: "{host} no estaba en ninguna lista"
+  blocked: '{host} bloqueado en {name}'
+  alreadyBlocked: '{host} ya estaba en {name}'
+  notInAnyListNote: '{host} no estaba en ninguna lista'
   stubborn: Todavía coincide con una regla de tipo {kind} en {name}. Edítala en la aplicación.
-  unblocked: "{host} desbloqueado en {names}"
-
+  unblocked: '{host} desbloqueado en {names}'
+  statToday: Hoy
+  statSites: Sitios
+  statLists: Listas
+  'on': Activo
+  'off': Inactivo
 select:
   placeholder: Elegir…
-
 welcome:
   headingUpdated: Focuser acaba de mejorar
   headingInstalled: Gracias por instalar Focuser
   introUpdated: Esto es lo que ha cambiado en esta versión, y un recordatorio rápido de cómo encajan las piezas.
   introInstalled: Focuser mantiene los sitios que distraen fuera de tu camino mientras trabajas. Aquí tienes todo lo necesario para empezar.
-
   setupTitle: Una cosa que configurar
   setupBody1: La extensión no guarda tus listas de bloqueo. Se las pide a la aplicación de escritorio de Focuser, que es lo que permite que un mismo conjunto de reglas cubra el navegador y las aplicaciones a la vez. Mantén la aplicación abierta y la extensión se encarga del navegador por su cuenta.
   setupBody2: Si la aplicación está cerrada, el icono de la barra muestra una marca roja y no se bloquea nada. Eso es la extensión siendo sincera contigo en lugar de fingir que funciona.
   openApp: Abrir la aplicación Focuser
   getApp: Descargar la aplicación de escritorio
-
   whatsNewVersion: Novedades de la versión {version}
   whatsNew: Novedades
-
   new1Title: Reescrita desde cero
   new1Body: La extensión se ha reescrito. Es más pequeña, arranca más rápido y un solo código cubre ahora Chrome, Edge, Brave y Firefox.
   new2Title: Una página de bloqueo que merece leerse
@@ -70,14 +70,12 @@ welcome:
   new3Body: Ahora muestra en cuáles de tus listas está realmente un sitio. Desbloquear lo quita de todas ellas en lugar de adivinar una.
   new4Title: Sin destellos del sitio
   new4Body: El bloqueo ahora surte efecto antes de que la página se dibuje, así que nunca ves de reojo aquello que estabas evitando.
-
   point1Title: Más que dominios
   point1Body: Bloquea un sitio entero, una palabra de la dirección, un patrón o una sección concreta.
   point2Title: Solo cuando tú quieres
   point2Body: Las listas pueden seguir un horario semanal o durar una sola sesión de concentración.
   point3Title: Se queda en tu ordenador
   point3Body: Habla con la aplicación Focuser de tu propio equipo y con nada más.
-
   waysTitle: Las cuatro formas de bloquear algo
   waysIntro: Se añaden en la aplicación de escritorio, en Sitios web. La extensión aplica las cuatro.
   colKind: Tipo
@@ -91,7 +89,6 @@ welcome:
   coversWord: Cualquier dirección que contenga esa palabra
   coversPattern: Cualquier cosa que coincida con el patrón
   coversSection: Solo esa parte de un sitio
-
   openSourceTitle: Gratis y de código abierto
   openSourceBody1: Focuser es completamente de código abierto. Cada línea de la aplicación y de esta extensión está en GitHub, así que puedes leer exactamente lo que hace, comprobar por ti mismo que no se envía nada a ninguna parte y cambiarlo si quieres.
   openSourceBody2: Si quieres ayudar, el repositorio es el sitio. Las pull requests son bienvenidas, y los informes de errores y las ideas también.
@@ -99,3 +96,6 @@ welcome:
   reportBug: Informar de un error
   contribute: Contribuir con código
   thanks: Gracias por usar Focuser. Suerte con lo que sea que estés intentando sacar adelante.
+  waysCaption: Tipos de regla y lo que cubre cada una
+  tagline: Hecho para quien preferiría estar haciendo otra cosa.
+  versionBadge: Versión {version}

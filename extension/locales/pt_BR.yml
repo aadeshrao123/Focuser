@@ -19,6 +19,7 @@ block:
   toGoBack: para voltar
   openApp: Abrir o Focuser
   privacy: Nada disso sai do seu computador.
+  blocked: Bloqueado
 popup:
   blockingEverything: Bloqueando tudo
   rulesActive:
@@ -42,6 +43,11 @@ popup:
   notInAnyListNote: '{host} não estava em nenhuma lista'
   stubborn: Ainda é pego por uma regra do tipo {kind} em {name}. Edite-a no aplicativo.
   unblocked: '{host} desbloqueado em {names}'
+  statToday: Hoje
+  statSites: Sites
+  statLists: Listas
+  'on': Ativo
+  'off': Inativo
 select:
   placeholder: Escolher…
 welcome:
@@ -90,3 +96,6 @@ welcome:
   reportBug: Relatar um problema
   contribute: Contribuir com código
   thanks: Obrigado por usar o Focuser. Boa sorte com o que você estiver tentando fazer.
+  waysCaption: Tipos de regra e o que cada um cobre
+  tagline: Feito para quem preferia estar fazendo outra coisa.
+  versionBadge: Versão {version}

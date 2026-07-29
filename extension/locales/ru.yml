@@ -19,6 +19,7 @@ block:
   toGoBack: чтобы вернуться
   openApp: Открыть Focuser
   privacy: Ничего из этого не покидает ваш компьютер.
+  blocked: Заблокировано
 popup:
   blockingEverything: Блокируется всё
   rulesActive:
@@ -42,6 +43,11 @@ popup:
   notInAnyListNote: '{host} не был ни в одном списке'
   stubborn: Его всё ещё ловит правило типа {kind} в списке {name}. Измените его в приложении.
   unblocked: '{host} разблокирован в списках: {names}'
+  statToday: Сегодня
+  statSites: Сайты
+  statLists: Списки
+  'on': Вкл
+  'off': Выкл
 select:
   placeholder: Выберите…
 welcome:
@@ -90,3 +96,6 @@ welcome:
   reportBug: Сообщить об ошибке
   contribute: Внести вклад в код
   thanks: Спасибо, что пользуетесь Focuser. Удачи в том, что вы задумали.
+  waysCaption: Типы правил и что каждое из них охватывает
+  tagline: Сделано для тех, кто предпочёл бы заниматься чем-то другим.
+  versionBadge: Версия {version}

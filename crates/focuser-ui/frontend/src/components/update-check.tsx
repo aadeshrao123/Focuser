@@ -68,7 +68,7 @@ export function UpdateCheck() {
           onClick={check}
           disabled={state.status === "checking" || state.status === "installing"}
         >
-          {state.status === "checking" ? "Checking…" : "Check for updates"}
+          {state.status === "checking" ? m.update_checking() : m.update_check()}
         </Button>
       )}
     </div>

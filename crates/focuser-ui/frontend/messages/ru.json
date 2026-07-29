@@ -193,7 +193,7 @@
   "settings_delete_all_action": "Удалить все данные",
   "settings_section_language": "Язык",
   "settings_language": "Язык интерфейса",
-  "settings_language_description": "Focuser поставляется на английском. Остальные языки делают те, кто на них говорит, так что загляните в TRANSLATING.md, если языка не хватает или что-то переведено неверно.",
+  "settings_language_description": "Все языки, кроме английского, — это черновик, написанный без проверки носителем. Если в вашем языке что-то звучит криво, в TRANSLATING.md написано, как это исправить.",
   "settings_section_about": "О программе",
   "settings_version": "Версия",
   "settings_updates": "Обновления",
@@ -339,5 +339,91 @@
         "countPlural=other": "Импортировано {count} правила."
       }
     }
-  ]
+  ],
+  "titlebar_maximise": "Развернуть",
+  "titlebar_restore": "Свернуть в окно",
+  "update_check": "Проверить обновления",
+  "update_checking": "Проверка…",
+  "common_retry": "Повторить",
+  "common_retrying": "Повтор…",
+  "config_saved_to": "Сохранено в {path}",
+  "config_downloaded": "Загружено",
+  "config_imported": "Импортировано: {lists}",
+  "lists_badge_locked": "Заблокирован · {duration}",
+  "statistics_showing_top": "Показаны первые {limit} из {total}.",
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} новый сайт",
+        "countPlural=few": "{count} новых сайта",
+        "countPlural=many": "{count} новых сайтов",
+        "countPlural=other": "{count} новых сайта"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} сайт или программа",
+        "countPlural=few": "{count} сайта и программы",
+        "countPlural=many": "{count} сайтов и программ",
+        "countPlural=other": "{count} сайта и программы"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} список блокировки",
+        "countPlural=few": "{count} списка блокировки",
+        "countPlural=many": "{count} списков блокировки",
+        "countPlural=other": "{count} списка блокировки"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes} мин",
+  "timer_remaining": "осталось {time}",
+  "schedule_toggle_hour": "Переключить {hour} во все дни",
+  "schedule_toggle_day": "Переключить все часы: {day}",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} цикл",
+        "countPlural=few": "{count} цикла",
+        "countPlural=many": "{count} циклов",
+        "countPlural=other": "{count} цикла"
+      }
+    }
+  ],
+  "focus_preset_classic": "Классика",
+  "focus_preset_long": "Длинный",
+  "focus_preset_sprint": "Спринт"
 }

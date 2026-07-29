@@ -101,7 +101,7 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
               <p className="truncate font-medium text-foreground text-sm">{list.name}</p>
               {lock ? (
                 <Badge tone="warning" icon={<Lock aria-hidden />} outlined>
-                  Locked · {formatDuration(lock.remaining_seconds)}
+                  {m.lists_badge_locked({ duration: formatDuration(lock.remaining_seconds) })}
                 </Badge>
               ) : (
                 <Badge tone={list.enabled ? "success" : "neutral"}>

@@ -187,7 +187,7 @@
   "settings_delete_all_action": "すべてのデータを削除",
   "settings_section_language": "言語",
   "settings_language": "表示言語",
-  "settings_language_description": "Focuser は英語で提供されています。ほかの言語はその言語を話す人たちによるものです。足りない言語や誤りがあれば TRANSLATING.md をご覧ください。",
+  "settings_language_description": "英語以外の言語はすべて下訳で、母語話者の確認を経ていません。読みづらい箇所があれば、TRANSLATING.md に直し方が書いてあります。",
   "settings_section_about": "情報",
   "settings_version": "バージョン",
   "settings_updates": "アップデート",
@@ -327,5 +327,79 @@
         "countPlural=other": "{count} 件のルールをインポートしました。"
       }
     }
-  ]
+  ],
+  "titlebar_maximise": "最大化",
+  "titlebar_restore": "元のサイズに戻す",
+  "update_check": "更新を確認",
+  "update_checking": "確認中…",
+  "common_retry": "再試行",
+  "common_retrying": "再試行中…",
+  "config_saved_to": "{path} に保存しました",
+  "config_downloaded": "ダウンロードしました",
+  "config_imported": "{lists} を読み込みました",
+  "lists_badge_locked": "ロック中 · {duration}",
+  "statistics_showing_top": "{total} 件のうち上位 {limit} 件を表示しています。",
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "新しいサイト {count} 件"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "サイト・アプリ {count} 件"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "ブロックリスト {count} 件"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes} 分",
+  "timer_remaining": "残り {time}",
+  "schedule_toggle_hour": "毎日の {hour} を切り替え",
+  "schedule_toggle_day": "{day} の全時間帯を切り替え",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "{count} サイクル"
+      }
+    }
+  ],
+  "focus_preset_classic": "標準",
+  "focus_preset_long": "長め",
+  "focus_preset_sprint": "スプリント"
 }

@@ -40,7 +40,10 @@ export function TitleBar() {
         <ControlButton label={m.titlebar_minimise()} onClick={minimizeWindow}>
           <Minus className="size-3.5" />
         </ControlButton>
-        <ControlButton label={maximized ? "Restore" : "Maximise"} onClick={() => toggleMaximize()}>
+        <ControlButton
+          label={maximized ? m.titlebar_restore() : m.titlebar_maximise()}
+          onClick={() => toggleMaximize()}
+        >
           {maximized ? <Copy className="size-3" /> : <Square className="size-3" />}
         </ControlButton>
         <ControlButton label={m.titlebar_close()} destructive onClick={closeWindow}>

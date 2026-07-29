@@ -6,7 +6,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** "1 app", "2 apps". Pass `plural` for words that don't just take an s. */
-export function count(n: number, singular: string, plural = `${singular}s`) {
-  return `${n} ${n === 1 ? singular : plural}`;
-}
+// There used to be a `count(n, "site")` helper here that pluralised by adding
+// an "s". It was quietly English-only — the last four calls to it were still
+// printing "2 sites" in Japanese — so counted nouns now live in the catalogue as
+// plural messages (`count_sites`, `count_apps`, …) and go through
+// `Intl.PluralRules` like everything else.

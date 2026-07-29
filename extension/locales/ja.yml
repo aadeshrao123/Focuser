@@ -19,6 +19,7 @@ block:
   toGoBack: で前のページへ
   openApp: Focuser を開く
   privacy: これらの情報がこの端末の外に出ることはありません。
+  blocked: ブロック
 popup:
   blockingEverything: すべてブロック中
   rulesActive:
@@ -42,6 +43,11 @@ popup:
   notInAnyListNote: '{host} はどのリストにもありませんでした'
   stubborn: '{name} の{kind}ルールにまだ引っかかっています。アプリで編集してください。'
   unblocked: '{host} を {names} から解除しました'
+  statToday: 今日
+  statSites: サイト
+  statLists: リスト
+  'on': オン
+  'off': オフ
 select:
   placeholder: 選択…
 welcome:
@@ -90,3 +96,6 @@ welcome:
   reportBug: 不具合を報告
   contribute: コードで貢献する
   thanks: Focuser をお使いいただきありがとうございます。取り組んでいることがうまくいきますように。
+  waysCaption: ルールの種類と、それぞれの対象範囲
+  tagline: 本当は別のことをしていたい人のために。
+  versionBadge: バージョン {version}

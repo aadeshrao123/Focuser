@@ -99,7 +99,7 @@ export function Welcome() {
           {VERSION && (
             <p className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-elevated/70 px-3 py-1 font-medium text-[0.7rem] text-muted-foreground uppercase tracking-[0.16em] backdrop-blur">
               <Sparkles className="size-3 text-primary" />
-              Version {VERSION}
+              {i18n.t("welcome.versionBadge", { version: VERSION })}
             </p>
           )}
 
@@ -179,7 +179,7 @@ export function Welcome() {
 
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
-              <caption className="sr-only">Rule types and what each one covers</caption>
+              <caption className="sr-only">{i18n.t("welcome.waysCaption")}</caption>
               <thead>
                 <tr className="border-border border-y bg-elevated/40 text-faint-foreground text-xs">
                   <th scope="col" className="px-6 py-2.5 font-medium uppercase tracking-wide">
@@ -213,15 +213,10 @@ export function Welcome() {
         <Card className="mt-14">
           <SectionTitle icon={Heart}>{i18n.t("welcome.openSourceTitle")}</SectionTitle>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            Focuser is completely open source. Every line of the app and this extension is on
-            GitHub, so you can read exactly what it does, check for yourself that nothing is sent
-            anywhere, build it from source, or change it to suit how you work. There is nothing to
-            pay for and no account to make.
+            {i18n.t("welcome.openSourceBody1")}
           </p>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            If you want to help, the repository is the place. Pull requests are welcome, and so are
-            bug reports and ideas. If Focuser just saves you some time, a star is a kind way to say
-            so.
+            {i18n.t("welcome.openSourceBody2")}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -249,12 +244,8 @@ export function Welcome() {
                 "linear-gradient(90deg, transparent, rgb(255 255 255 / 0.14), transparent)",
             }}
           />
-          <p className="mt-6 text-muted-foreground text-sm">
-            Thank you for using Focuser. Good luck with whatever you are trying to get done.
-          </p>
-          <p className="mt-1.5 text-faint-foreground text-xs">
-            Made for people who would rather be doing something else.
-          </p>
+          <p className="mt-6 text-muted-foreground text-sm">{i18n.t("welcome.thanks")}</p>
+          <p className="mt-1.5 text-faint-foreground text-xs">{i18n.t("welcome.tagline")}</p>
         </footer>
       </main>
     </div>

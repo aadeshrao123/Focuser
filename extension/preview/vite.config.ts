@@ -11,7 +11,12 @@ export default defineConfig({
   root: __dirname,
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { "@": resolve(__dirname, "..") },
+    alias: {
+      "@": resolve(__dirname, ".."),
+      // WXT generates this one during `wxt prepare`, and only its own build
+      // knows the alias. Without it the preview will not start at all.
+      "#i18n": resolve(__dirname, "../.wxt/i18n/index.ts"),
+    },
   },
   server: { port: 5199, strictPort: true },
 });

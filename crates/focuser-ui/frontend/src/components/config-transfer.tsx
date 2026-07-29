@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { InlineError } from "@/components/ui/feedback";
 import { useExportConfiguration, useImportConfiguration } from "@/lib/commands";
 import { isTauri, pickConfigurationFile, saveConfiguration } from "@/lib/native";
-import { count } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -25,17 +24,17 @@ export function ConfigTransfer() {
 
     if (isTauri()) {
       const path = await saveConfiguration(json);
-      if (path) setNote(`Saved to ${path}`);
+      if (path) setNote(m.config_saved_to({ path }));
       return;
     }
     downloadInBrowser(json);
-    setNote("Downloaded");
+    setNote(m.config_downloaded());
   }
 
   async function importConfig(json: string) {
     setNote(null);
     const imported = await importer.mutateAsync(json);
-    setNote(`Imported ${count(imported, "block list")}`);
+    setNote(m.config_imported({ lists: m.count_block_lists({ count: imported }) }));
   }
 
   return (

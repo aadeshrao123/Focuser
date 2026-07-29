@@ -187,7 +187,7 @@
   "settings_delete_all_action": "모든 데이터 삭제",
   "settings_section_language": "언어",
   "settings_language": "인터페이스 언어",
-  "settings_language_description": "Focuser는 영어로 제공됩니다. 다른 언어는 그 언어를 쓰는 사람들이 만들어 준 것이니, 빠진 언어가 있거나 잘못된 부분이 있으면 TRANSLATING.md를 봐 주세요.",
+  "settings_language_description": "영어를 제외한 모든 언어는 원어민 검수를 거치지 않은 초안입니다. 어색한 문장이 있으면 TRANSLATING.md에 고치는 방법이 있습니다.",
   "settings_section_about": "정보",
   "settings_version": "버전",
   "settings_updates": "업데이트",
@@ -327,5 +327,79 @@
         "countPlural=other": "규칙 {count}개를 가져왔습니다."
       }
     }
-  ]
+  ],
+  "titlebar_maximise": "최대화",
+  "titlebar_restore": "이전 크기로",
+  "update_check": "업데이트 확인",
+  "update_checking": "확인 중…",
+  "common_retry": "다시 시도",
+  "common_retrying": "다시 시도하는 중…",
+  "config_saved_to": "{path}에 저장했습니다",
+  "config_downloaded": "다운로드했습니다",
+  "config_imported": "{lists}을(를) 가져왔습니다",
+  "lists_badge_locked": "잠김 · {duration}",
+  "statistics_showing_top": "{total}개 중 상위 {limit}개를 표시하고 있습니다.",
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "새 사이트 {count}개"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "사이트 및 앱 {count}개"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "차단 목록 {count}개"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes}분",
+  "timer_remaining": "{time} 남음",
+  "schedule_toggle_hour": "매일 {hour} 켜기·끄기",
+  "schedule_toggle_day": "{day}의 모든 시간 켜기·끄기",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "{count} 사이클"
+      }
+    }
+  ],
+  "focus_preset_classic": "기본",
+  "focus_preset_long": "길게",
+  "focus_preset_sprint": "스프린트"
 }

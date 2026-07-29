@@ -208,7 +208,7 @@ export function App() {
             aria-hidden
             className={`size-1.5 rounded-full ${connected ? "bg-success" : "bg-destructive"}`}
           />
-          {connected ? "On" : "Off"}
+          {connected ? i18n.t("popup.on") : i18n.t("popup.off")}
         </span>
       </header>
 
@@ -223,9 +223,9 @@ export function App() {
 
       {connected && status && (
         <div className="relative mx-4 mb-4 grid grid-cols-3 gap-2">
-          <Stat value={status.blocked_today} label="Today" />
-          <Stat value={status.blocked_sites} label="Sites" />
-          <Stat value={status.active_lists} label="Lists" />
+          <Stat value={status.blocked_today} label={i18n.t("popup.statToday")} />
+          <Stat value={status.blocked_sites} label={i18n.t("popup.statSites")} />
+          <Stat value={status.active_lists} label={i18n.t("popup.statLists")} />
         </div>
       )}
 

@@ -50,10 +50,29 @@ const names = readdirSync(DIR)
 
 const base = locale(BASE);
 
+/**
+ * Chrome's `_locales` list, which is not the same as BCP 47.
+ *
+ * There is no plain `pt` or `zh` on it — a `_locales/pt/` directory is silently
+ * ignored and a Brazilian user gets English. WXT warns about this during
+ * `prepare` and the warning is easy to scroll past, so it is a test too.
+ *
+ * From https://developer.chrome.com/docs/extensions/reference/api/i18n#locales
+ */
+const SUPPORTED = new Set(
+  `ar am bg bn ca cs da de el en en_AU en_GB en_US es es_419 et fa fi fil fr gu he hi hr hu
+   id it ja kn ko lt lv ml mr ms nl no pl pt_BR pt_PT ro ru sk sl sr sv sw ta te th tr uk vi
+   zh_CN zh_TW`.split(/\s+/),
+);
+
 describe("extension locales", () => {
   it("has English with messages in it", () => {
     expect(names).toContain(BASE);
     expect(Object.keys(base).length).toBeGreaterThan(30);
+  });
+
+  it("uses locale codes browsers actually recognise", () => {
+    expect(names.filter((n) => !SUPPORTED.has(n))).toEqual([]);
   });
 
   describe.each(names.filter((n) => n !== BASE))("%s", (name) => {

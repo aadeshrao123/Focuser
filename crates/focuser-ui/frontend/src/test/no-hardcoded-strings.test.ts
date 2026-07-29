@@ -77,7 +77,11 @@ function walk(path: string): string[] {
  */
 function jsxTextNodes(source: string): string[] {
   const found: string[] = [];
-  for (const match of source.matchAll(/>\s*([A-Za-z][^<>{}]*?)\s*</g)) {
+  // The second pattern is text that runs into an interpolation, as in
+  // `>Version {version}<`. Stopping at `<` alone misses it entirely; that is
+  // how the extension shipped an untranslated version badge.
+  const patterns = [/>\s*([A-Za-z][^<>{}]*?)\s*</g, />\s*([A-Za-z][^<>{}]*?)\s*\{/g];
+  for (const match of patterns.flatMap((p) => [...source.matchAll(p)])) {
     const text = match[1]?.replace(/\s+/g, " ").trim();
     if (!text) continue;
     if (/[=;()[\]`$\\]/.test(text)) continue;
@@ -86,6 +90,41 @@ function jsxTextNodes(source: string): string[] {
     // A lone lowercase word is almost always an identifier or a unit.
     if (/^[a-z]+$/.test(text)) continue;
     found.push(text);
+  }
+  return found;
+}
+
+/**
+ * `{connected ? "On" : "Off"}` — text inside a JSX expression, which the `>…<`
+ * scan cannot see because the braces hide it.
+ */
+function ternaryLiterals(source: string): string[] {
+  const found: string[] = [];
+  for (const match of source.matchAll(/\?\s*"([^"]{2,})"\s*:\s*"([^"]{2,})"/g)) {
+    for (const value of [match[1], match[2]]) {
+      // Tailwind class strings are the other thing shaped like this.
+      if (value && /^[A-Z]/.test(value) && !value.includes("-")) found.push(value);
+    }
+  }
+  return found;
+}
+
+/**
+ * ``aria-label={`${n} cycles`}`` — a template literal where a message should
+ * be. Only the static chunks are looked at; the `${…}` parts are values.
+ *
+ * Any English word counts here, including a lowercase one. Elsewhere a bare
+ * lowercase word is usually an identifier, but the whole point of a label prop
+ * is that a person reads it.
+ */
+function templateProps(source: string): string[] {
+  const found: string[] = [];
+  const pattern = new RegExp(`\\b(${TEXT_PROPS.join("|")})=\\{\`([^\`]+)\`\\}`, "g");
+  for (const match of source.matchAll(pattern)) {
+    for (const chunk of (match[2] ?? "").split(/\$\{[^}]*\}/)) {
+      const text = chunk.replace(/\s+/g, " ").trim();
+      if (text && /[A-Za-z]{2}/.test(text)) found.push(text);
+    }
   }
   return found;
 }
@@ -110,7 +149,12 @@ describe("user-facing strings come from the catalogue", () => {
 
   it.each(files)("%s", (file) => {
     const source = readFileSync(file, "utf8");
-    const offenders = [...jsxTextNodes(source), ...literalProps(source)]
+    const offenders = [
+      ...jsxTextNodes(source),
+      ...literalProps(source),
+      ...ternaryLiterals(source),
+      ...templateProps(source),
+    ]
       .map((s) => s.trim())
       .filter((s) => !ALLOWED.has(s));
 

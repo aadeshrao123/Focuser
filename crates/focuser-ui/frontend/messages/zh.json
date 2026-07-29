@@ -187,7 +187,7 @@
   "settings_delete_all_action": "删除所有数据",
   "settings_section_language": "语言",
   "settings_language": "界面语言",
-  "settings_language_description": "Focuser 默认为英文。其他语言由讲这些语言的人贡献，如果缺少某种语言或译文有误，请查看 TRANSLATING.md。",
+  "settings_language_description": "除英语外的所有语言都是初稿，没有经过母语者校对。如果你的语言里有读起来别扭的地方，TRANSLATING.md 里说明了如何修改。",
   "settings_section_about": "关于",
   "settings_version": "版本",
   "settings_updates": "更新",
@@ -327,5 +327,79 @@
         "countPlural=other": "已导入 {count} 条规则。"
       }
     }
-  ]
+  ],
+  "titlebar_maximise": "最大化",
+  "titlebar_restore": "还原",
+  "update_check": "检查更新",
+  "update_checking": "正在检查…",
+  "common_retry": "重试",
+  "common_retrying": "正在重试…",
+  "config_saved_to": "已保存到 {path}",
+  "config_downloaded": "已下载",
+  "config_imported": "已导入 {lists}",
+  "lists_badge_locked": "已锁定 · {duration}",
+  "statistics_showing_top": "显示 {total} 项中的前 {limit} 项。",
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "{count} 个新网站"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "{count} 个网站和应用"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "{count} 个拦截清单"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes} 分钟",
+  "timer_remaining": "剩余 {time}",
+  "schedule_toggle_hour": "在每一天切换 {hour}",
+  "schedule_toggle_day": "切换 {day} 的每个小时",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=other": "{count} 个周期"
+      }
+    }
+  ],
+  "focus_preset_classic": "经典",
+  "focus_preset_long": "长时",
+  "focus_preset_sprint": "冲刺"
 }

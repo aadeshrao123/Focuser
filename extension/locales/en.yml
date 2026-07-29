@@ -5,6 +5,7 @@
 # runtime. See TRANSLATING.md in the repository root to add a language.
 
 block:
+  blocked: Blocked
   reason:
     domain: On a block list
     keyword: Address contains a blocked word
@@ -26,6 +27,11 @@ popup:
   rulesActive:
     1: 1 rule active
     n: $1 rules active
+  on: "On"
+  off: "Off"
+  statToday: Today
+  statSites: Sites
+  statLists: Lists
   notRunning: Desktop app not running
   disconnected: Nothing is being blocked. Start the Focuser desktop app to restore your rules.
   currentSite: Current site
@@ -60,6 +66,7 @@ welcome:
   openApp: Open the Focuser app
   getApp: Get the desktop app
 
+  versionBadge: Version {version}
   whatsNewVersion: What is new in {version}
   whatsNew: What is new
 
@@ -81,6 +88,7 @@ welcome:
 
   waysTitle: The four ways to block something
   waysIntro: Add these in the desktop app under Websites. The extension enforces all four.
+  waysCaption: Rule types and what each one covers
   colKind: Kind
   colExample: Example
   colCovers: What it covers
@@ -100,3 +108,4 @@ welcome:
   reportBug: Report a bug
   contribute: Contribute code
   thanks: Thank you for using Focuser. Good luck with whatever you are trying to get done.
+  tagline: Made for people who would rather be doing something else.

@@ -19,6 +19,7 @@ block:
   toGoBack: 이전 페이지로 돌아갑니다
   openApp: Focuser 열기
   privacy: 이 내용은 이 컴퓨터를 벗어나지 않습니다.
+  blocked: 차단됨
 popup:
   blockingEverything: 전부 차단 중
   rulesActive:
@@ -42,6 +43,11 @@ popup:
   notInAnyListNote: '{host}은(는) 어떤 목록에도 없었습니다'
   stubborn: '{name}의 {kind} 규칙에 아직 걸립니다. 앱에서 수정해 주세요.'
   unblocked: '{names}에서 {host}의 차단을 해제했습니다'
+  statToday: 오늘
+  statSites: 사이트
+  statLists: 목록
+  'on': 켜짐
+  'off': 꺼짐
 select:
   placeholder: 선택…
 welcome:
@@ -90,3 +96,6 @@ welcome:
   reportBug: 버그 신고하기
   contribute: 코드 기여하기
   thanks: Focuser를 써 주셔서 고맙습니다. 하려는 일이 잘 되기를 바랍니다.
+  waysCaption: 규칙 종류와 각각의 적용 범위
+  tagline: 다른 일을 하고 싶은 사람들을 위해 만들었습니다.
+  versionBadge: 버전 {version}

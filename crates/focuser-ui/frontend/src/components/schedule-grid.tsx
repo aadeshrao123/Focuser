@@ -105,7 +105,7 @@ export function ScheduleGrid({
                   type="button"
                   disabled={disabled}
                   onClick={() => onChange((prev) => toggleHour(prev, hour))}
-                  title={`Toggle ${formatHour(hour)} on every day`}
+                  title={m.schedule_toggle_hour({ hour: formatHour(hour) })}
                   className={cn(
                     "w-full rounded text-center font-normal text-[11px] text-faint-foreground",
                     "transition-colors hover:text-foreground disabled:pointer-events-none",
@@ -132,7 +132,7 @@ export function ScheduleGrid({
                     type="button"
                     disabled={disabled}
                     onClick={() => onChange((prev) => toggleDay(prev, day))}
-                    title={`Toggle every hour on ${day}`}
+                    title={m.schedule_toggle_day({ day })}
                     className={cn(
                       "flex w-full items-baseline justify-between gap-1 rounded px-1.5 py-1",
                       "font-normal text-sm transition-colors disabled:pointer-events-none",

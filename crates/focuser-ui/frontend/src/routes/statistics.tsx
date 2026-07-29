@@ -14,7 +14,6 @@ import { useClearStatistics, useStats } from "@/lib/commands";
 import { formatDay, RANGES, type RangeId, rangeFor } from "@/lib/date-range";
 import { formatDuration } from "@/lib/duration";
 import { seriesByTarget, summarise, totalsByDay, totalsByTarget } from "@/lib/stats";
-import { count } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 
 const TOP_LIMIT = 10;
@@ -138,7 +137,7 @@ export function Statistics() {
           title={m.statistics_most_blocked()}
           actions={
             targets.length > 0 ? (
-              <Badge tone="neutral">{count(targets.length, "site or app", "sites and apps")}</Badge>
+              <Badge tone="neutral">{m.count_sites_or_apps({ count: targets.length })}</Badge>
             ) : undefined
           }
         >
@@ -211,7 +210,7 @@ export function Statistics() {
           )}
           {targets.length > TOP_LIMIT && (
             <p className="mt-2 text-faint-foreground text-xs">
-              Showing the top {TOP_LIMIT} of {targets.length}.
+              {m.statistics_showing_top({ limit: TOP_LIMIT, total: targets.length })}
             </p>
           )}
         </Section>

@@ -19,6 +19,7 @@ block:
   toGoBack: 返回上一页
   openApp: 打开 Focuser
   privacy: 这些内容都不会离开你的电脑。
+  blocked: 已拦截
 popup:
   blockingEverything: 正在拦截所有网站
   rulesActive:
@@ -42,6 +43,11 @@ popup:
   notInAnyListNote: '{host} 不在任何清单中'
   stubborn: 它仍被 {name} 中的一条{kind}规则拦截。请在应用中修改。
   unblocked: 已在 {names} 中解除对 {host} 的拦截
+  statToday: 今天
+  statSites: 网站
+  statLists: 清单
+  'on': 已开启
+  'off': 已关闭
 select:
   placeholder: 请选择…
 welcome:
@@ -90,3 +96,6 @@ welcome:
   reportBug: 报告问题
   contribute: 贡献代码
   thanks: 感谢使用 Focuser。祝你顺利完成手头的事。
+  waysCaption: 各类规则及其涵盖范围
+  tagline: 为宁愿去做别的事的人而做。
+  versionBadge: 版本 {version}

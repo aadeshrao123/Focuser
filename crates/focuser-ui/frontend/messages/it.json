@@ -191,7 +191,7 @@
   "settings_delete_all_action": "Cancella tutti i dati",
   "settings_section_language": "Lingua",
   "settings_language": "Lingua dell'interfaccia",
-  "settings_language_description": "Focuser esce in inglese. Le altre lingue arrivano da chi le parla, quindi guarda TRANSLATING.md se ne manca una o se qualcosa è sbagliato.",
+  "settings_language_description": "Tutte le lingue tranne l'inglese sono una prima bozza, scritte senza la revisione di un madrelingua. Se qualcosa suona male nella tua, TRANSLATING.md spiega come sistemarlo.",
   "settings_section_about": "Informazioni",
   "settings_version": "Versione",
   "settings_updates": "Aggiornamenti",
@@ -335,5 +335,87 @@
         "countPlural=other": "Importate {count} regole."
       }
     }
-  ]
+  ],
+  "titlebar_maximise": "Ingrandisci",
+  "titlebar_restore": "Ripristina",
+  "update_check": "Cerca aggiornamenti",
+  "update_checking": "Ricerca in corso…",
+  "common_retry": "Riprova",
+  "common_retrying": "Nuovo tentativo…",
+  "config_saved_to": "Salvato in {path}",
+  "config_downloaded": "Scaricato",
+  "config_imported": "{lists} importati",
+  "lists_badge_locked": "Bloccato · {duration}",
+  "statistics_showing_top": "Vengono mostrati i primi {limit} di {total}.",
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} nuovo sito",
+        "countPlural=many": "{count} nuovi siti",
+        "countPlural=other": "{count} nuovi siti"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} sito o applicazione",
+        "countPlural=many": "{count} siti e applicazioni",
+        "countPlural=other": "{count} siti e applicazioni"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} elenco di blocco",
+        "countPlural=many": "{count} elenchi di blocco",
+        "countPlural=other": "{count} elenchi di blocco"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes} min",
+  "timer_remaining": "mancano {time}",
+  "schedule_toggle_hour": "Attiva o disattiva {hour} in tutti i giorni",
+  "schedule_toggle_day": "Attiva o disattiva ogni ora di {day}",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} ciclo",
+        "countPlural=many": "{count} cicli",
+        "countPlural=other": "{count} cicli"
+      }
+    }
+  ],
+  "focus_preset_classic": "Classico",
+  "focus_preset_long": "Lungo",
+  "focus_preset_sprint": "Sprint"
 }

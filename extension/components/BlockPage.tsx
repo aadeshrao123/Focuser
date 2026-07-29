@@ -154,7 +154,7 @@ export function BlockPage({ context }: { context: BlockContext }) {
                     className="size-1.5 rounded-full"
                     style={{ backgroundColor: accent }}
                   />
-                  Blocked
+                  {i18n.t("block.blocked")}
                 </p>
                 <h1
                   className={`mt-1 font-semibold text-foreground leading-[1.15] [overflow-wrap:anywhere] ${

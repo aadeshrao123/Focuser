@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages.js";
 
 type Size = "sm" | "lg";
 
@@ -43,7 +44,7 @@ export function FlipClock({
       style={SIZES[size]}
       role="timer"
       aria-live="off"
-      aria-label={`${label} remaining`}
+      aria-label={m.timer_remaining({ time: label })}
     >
       {groups.map((group, i) => (
         <div key={group.unit} className="flex items-center gap-1.5">

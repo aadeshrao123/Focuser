@@ -53,7 +53,7 @@ export function QueryState({
             onClick={onRetry}
             disabled={isRetrying}
           >
-            {isRetrying ? "Retrying…" : "Retry"}
+            {isRetrying ? m.common_retrying() : m.common_retry()}
           </Button>
         )}
       </div>

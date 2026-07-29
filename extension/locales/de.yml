@@ -19,6 +19,7 @@ block:
   toGoBack: um zurückzugehen
   openApp: Focuser öffnen
   privacy: Nichts davon verlässt deinen Rechner.
+  blocked: Gesperrt
 popup:
   blockingEverything: Alles wird blockiert
   rulesActive:
@@ -42,6 +43,11 @@ popup:
   notInAnyListNote: '{host} war in keiner Liste'
   stubborn: Wird weiterhin von einer {kind}-Regel in {name} erfasst. Bearbeite sie in der App.
   unblocked: '{host} in {names} entsperrt'
+  statToday: Heute
+  statSites: Seiten
+  statLists: Listen
+  'on': An
+  'off': Aus
 select:
   placeholder: Auswählen…
 welcome:
@@ -90,3 +96,6 @@ welcome:
   reportBug: Fehler melden
   contribute: Code beitragen
   thanks: Danke, dass du Focuser benutzt. Viel Erfolg bei dem, was du dir vorgenommen hast.
+  waysCaption: Regelarten und was jede abdeckt
+  tagline: Für Leute gemacht, die lieber etwas anderes tun würden.
+  versionBadge: Version {version}

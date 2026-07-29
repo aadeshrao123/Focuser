@@ -139,6 +139,21 @@ function Running({
   );
 }
 
+/**
+ * Preset names, translated here rather than in Rust.
+ *
+ * `presets()` in `focuser-common` is shared with the CLI and hands back an
+ * English label alongside the stable key. The key is what we match on; the
+ * label is the fallback if Rust ever grows a preset the catalogue has not
+ * caught up with.
+ */
+function presetLabel(key: string, fallback: string) {
+  if (key === "classic") return m.focus_preset_classic();
+  if (key === "long") return m.focus_preset_long();
+  if (key === "sprint") return m.focus_preset_sprint();
+  return fallback;
+}
+
 type Minutes = { work: number; shortBreak: number; longBreak: number; cycles: number };
 
 function toMinutes(config: PomodoroConfig): Minutes {
@@ -209,7 +224,7 @@ function StartForm({ lists }: { lists: BlockList[] }) {
                   : "border-border text-muted-foreground hover:bg-hover hover:text-foreground",
               )}
             >
-              {preset.label}
+              {presetLabel(preset.key, preset.label)}
             </button>
           );
         })}
@@ -306,7 +321,7 @@ function Cycles({ value, onChange }: { value: number; onChange: (n: number) => v
           key={n}
           type="button"
           aria-pressed={n === value}
-          aria-label={`${n} cycles`}
+          aria-label={m.focus_cycles_pick({ count: n })}
           onClick={() => onChange(n)}
           className={cn(
             "size-7 rounded-full border font-medium text-xs tabular-nums transition-colors",
@@ -344,7 +359,7 @@ function Timeline({ values }: { values: Minutes }) {
       {blocks.map((b) => (
         <span
           key={b.id}
-          title={`${PHASE_LABEL[b.kind]} · ${b.minutes} min`}
+          title={m.focus_block_tooltip({ phase: PHASE_LABEL[b.kind], minutes: b.minutes })}
           style={{ width: `${(b.minutes / total) * 100}%`, backgroundColor: PHASE_COLOR[b.kind] }}
         />
       ))}

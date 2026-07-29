@@ -5,7 +5,6 @@ import { InlineError } from "@/components/ui/feedback";
 import { Select } from "@/components/ui/select";
 import { useBulkImportWebsites } from "@/lib/commands";
 import { usePremadeLists } from "@/lib/premade";
-import { count } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -27,7 +26,7 @@ export function StarterLists({ listId }: { listId: string }) {
 
   const options = all.map((c) => ({
     value: c.id,
-    label: `${c.name} · ${count(c.domains.length + c.wildcards.length, "site")}`,
+    label: `${c.name} · ${m.count_sites({ count: c.domains.length + c.wildcards.length })}`,
   }));
 
   // Domains and wildcards are different rule kinds, so they go in two passes.
@@ -91,8 +90,13 @@ export function StarterLists({ listId }: { listId: string }) {
 
       {result && (
         <p className="mt-2 text-success text-xs">
-          Added {count(result.added, "new site")}
-          {result.added < result.total && ` · ${result.total - result.added} already there`}.
+          {m.starter_lists_added({
+            added: m.count_new_sites({ count: result.added }),
+            alreadyThere:
+              result.added < result.total
+                ? m.starter_lists_already_there({ count: result.total - result.added })
+                : "",
+          })}
         </p>
       )}
 

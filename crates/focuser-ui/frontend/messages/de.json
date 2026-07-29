@@ -189,7 +189,7 @@
   "settings_delete_all_action": "Alle Daten löschen",
   "settings_section_language": "Sprache",
   "settings_language": "Sprache der Oberfläche",
-  "settings_language_description": "Focuser wird auf Englisch ausgeliefert. Andere Sprachen kommen von Menschen, die sie sprechen. Siehe TRANSLATING.md, falls eine fehlt oder etwas falsch ist.",
+  "settings_language_description": "Alle Sprachen außer Englisch sind ein erster Entwurf, geschrieben ohne Prüfung durch Muttersprachler. Wenn in deiner Sprache etwas schief klingt, steht in TRANSLATING.md, wie du es änderst.",
   "settings_section_about": "Über",
   "settings_version": "Version",
   "settings_updates": "Aktualisierungen",
@@ -331,5 +331,83 @@
         "countPlural=other": "{count} Regeln importiert."
       }
     }
-  ]
+  ],
+  "titlebar_maximise": "Maximieren",
+  "titlebar_restore": "Wiederherstellen",
+  "update_check": "Nach Updates suchen",
+  "update_checking": "Wird gesucht…",
+  "common_retry": "Erneut versuchen",
+  "common_retrying": "Wird erneut versucht…",
+  "config_saved_to": "Gespeichert unter {path}",
+  "config_downloaded": "Heruntergeladen",
+  "config_imported": "{lists} importiert",
+  "lists_badge_locked": "Gesperrt · {duration}",
+  "statistics_showing_top": "Es werden die ersten {limit} von {total} gezeigt.",
+  "count_new_sites": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} neue Seite",
+        "countPlural=other": "{count} neue Seiten"
+      }
+    }
+  ],
+  "count_sites_or_apps": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} Seite oder Anwendung",
+        "countPlural=other": "{count} Seiten und Anwendungen"
+      }
+    }
+  ],
+  "count_block_lists": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} Sperrliste",
+        "countPlural=other": "{count} Sperrlisten"
+      }
+    }
+  ],
+  "focus_block_tooltip": "{phase} · {minutes} Min.",
+  "timer_remaining": "noch {time}",
+  "schedule_toggle_hour": "{hour} an jedem Tag umschalten",
+  "schedule_toggle_day": "Jede Stunde am {day} umschalten",
+  "focus_cycles_pick": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "{count} Zyklus",
+        "countPlural=other": "{count} Zyklen"
+      }
+    }
+  ],
+  "focus_preset_classic": "Klassisch",
+  "focus_preset_long": "Lang",
+  "focus_preset_sprint": "Sprint"
 }
