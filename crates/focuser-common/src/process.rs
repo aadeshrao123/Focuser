@@ -89,12 +89,15 @@ fn file_name(path: &str) -> String {
 #[cfg(windows)]
 mod imp {
     use super::Process;
+    use std::os::windows::process::CommandExt;
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
         TH32CS_SNAPPROCESS,
     };
-    use windows::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE, TerminateProcess};
+    use windows::Win32::System::Threading::{
+        CREATE_NO_WINDOW, OpenProcess, PROCESS_TERMINATE, TerminateProcess,
+    };
 
     pub fn list() -> Vec<Process> {
         let mut found = Vec::new();
@@ -142,6 +145,10 @@ mod imp {
         // that tool is deprecated and already absent from recent Windows 11
         // installs, whereas PowerShell's CIM cmdlets ship everywhere.
         let output = std::process::Command::new("powershell")
+            // This runs from the background blocker every few seconds while
+            // uninstall protection is active. Without CREATE_NO_WINDOW each
+            // query briefly flashes a console window on the user's desktop.
+            .creation_flags(CREATE_NO_WINDOW.0)
             .args([
                 "-NoProfile",
                 "-NonInteractive",
