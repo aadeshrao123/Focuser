@@ -282,7 +282,29 @@ export type Command =
 	prevent_uninstall: boolean,
 	prevent_service_stop: boolean,
 	prevent_modification: boolean,
-} } | { cmd: "get_protection_status" } | { cmd: "get_setting"; args: {
+	/**
+	 *  How to end the window early. `None` means "wait it out" — the
+	 *  pure-commitment mode where nothing can end it before it expires.
+	 */
+	lock: LockSetup | null,
+} } | { cmd: "get_protection_status" } | 
+/**
+ *  Issue a fresh random-text challenge for a protected list. Only valid
+ *  on a list whose lock is [`LockSetup::RandomText`]. Returns the
+ *  string to display and retype.
+ */
+{ cmd: "request_unlock_challenge"; args: {
+	list_id: string,
+} } | 
+/**
+ *  Answer a protected list's lock and, if correct, end its protection
+ *  window immediately. `response` is the password, or the most recent
+ *  random-text challenge typed back.
+ */
+{ cmd: "unlock_protection"; args: {
+	list_id: string,
+	response: string,
+} } | { cmd: "get_setting"; args: {
 	key: string,
 	default: string | null,
 } } | { cmd: "set_setting"; args: {
@@ -416,29 +438,56 @@ export type ExceptionType =
 /**  Allow local file:// URLs */
 "LocalFiles";
 
-/**  How a block is enforced — determines what it takes to disable it. */
+/**
+ *  How a protection window can be ended early — Cold Turkey calls this a
+ *  block's "lock". Meaningless on its own; it only matters while
+ *  [`BlockList::protection`] is active, and it can only be set or cleared
+ *  through the `EnableProtection` / `UnlockProtection` commands, never
+ *  through a wholesale [`BlockList`] update.
+ * 
+ *  With no lock, an active protection window simply cannot be ended early —
+ *  the only way out is to wait for `expires_at`. Adding a lock is a
+ *  deliberate trade: an escape hatch exists, but only through friction
+ *  (retyping a random string) or a secret (a password).
+ */
 export type Lock = 
-/**  Block runs for a fixed duration, cannot be cancelled. */
-({ Timer: {
-	duration_minutes: number,
-	started_at: string | null,
-} }) & { Password?: never; RandomText?: never; Until?: never } | 
-/**  Must type a long random string to unlock. */
-({ RandomText: {
-	length: number,
-} }) & { Password?: never; Timer?: never; Until?: never } | 
-/**  Locked until a specific time. */
-({ Until: {
-	unlock_at: string,
-} }) & { Password?: never; RandomText?: never; Timer?: never } | 
-/**  Requires system restart to disable (block re-enables on boot). */
-"Restart" | 
-/**  Password-protected (hashed). */
+/**
+ *  Must enter this password to unlock early. Stored as an Argon2 hash —
+ *  never the plaintext.
+ */
 ({ Password: {
 	hash: string,
-} }) & { RandomText?: never; Timer?: never; Until?: never } | 
-/**  Follows the attached schedule — active during scheduled times. */
-"Scheduled";
+} }) & { RandomText?: never } | 
+/**
+ *  Must retype a freshly generated random string to unlock early.
+ * 
+ *  The string currently on offer is *not* stored here — it lives in
+ *  `focuser_app::AppContext` for as long as it takes to answer it. That
+ *  keeps it out of `ListBlockLists`/`ExportConfiguration`, means a
+ *  restart invalidates any outstanding challenge, and lets a wrong
+ *  answer simply require a fresh one rather than allow retries against
+ *  the same string.
+ */
+({ RandomText: {
+	length: number,
+} }) & { Password?: never };
+
+/**
+ *  How to lock a protection window, as supplied by a caller.
+ * 
+ *  Distinct from [`focuser_common::types::Lock`]: that type stores what
+ *  protection actually persists (a password *hash*, never the plaintext),
+ *  while this is the one-shot wire input `EnableProtection` hashes on the
+ *  way in.
+ */
+export type LockSetup = 
+/**  Require this password, typed back, to end the window early. */
+{ kind: "password"; password: string } | 
+/**
+ *  Require a freshly generated random string of this length, typed
+ *  back exactly, to end the window early.
+ */
+{ kind: "random_text"; length: number };
 
 /**  User-editable configuration for a Pomodoro session. */
 export type PomodoroConfig = {

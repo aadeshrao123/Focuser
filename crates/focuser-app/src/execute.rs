@@ -6,14 +6,14 @@
 use focuser_common::allowance::Allowance;
 use focuser_common::host::canonical_host;
 use focuser_common::types::{
-    AppRule, BlockList, EntityId, ExceptionRule, Protection, Schedule, WebsiteMatchType,
+    AppRule, BlockList, EntityId, ExceptionRule, Lock, Protection, Schedule, WebsiteMatchType,
     WebsiteRule,
 };
 use focuser_core::{BlockEngine, pomodoro};
 
 use crate::command::{
     AllowanceNotificationDto, AllowanceUsageEntry, AppIcon, BlockingHealth, BrowserStatus, Command,
-    CommandResult, PomodoroEventDto, PomodoroHistoryEntry, ProtectionInfo,
+    CommandResult, LockSetup, PomodoroEventDto, PomodoroHistoryEntry, ProtectionInfo,
 };
 use crate::context::{AppContext, PomodoroEvent};
 use crate::error::{CommandError, CommandOutcome};
@@ -47,6 +47,17 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
 
         Command::UpdateBlockList { list } => {
             ensure_unprotected(&engine, list.id)?;
+
+            let mut list = *list;
+            // `protection` and `lock` can only be set by `EnableProtection`
+            // and cleared by `UnlockProtection` (or by expiry) — never by a
+            // wholesale replace. Without this, a caller could hand back the
+            // list it just fetched with `protection: null` and walk straight
+            // out of a commitment it made moments earlier.
+            let stored = engine.db().get_block_list(list.id)?;
+            list.protection = stored.protection;
+            list.lock = stored.lock;
+
             engine.db().update_block_list(&list)?;
             engine.refresh()?;
             ctx.sync_hosts(&engine);
@@ -56,6 +67,9 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         Command::DeleteBlockList { id } => {
             ensure_unprotected(&engine, id)?;
             engine.db().delete_block_list(id)?;
+            // Best-effort: an orphaned challenge row (protection expired
+            // without ever being unlocked) would otherwise linger forever.
+            let _ = engine.db().take_unlock_challenge(id);
             engine.refresh()?;
             ctx.sync_hosts(&engine);
             Ok(CommandResult::Unit)
@@ -282,12 +296,35 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             prevent_uninstall,
             prevent_service_stop,
             prevent_modification,
+            lock,
         } => {
             if duration_minutes == 0 {
                 return Err(CommandError::Validation(
                     "protection duration must be at least 1 minute".into(),
                 ));
             }
+
+            let lock = match lock {
+                None => None,
+                Some(LockSetup::Password { password }) => {
+                    if password.is_empty() {
+                        return Err(CommandError::Validation(
+                            "password must not be empty".into(),
+                        ));
+                    }
+                    Some(Lock::password(&password)?)
+                }
+                Some(LockSetup::RandomText { length }) => {
+                    if !(Lock::MIN_RANDOM_TEXT_LEN..=Lock::MAX_RANDOM_TEXT_LEN).contains(&length) {
+                        return Err(CommandError::Validation(format!(
+                            "random-text length must be between {} and {}",
+                            Lock::MIN_RANDOM_TEXT_LEN,
+                            Lock::MAX_RANDOM_TEXT_LEN
+                        )));
+                    }
+                    Some(Lock::RandomText { length })
+                }
+            };
 
             let mut list = engine.db().get_block_list(list_id)?;
             if list.is_modification_protected() {
@@ -304,9 +341,14 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 started_at: now,
                 expires_at: now + chrono::Duration::minutes(i64::from(duration_minutes)),
             });
+            list.lock = lock;
             // Protecting a disabled list would protect nothing.
             list.enabled = true;
             list.updated_at = now;
+
+            // Any challenge left over from a previous window on this list is
+            // for a lock that no longer exists.
+            engine.db().take_unlock_challenge(list_id)?;
 
             engine.db().update_block_list(&list)?;
             engine.refresh()?;
@@ -333,6 +375,67 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 })
                 .collect();
             Ok(CommandResult::ProtectionStatus(infos))
+        }
+
+        Command::RequestUnlockChallenge { list_id } => {
+            // Goes straight to the database rather than through `mutate_list`:
+            // that helper's protection guard would refuse this exact call, since
+            // it only ever runs while the list *is* protected.
+            let list = engine.db().get_block_list(list_id)?;
+            if !list.has_active_protection() {
+                return Err(CommandError::Validation(
+                    "this block list has no active protection to unlock".into(),
+                ));
+            }
+            let challenge = match &list.lock {
+                Some(Lock::RandomText { length }) => Lock::random_text_of_length(*length),
+                Some(Lock::Password { .. }) => {
+                    return Err(CommandError::Validation(
+                        "this list is locked with a password, not a typing challenge".into(),
+                    ));
+                }
+                None => return Err(CommandError::Protected),
+            };
+
+            engine.db().set_unlock_challenge(list_id, &challenge)?;
+            Ok(CommandResult::Text(challenge))
+        }
+
+        Command::UnlockProtection { list_id, response } => {
+            let mut list = engine.db().get_block_list(list_id)?;
+            if !list.has_active_protection() {
+                return Err(CommandError::Validation(
+                    "this block list has no active protection to unlock".into(),
+                ));
+            }
+
+            let response = response.trim();
+            let verified = match &list.lock {
+                Some(lock @ Lock::Password { .. }) => lock.verify_password(response),
+                Some(Lock::RandomText { .. }) => {
+                    // Consumed unconditionally: right or wrong, this challenge
+                    // is spent, so a wrong guess cannot be retried against it
+                    // and a right one cannot be replayed.
+                    engine.db().take_unlock_challenge(list_id)?.as_deref() == Some(response)
+                }
+                // No lock means no early unlock — the only way out is to wait.
+                None => return Err(CommandError::Protected),
+            };
+
+            if !verified {
+                return Err(CommandError::WrongUnlockResponse);
+            }
+
+            // The window is over; the block itself stays as it was. Turning
+            // it off, if that is what the user wants, is a separate
+            // `ToggleBlockList` call — one command, one effect.
+            list.protection = None;
+            list.lock = None;
+            list.updated_at = chrono::Utc::now();
+
+            engine.db().update_block_list(&list)?;
+            engine.refresh()?;
+            Ok(CommandResult::Unit)
         }
 
         // ─── Settings ─────────────────────────────────────────────
@@ -570,6 +673,10 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 .collect::<Vec<_>>()
             {
                 engine.db().delete_block_list(id)?;
+                // Same reasoning as `DeleteBlockList`: an orphaned challenge
+                // row for a list that no longer exists would otherwise
+                // linger forever.
+                let _ = engine.db().take_unlock_challenge(id);
             }
             for list in &document.block_lists {
                 engine.db().create_block_list(list)?;
@@ -1321,6 +1428,14 @@ mod tests {
     }
 
     fn protect(ctx: &AppContext, id: EntityId) -> CommandOutcome<CommandResult> {
+        protect_with_lock(ctx, id, None)
+    }
+
+    fn protect_with_lock(
+        ctx: &AppContext,
+        id: EntityId,
+        lock: Option<LockSetup>,
+    ) -> CommandOutcome<CommandResult> {
         execute(
             ctx,
             Command::EnableProtection {
@@ -1329,6 +1444,7 @@ mod tests {
                 prevent_uninstall: true,
                 prevent_service_stop: true,
                 prevent_modification: true,
+                lock,
             },
         )
     }
@@ -1405,6 +1521,328 @@ mod tests {
         assert_eq!(infos.len(), 1);
         assert_eq!(infos[0].block_list_id, list.id);
         assert!(infos[0].remaining_seconds > 0);
+    }
+
+    // ─── Locks: password and random-text early unlock ──────────────
+
+    #[test]
+    fn a_wrong_password_leaves_protection_active() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(
+            &ctx,
+            list.id,
+            Some(LockSetup::Password {
+                password: "correct-horse".into(),
+            }),
+        )
+        .unwrap();
+
+        let err = execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: "wrong-guess".into(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err.code(), "wrong_unlock_response");
+
+        // Still locked: disabling is still refused.
+        assert_eq!(
+            execute(
+                &ctx,
+                Command::ToggleBlockList {
+                    id: list.id,
+                    enabled: false,
+                },
+            )
+            .unwrap_err()
+            .code(),
+            "protected"
+        );
+    }
+
+    #[test]
+    fn the_right_password_ends_protection_and_then_disabling_works() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(
+            &ctx,
+            list.id,
+            Some(LockSetup::Password {
+                password: "correct-horse".into(),
+            }),
+        )
+        .unwrap();
+
+        execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: "correct-horse".into(),
+            },
+        )
+        .unwrap();
+
+        // Unlocking ends the commitment but does not itself turn the list
+        // off — that is a separate, explicit action.
+        assert!(lists(&ctx)[0].enabled, "unlock must not disable the list");
+
+        execute(
+            &ctx,
+            Command::ToggleBlockList {
+                id: list.id,
+                enabled: false,
+            },
+        )
+        .unwrap();
+        assert!(!lists(&ctx)[0].enabled);
+    }
+
+    #[test]
+    fn a_consumed_random_text_challenge_cannot_be_replayed() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(&ctx, list.id, Some(LockSetup::RandomText { length: 12 })).unwrap();
+
+        let CommandResult::Text(challenge) =
+            execute(&ctx, Command::RequestUnlockChallenge { list_id: list.id }).unwrap()
+        else {
+            panic!("expected a challenge string");
+        };
+        assert_eq!(challenge.chars().count(), 12);
+
+        execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: challenge.clone(),
+            },
+        )
+        .unwrap();
+
+        // Re-protect with a fresh random-text lock and prove the *old*
+        // challenge no longer answers it.
+        protect_with_lock(&ctx, list.id, Some(LockSetup::RandomText { length: 12 })).unwrap();
+        let err = execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: challenge,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err.code(), "wrong_unlock_response");
+    }
+
+    #[test]
+    fn a_wrong_random_text_answer_consumes_the_challenge_so_it_cannot_be_retried() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(&ctx, list.id, Some(LockSetup::RandomText { length: 12 })).unwrap();
+
+        let CommandResult::Text(challenge) =
+            execute(&ctx, Command::RequestUnlockChallenge { list_id: list.id }).unwrap()
+        else {
+            panic!("expected a challenge string");
+        };
+
+        assert_eq!(
+            execute(
+                &ctx,
+                Command::UnlockProtection {
+                    list_id: list.id,
+                    response: "totally-wrong".into(),
+                },
+            )
+            .unwrap_err()
+            .code(),
+            "wrong_unlock_response"
+        );
+
+        // The right string, if retried against the same (now spent)
+        // challenge, must also fail — a wrong guess does not get an
+        // unlimited number of attempts against one string.
+        assert_eq!(
+            execute(
+                &ctx,
+                Command::UnlockProtection {
+                    list_id: list.id,
+                    response: challenge,
+                },
+            )
+            .unwrap_err()
+            .code(),
+            "wrong_unlock_response"
+        );
+    }
+
+    #[test]
+    fn unlocking_with_no_lock_configured_is_refused_as_protected() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect(&ctx, list.id).unwrap(); // no lock — must simply wait it out
+
+        assert_eq!(
+            execute(
+                &ctx,
+                Command::UnlockProtection {
+                    list_id: list.id,
+                    response: "anything".into(),
+                },
+            )
+            .unwrap_err()
+            .code(),
+            "protected"
+        );
+    }
+
+    #[test]
+    fn requesting_a_challenge_on_a_password_lock_is_a_validation_error() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(
+            &ctx,
+            list.id,
+            Some(LockSetup::Password {
+                password: "x".into(),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(
+            execute(&ctx, Command::RequestUnlockChallenge { list_id: list.id })
+                .unwrap_err()
+                .code(),
+            "validation"
+        );
+    }
+
+    #[test]
+    fn unlocking_an_unprotected_list_is_a_validation_error_not_wrong_response() {
+        let ctx = ctx();
+        let list = create(&ctx, "Open");
+
+        assert_eq!(
+            execute(
+                &ctx,
+                Command::UnlockProtection {
+                    list_id: list.id,
+                    response: "anything".into(),
+                },
+            )
+            .unwrap_err()
+            .code(),
+            "validation"
+        );
+    }
+
+    #[test]
+    fn update_block_list_cannot_strip_protection_or_its_lock() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(
+            &ctx,
+            list.id,
+            Some(LockSetup::Password {
+                password: "correct-horse".into(),
+            }),
+        )
+        .unwrap();
+
+        // `prevent_modification` defaults to true in `protect_with_lock`, so
+        // this is already refused — but even if it were not, `protection`
+        // and `lock` must never travel through a wholesale update. Prove the
+        // stronger property directly against the stored data.
+        let mut tampered = lists(&ctx)[0].clone();
+        tampered.protection = None;
+        tampered.lock = None;
+
+        let err = execute(
+            &ctx,
+            Command::UpdateBlockList {
+                list: Box::new(tampered),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err.code(), "protected");
+
+        // Still protected and still locked with the same password.
+        assert!(lists(&ctx)[0].has_active_protection());
+        execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: "correct-horse".into(),
+            },
+        )
+        .unwrap();
+    }
+
+    // `prevent_modification: false` means rule/name/schedule edits are
+    // allowed while protected — but `protection` and `lock` themselves are
+    // not "modification" in that sense; they are the commitment device, and
+    // only `EnableProtection`/`UnlockProtection` may touch them. Without the
+    // guard in `UpdateBlockList`, this exact call would silently erase an
+    // uninstall/service-stop commitment the user just made.
+    #[test]
+    fn update_block_list_preserves_protection_even_when_modification_is_allowed() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        execute(
+            &ctx,
+            Command::EnableProtection {
+                list_id: list.id,
+                duration_minutes: 60,
+                prevent_uninstall: true,
+                prevent_service_stop: true,
+                prevent_modification: false,
+                lock: Some(LockSetup::Password {
+                    password: "correct-horse".into(),
+                }),
+            },
+        )
+        .unwrap();
+
+        let mut edited = lists(&ctx)[0].clone();
+        edited.name = "Renamed".into();
+        edited.protection = None;
+        edited.lock = None;
+
+        execute(
+            &ctx,
+            Command::UpdateBlockList {
+                list: Box::new(edited),
+            },
+        )
+        .unwrap();
+
+        let stored = lists(&ctx)[0].clone();
+        assert_eq!(stored.name, "Renamed", "the actual edit must go through");
+        assert!(
+            stored.has_active_protection(),
+            "protection must survive an update that only touched the name"
+        );
+        assert!(stored.lock.is_some(), "the lock must survive it too");
+    }
+
+    #[test]
+    fn a_password_lock_never_persists_the_plaintext() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect_with_lock(
+            &ctx,
+            list.id,
+            Some(LockSetup::Password {
+                password: "super-secret-phrase".into(),
+            }),
+        )
+        .unwrap();
+
+        let stored = lists(&ctx)[0].clone();
+        let json = serde_json::to_string(&stored).unwrap();
+        assert!(!json.contains("super-secret-phrase"));
     }
 
     #[test]
@@ -1677,6 +2115,7 @@ mod tests {
                 prevent_uninstall: true,
                 prevent_service_stop: true,
                 prevent_modification: true,
+                lock: None,
             },
         )
         .unwrap();

@@ -17,6 +17,22 @@ use focuser_common::types::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+/// How to lock a protection window, as supplied by a caller.
+///
+/// Distinct from [`focuser_common::types::Lock`]: that type stores what
+/// protection actually persists (a password *hash*, never the plaintext),
+/// while this is the one-shot wire input `EnableProtection` hashes on the
+/// way in.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LockSetup {
+    /// Require this password, typed back, to end the window early.
+    Password { password: String },
+    /// Require a freshly generated random string of this length, typed
+    /// back exactly, to end the window early.
+    RandomText { length: u32 },
+}
+
 /// A website rule kind *without* its value.
 ///
 /// Needed by bulk import, which supplies one kind and many values. Distinct from
@@ -157,8 +173,24 @@ pub enum Command {
         prevent_uninstall: bool,
         prevent_service_stop: bool,
         prevent_modification: bool,
+        /// How to end the window early. `None` means "wait it out" — the
+        /// pure-commitment mode where nothing can end it before it expires.
+        lock: Option<LockSetup>,
     },
     GetProtectionStatus,
+    /// Issue a fresh random-text challenge for a protected list. Only valid
+    /// on a list whose lock is [`focuser_common::types::Lock::RandomText`].
+    /// Returns the string to display and retype.
+    RequestUnlockChallenge {
+        list_id: EntityId,
+    },
+    /// Answer a protected list's lock and, if correct, end its protection
+    /// window immediately. `response` is the password, or the most recent
+    /// random-text challenge typed back.
+    UnlockProtection {
+        list_id: EntityId,
+        response: String,
+    },
 
     // ─── Settings ─────────────────────────────────────────────────
     GetSetting {

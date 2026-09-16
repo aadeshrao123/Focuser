@@ -152,6 +152,51 @@ impl Database {
         Ok(lists)
     }
 
+    // ─── Unlock challenges ──────────────────────────────────
+
+    /// Record the random-text challenge just issued for a block list,
+    /// replacing any earlier one.
+    ///
+    /// Persisted rather than kept in process memory: the CLI opens the
+    /// database fresh for every invocation, so a challenge issued by one
+    /// `focuser protect challenge` call has to survive to be read back by a
+    /// later `focuser protect unlock` call in a different process.
+    pub fn set_unlock_challenge(&self, list_id: EntityId, challenge: &str) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute(
+            "INSERT INTO unlock_challenges (block_list_id, challenge) VALUES (?1, ?2)
+             ON CONFLICT(block_list_id) DO UPDATE SET challenge = ?2",
+            rusqlite::params![list_id.to_string(), challenge],
+        )
+        .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Remove and return the outstanding challenge for a block list, if any.
+    ///
+    /// Single-use by construction: whether the caller's answer turns out
+    /// right or wrong, the challenge is gone afterwards, so a wrong attempt
+    /// cannot be retried against the same string and a right one cannot be
+    /// replayed.
+    pub fn take_unlock_challenge(&self, list_id: EntityId) -> Result<Option<String>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        match conn.query_row(
+            "DELETE FROM unlock_challenges WHERE block_list_id = ?1 RETURNING challenge",
+            rusqlite::params![list_id.to_string()],
+            |row| row.get(0),
+        ) {
+            Ok(challenge) => Ok(Some(challenge)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(FocuserError::Database(e.to_string())),
+        }
+    }
+
     // ─── Settings ───────────────────────────────────────────
 
     /// Get a setting value by key.
@@ -408,6 +453,7 @@ impl Database {
             "active_blocks",
             "block_lists",
             "settings",
+            "unlock_challenges",
         ] {
             let _ = conn.execute(&format!("DELETE FROM {table}"), []);
         }
@@ -483,5 +529,60 @@ mod tests {
 
         let total = db.get_total_blocked_today().unwrap();
         assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn unlock_challenge_is_single_use_and_per_list() {
+        let db = Database::open_in_memory().unwrap();
+        let a = focuser_common::types::new_id();
+        let b = focuser_common::types::new_id();
+
+        assert_eq!(db.take_unlock_challenge(a).unwrap(), None);
+
+        db.set_unlock_challenge(a, "abc123").unwrap();
+        db.set_unlock_challenge(b, "xyz789").unwrap();
+
+        // Taking it once returns the value...
+        assert_eq!(db.take_unlock_challenge(a).unwrap(), Some("abc123".into()));
+        // ...and a second take finds nothing, whether the first answer was
+        // right or wrong — this is what makes a challenge single-use.
+        assert_eq!(db.take_unlock_challenge(a).unwrap(), None);
+
+        // A separate list's challenge is unaffected.
+        assert_eq!(db.take_unlock_challenge(b).unwrap(), Some("xyz789".into()));
+    }
+
+    #[test]
+    fn setting_a_new_challenge_replaces_the_old_one() {
+        let db = Database::open_in_memory().unwrap();
+        let id = focuser_common::types::new_id();
+
+        db.set_unlock_challenge(id, "first").unwrap();
+        db.set_unlock_challenge(id, "second").unwrap();
+
+        assert_eq!(db.take_unlock_challenge(id).unwrap(), Some("second".into()));
+    }
+
+    #[test]
+    fn unlock_challenge_survives_a_fresh_connection_to_the_same_file() {
+        // This is the property the CLI depends on: `protect challenge` and
+        // `protect unlock` are separate process invocations that each open
+        // their own `Database`, so the challenge must live in the file, not
+        // in any in-process state.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("focuser.db");
+        let id = focuser_common::types::new_id();
+
+        {
+            let db = Database::open(&path).unwrap();
+            db.set_unlock_challenge(id, "persisted").unwrap();
+        }
+        {
+            let db = Database::open(&path).unwrap();
+            assert_eq!(
+                db.take_unlock_challenge(id).unwrap(),
+                Some("persisted".into())
+            );
+        }
     }
 }

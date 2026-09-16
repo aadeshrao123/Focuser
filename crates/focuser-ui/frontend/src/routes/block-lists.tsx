@@ -1,6 +1,6 @@
-import { ListChecks, Lock, Plus, Trash2 } from "lucide-react";
-import { type FormEvent, useId, useState } from "react";
-import type { BlockList, ProtectionInfo } from "@/bindings";
+import { ListChecks, Lock, Plus, Trash2, Unlock } from "lucide-react";
+import { type FormEvent, useEffect, useId, useState } from "react";
+import type { BlockList, LockSetup, ProtectionInfo } from "@/bindings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { InlineError, QueryState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { NumberField } from "@/components/ui/number-field";
 import { Page } from "@/components/ui/page";
+import { Select } from "@/components/ui/select";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -17,7 +18,9 @@ import {
   useDeleteBlockList,
   useEnableProtection,
   useProtectionStatus,
+  useRequestUnlockChallenge,
   useToggleBlockList,
+  useUnlockProtection,
 } from "@/lib/commands";
 import { formatDuration } from "@/lib/duration";
 import { m } from "@/paraglide/messages.js";
@@ -91,6 +94,12 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
   const toggle = useToggleBlockList();
   const remove = useDeleteBlockList();
   const [protecting, setProtecting] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+
+  // `list.lock` only matters while `lock` (the active protection window) is
+  // set — it is what `UnlockProtection` will check. With no lock configured,
+  // a protected list simply cannot be ended early.
+  const canUnlockEarly = lock !== null && list.lock !== null;
 
   return (
     <li>
@@ -129,17 +138,31 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
               </span>
             </Tooltip>
 
-            <Tooltip content={lock ? m.lists_protect_already() : m.lists_protect_hint()}>
+            <Tooltip
+              content={
+                lock === null
+                  ? m.lists_protect_hint()
+                  : canUnlockEarly
+                    ? m.lists_unlock_hint()
+                    : m.lists_unlock_none_hint()
+              }
+            >
               <span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={m.lists_protect({ name: list.name })}
-                  aria-expanded={protecting}
-                  disabled={lock !== null}
-                  onClick={() => setProtecting(!protecting)}
+                  aria-label={
+                    lock === null
+                      ? m.lists_protect({ name: list.name })
+                      : m.lists_unlock({ name: list.name })
+                  }
+                  aria-expanded={lock === null ? protecting : unlocking}
+                  disabled={lock !== null && !canUnlockEarly}
+                  onClick={() =>
+                    lock === null ? setProtecting(!protecting) : setUnlocking(!unlocking)
+                  }
                 >
-                  <Lock />
+                  {lock === null ? <Lock /> : <Unlock />}
                 </Button>
               </span>
             </Tooltip>
@@ -162,6 +185,9 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
         </div>
 
         {protecting && !lock && <ProtectForm list={list} onDone={() => setProtecting(false)} />}
+        {unlocking && canUnlockEarly && (
+          <UnlockForm list={list} onDone={() => setUnlocking(false)} />
+        )}
 
         <InlineError error={toggle.error ?? remove.error} />
       </Card>
@@ -169,14 +195,46 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
   );
 }
 
+type LockKind = "none" | "password" | "random_text";
+
+const LOCK_KIND_HINTS: Record<LockKind, () => string> = {
+  none: m.lists_lock_kind_hint_none,
+  password: m.lists_lock_kind_hint_password,
+  random_text: m.lists_lock_kind_hint_random_text,
+};
+
 function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) {
   const protect = useEnableProtection();
   const id = useId();
+  const passwordId = useId();
+  const confirmId = useId();
 
   const [minutes, setMinutes] = useState(60);
   const [uninstall, setUninstall] = useState(true);
   const [serviceStop, setServiceStop] = useState(true);
   const [modification, setModification] = useState(true);
+
+  const randomTextLengthId = useId();
+  const [lockKind, setLockKind] = useState<LockKind>("none");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [randomTextLength, setRandomTextLength] = useState(16);
+
+  const passwordMismatch =
+    lockKind === "password" && confirmPassword.length > 0 && password !== confirmPassword;
+  const canSubmit =
+    lockKind !== "password" || (password.length > 0 && password === confirmPassword);
+
+  function buildLock(): LockSetup | null {
+    switch (lockKind) {
+      case "password":
+        return { kind: "password", password };
+      case "random_text":
+        return { kind: "random_text", length: randomTextLength };
+      case "none":
+        return null;
+    }
+  }
 
   return (
     <div className="animate-in border-border border-t bg-elevated/40 px-4 py-4 fade-in slide-in-from-top-1">
@@ -206,11 +264,74 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
         <Guard label={m.lists_guard_edit()} checked={modification} onChange={setModification} />
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-sm">{m.lists_lock_kind_label()}</span>
+          <Select
+            value={lockKind}
+            onValueChange={setLockKind}
+            size="sm"
+            options={[
+              { value: "none", label: m.lists_lock_kind_none() },
+              { value: "password", label: m.lists_lock_kind_password() },
+              { value: "random_text", label: m.lists_lock_kind_random_text() },
+            ]}
+          />
+        </div>
+
+        {lockKind === "password" && (
+          <>
+            <Input
+              id={passwordId}
+              type="password"
+              size="sm"
+              className="w-40"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={m.lists_lock_password_placeholder()}
+              aria-label={m.lists_lock_password_placeholder()}
+            />
+            <Input
+              id={confirmId}
+              type="password"
+              size="sm"
+              className="w-40"
+              autoComplete="new-password"
+              invalid={passwordMismatch}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={m.lists_lock_password_confirm_placeholder()}
+              aria-label={m.lists_lock_password_confirm_placeholder()}
+            />
+          </>
+        )}
+
+        {lockKind === "random_text" && (
+          <div className="flex items-center gap-2">
+            <label htmlFor={randomTextLengthId} className="text-muted-foreground text-sm">
+              {m.lists_lock_random_text_length()}
+            </label>
+            <NumberField
+              id={randomTextLengthId}
+              value={randomTextLength}
+              onCommit={setRandomTextLength}
+              min={6}
+              max={64}
+            />
+          </div>
+        )}
+      </div>
+
+      <p className="mt-2 text-faint-foreground text-xs">
+        {passwordMismatch ? m.lists_lock_password_mismatch() : LOCK_KIND_HINTS[lockKind]()}
+      </p>
+
       <div className="mt-4 flex items-center gap-2">
         <Button
           size="sm"
           tone="destructive"
-          disabled={protect.isPending}
+          disabled={protect.isPending || !canSubmit}
           onClick={() =>
             protect.mutate(
               {
@@ -219,6 +340,7 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
                 preventUninstall: uninstall,
                 preventServiceStop: serviceStop,
                 preventModification: modification,
+                lock: buildLock(),
               },
               { onSuccess: onDone },
             )
@@ -234,6 +356,117 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
       </div>
 
       <InlineError error={protect.error} />
+    </div>
+  );
+}
+
+function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => void }) {
+  const unlock = useUnlockProtection();
+  const requestChallenge = useRequestUnlockChallenge();
+  const inputId = useId();
+  const [response, setResponse] = useState("");
+
+  const isRandomText = list.lock !== null && "RandomText" in list.lock;
+
+  // Random text needs a challenge to display before there is anything to
+  // type. `requestChallenge.mutate` is stable across re-renders, so this
+  // fires exactly once per mount rather than looping.
+  useEffect(() => {
+    if (isRandomText) {
+      requestChallenge.mutate(list.id);
+    }
+  }, [isRandomText, list.id, requestChallenge.mutate]);
+
+  function submit() {
+    unlock.mutate(
+      { listId: list.id, response },
+      {
+        onSuccess: onDone,
+        // A wrong random-text answer consumes the challenge server-side —
+        // the old string can never work again, so get a fresh one.
+        onError: () => {
+          setResponse("");
+          if (isRandomText) requestChallenge.mutate(list.id);
+        },
+      },
+    );
+  }
+
+  return (
+    <div className="animate-in border-border border-t bg-elevated/40 px-4 py-4 fade-in slide-in-from-top-1">
+      <p className="flex items-center gap-2 font-medium text-foreground text-sm">
+        <Unlock aria-hidden className="size-4 text-warning" />
+        {m.lists_unlock_heading({ name: list.name })}
+      </p>
+
+      {isRandomText ? (
+        <>
+          <p className="mt-1 text-muted-foreground text-sm">
+            {m.lists_unlock_random_text_instructions()}
+          </p>
+          {requestChallenge.data && (
+            <p className="mt-3 select-all break-all rounded-md border border-border bg-surface px-3 py-2 font-mono text-foreground text-sm tracking-wide">
+              {requestChallenge.data}
+            </p>
+          )}
+          {requestChallenge.isPending && (
+            <p className="mt-3 text-muted-foreground text-sm">
+              {m.lists_unlock_random_text_loading()}
+            </p>
+          )}
+          <InlineError error={requestChallenge.error} />
+        </>
+      ) : null}
+
+      <div className="mt-3 flex items-center gap-2">
+        <label htmlFor={inputId} className="sr-only">
+          {isRandomText
+            ? m.lists_unlock_random_text_placeholder()
+            : m.lists_unlock_password_placeholder()}
+        </label>
+        <Input
+          id={inputId}
+          type={isRandomText ? "text" : "password"}
+          size="sm"
+          className="max-w-xs"
+          disabled={isRandomText && !requestChallenge.data}
+          value={response}
+          onChange={(e) => setResponse(e.target.value)}
+          placeholder={
+            isRandomText
+              ? m.lists_unlock_random_text_placeholder()
+              : m.lists_unlock_password_placeholder()
+          }
+          // Friction is the point: typing it is the task, not copying it.
+          onPaste={isRandomText ? (e) => e.preventDefault() : undefined}
+          onDrop={isRandomText ? (e) => e.preventDefault() : undefined}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && response.length > 0) submit();
+          }}
+        />
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <Button
+          size="sm"
+          tone="destructive"
+          disabled={
+            unlock.isPending || response.length === 0 || (isRandomText && !requestChallenge.data)
+          }
+          onClick={submit}
+        >
+          {unlock.isPending ? m.lists_unlocking() : m.lists_unlock_action()}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDone}>
+          {m.lists_cancel()}
+        </Button>
+      </div>
+
+      <InlineError error={unlock.error} />
     </div>
   );
 }

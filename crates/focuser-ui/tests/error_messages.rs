@@ -35,6 +35,7 @@ fn every_error_code_has_a_message_or_is_deliberately_raw() {
         CommandError::RuleNotFound(EntityId::nil()),
         CommandError::AllowanceNotFound(EntityId::nil()),
         CommandError::Protected,
+        CommandError::WrongUnlockResponse,
         CommandError::Validation("x".into()),
         CommandError::Unsupported,
     ];
@@ -62,6 +63,7 @@ fn the_variant_list_above_is_complete() {
             CommandError::RuleNotFound(_) => "rule_not_found",
             CommandError::AllowanceNotFound(_) => "allowance_not_found",
             CommandError::Protected => "protected",
+            CommandError::WrongUnlockResponse => "wrong_unlock_response",
             CommandError::Validation(_) => "validation",
             CommandError::Unsupported => "unsupported",
             CommandError::Core(_) => "core",

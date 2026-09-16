@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
+use crate::error::FocuserError;
+
 /// Unique identifier for all entities.
 pub type EntityId = Uuid;
 
@@ -285,24 +287,101 @@ impl Protection {
 
 // ─── Locks ──────────────────────────────────────────────────────────
 
-/// How a block is enforced — determines what it takes to disable it.
+/// How a protection window can be ended early — Cold Turkey calls this a
+/// block's "lock". Meaningless on its own; it only matters while
+/// [`BlockList::protection`] is active, and it can only be set or cleared
+/// through the `EnableProtection` / `UnlockProtection` commands, never
+/// through a wholesale [`BlockList`] update.
+///
+/// With no lock, an active protection window simply cannot be ended early —
+/// the only way out is to wait for `expires_at`. Adding a lock is a
+/// deliberate trade: an escape hatch exists, but only through friction
+/// (retyping a random string) or a secret (a password).
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum Lock {
-    /// Block runs for a fixed duration, cannot be cancelled.
-    Timer {
-        duration_minutes: u32,
-        started_at: Option<DateTime<Utc>>,
-    },
-    /// Must type a long random string to unlock.
-    RandomText { length: u32 },
-    /// Locked until a specific time.
-    Until { unlock_at: DateTime<Utc> },
-    /// Requires system restart to disable (block re-enables on boot).
-    Restart,
-    /// Password-protected (hashed).
+    /// Must enter this password to unlock early. Stored as an Argon2 hash —
+    /// never the plaintext.
     Password { hash: String },
-    /// Follows the attached schedule — active during scheduled times.
-    Scheduled,
+    /// Must retype a freshly generated random string to unlock early.
+    ///
+    /// The string currently on offer is *not* stored here — it lives in the
+    /// database's `unlock_challenges` table (see `focuser_core::Database`)
+    /// keyed by block list, separate from this JSON blob. That keeps it out
+    /// of `ListBlockLists`/`ExportConfiguration`, and a wrong answer simply
+    /// requires a fresh one rather than allowing retries against the same
+    /// string.
+    RandomText { length: u32 },
+}
+
+impl Lock {
+    /// A challenge shorter than this is typed too easily to add real
+    /// friction; longer than this is just a typo generator.
+    pub const MIN_RANDOM_TEXT_LEN: u32 = 6;
+    pub const MAX_RANDOM_TEXT_LEN: u32 = 64;
+
+    /// Characters that stay unambiguous in a UI font — no `0`/`O`, `1`/`l`/`I`.
+    /// A challenge that is impossible to transcribe correctly defeats the
+    /// point, which is friction, not a puzzle.
+    const CHALLENGE_ALPHABET: &'static [u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
+
+    /// Hash `plain` with Argon2 and build a password lock. The plaintext is
+    /// never stored or returned.
+    pub fn password(plain: &str) -> Result<Self, FocuserError> {
+        use argon2::Argon2;
+        use argon2::password_hash::{PasswordHasher, SaltString, rand_core::OsRng};
+
+        let salt = SaltString::generate(&mut OsRng);
+        let hash = Argon2::default()
+            .hash_password(plain.as_bytes(), &salt)
+            .map_err(|e| FocuserError::PasswordHash(e.to_string()))?
+            .to_string();
+        Ok(Self::Password { hash })
+    }
+
+    /// Check `attempt` against a password lock. Always `false` for a
+    /// random-text lock — that one is verified against the issued challenge
+    /// instead, not through this method.
+    pub fn verify_password(&self, attempt: &str) -> bool {
+        use argon2::Argon2;
+        use argon2::password_hash::{PasswordHash, PasswordVerifier};
+
+        let Self::Password { hash } = self else {
+            return false;
+        };
+        let Ok(parsed) = PasswordHash::new(hash) else {
+            return false;
+        };
+        Argon2::default()
+            .verify_password(attempt.as_bytes(), &parsed)
+            .is_ok()
+    }
+
+    /// Generate a fresh challenge string for a random-text lock. `None` for
+    /// a password lock, which has nothing to generate.
+    pub fn generate_challenge(&self) -> Option<String> {
+        match self {
+            Self::RandomText { length } => Some(Self::random_text_of_length(*length)),
+            Self::Password { .. } => None,
+        }
+    }
+
+    /// Build a challenge string of exactly `length` characters.
+    ///
+    /// Split out from [`Self::generate_challenge`] so a caller that already
+    /// knows it is holding a `RandomText` lock (e.g. having just matched on
+    /// it) can get a `String` directly, with no `Option` to unwrap for a
+    /// case the match already ruled out.
+    pub fn random_text_of_length(length: u32) -> String {
+        use argon2::password_hash::rand_core::{OsRng, RngCore};
+
+        let mut rng = OsRng;
+        (0..length)
+            .map(|_| {
+                let idx = (rng.next_u32() as usize) % Self::CHALLENGE_ALPHABET.len();
+                Self::CHALLENGE_ALPHABET[idx] as char
+            })
+            .collect()
+    }
 }
 
 // ─── Schedules ──────────────────────────────────────────────────────
@@ -372,4 +451,55 @@ pub struct UsageStat {
 pub struct BlockedEvent {
     pub domain_or_app: String,
     pub timestamp: String,
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::Lock;
+
+    #[test]
+    fn password_hash_verifies_only_the_right_plaintext() {
+        let lock = Lock::password("correct-horse").unwrap();
+        assert!(lock.verify_password("correct-horse"));
+        assert!(!lock.verify_password("wrong"));
+    }
+
+    #[test]
+    fn stored_hash_never_contains_the_plaintext() {
+        let Lock::Password { hash } = Lock::password("super-secret").unwrap() else {
+            panic!("expected a password lock");
+        };
+        assert!(!hash.contains("super-secret"));
+    }
+
+    #[test]
+    fn random_text_challenges_have_the_requested_length_and_alphabet() {
+        let lock = Lock::RandomText { length: 20 };
+        let challenge = lock.generate_challenge().unwrap();
+        assert_eq!(challenge.chars().count(), 20);
+        assert!(
+            challenge
+                .chars()
+                .all(|c| Lock::CHALLENGE_ALPHABET.contains(&(c as u8)))
+        );
+    }
+
+    #[test]
+    fn successive_challenges_are_not_the_same_string() {
+        let lock = Lock::RandomText { length: 24 };
+        let a = lock.generate_challenge().unwrap();
+        let b = lock.generate_challenge().unwrap();
+        // Astronomically unlikely to collide at this length; a collision here
+        // means the RNG is not actually being drawn from per call.
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn a_password_lock_has_no_challenge_and_a_random_text_lock_has_no_password() {
+        let password_lock = Lock::password("x").unwrap();
+        assert!(password_lock.generate_challenge().is_none());
+
+        let text_lock = Lock::RandomText { length: 10 };
+        assert!(!text_lock.verify_password("anything"));
+    }
 }

@@ -33,6 +33,11 @@ directories = "6"
 clap = { version = "4", features = ["derive"] }
 regex = "1"
 glob-match = "0.2"
+argon2 = "0.5"
+# Pulled in transitively by argon2; declared explicitly to turn on
+# `getrandom` so its re-exported `rand_core::OsRng` is available for
+# generating unlock challenges too, rather than adding a second RNG crate.
+password-hash = { version = "0.5", features = ["getrandom"] }
 
 # Rust -> TypeScript type/command generation.
 # Pinned with `=` because the v2 line is pre-release; v1 supports Tauri v1 only,

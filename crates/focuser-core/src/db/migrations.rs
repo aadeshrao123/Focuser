@@ -125,6 +125,13 @@ pub fn run_all(conn: &Connection) -> Result<()> {
             CREATE INDEX IF NOT EXISTS idx_allowance_usage_date
                 ON allowance_usage(usage_date);",
         ),
+        (
+            "v5: unlock_challenges for random-text locks",
+            "CREATE TABLE IF NOT EXISTS unlock_challenges (
+                block_list_id TEXT PRIMARY KEY,
+                challenge TEXT NOT NULL
+            );",
+        ),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

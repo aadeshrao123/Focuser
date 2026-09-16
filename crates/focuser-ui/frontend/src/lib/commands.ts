@@ -19,6 +19,7 @@ import type {
   Command,
   CommandResult,
   ExceptionType,
+  LockSetup,
   PomodoroConfig,
   PomodoroStatus,
   ProtectionInfo,
@@ -40,6 +41,7 @@ export type {
   Command,
   CommandResult,
   ExceptionType,
+  LockSetup,
   PomodoroConfig,
   PomodoroStatus,
   ProtectionInfo,
@@ -317,6 +319,8 @@ export const useEnableProtection = () =>
     preventUninstall: boolean;
     preventServiceStop: boolean;
     preventModification: boolean;
+    /** `null` means "wait it out" — nothing can end the window early. */
+    lock: LockSetup | null;
   }>((a) => ({
     cmd: "enable_protection",
     args: {
@@ -325,7 +329,24 @@ export const useEnableProtection = () =>
       prevent_uninstall: a.preventUninstall,
       prevent_service_stop: a.preventServiceStop,
       prevent_modification: a.preventModification,
+      lock: a.lock,
     },
+  }));
+
+/** Issue a fresh random-text challenge to display and retype. */
+export function useRequestUnlockChallenge() {
+  return useMutation({
+    mutationFn: async (listId: string) =>
+      expect(await run({ cmd: "request_unlock_challenge", args: { list_id: listId } }), "text")
+        .data,
+  });
+}
+
+/** Answer a protected list's lock; on success its protection window ends immediately. */
+export const useUnlockProtection = () =>
+  useBlockListMutation<{ listId: string; response: string }>(({ listId, response }) => ({
+    cmd: "unlock_protection",
+    args: { list_id: listId, response },
   }));
 
 // ─── Settings ───────────────────────────────────────────────────────

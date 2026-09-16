@@ -47,6 +47,9 @@ pub enum CommandError {
     #[error("block list is protected and cannot be modified")]
     Protected,
 
+    #[error("that password or text did not match")]
+    WrongUnlockResponse,
+
     #[error("invalid input: {0}")]
     Validation(String),
 
@@ -94,6 +97,7 @@ impl CommandError {
             Self::RuleNotFound(_) => "rule_not_found",
             Self::AllowanceNotFound(_) => "allowance_not_found",
             Self::Protected => "protected",
+            Self::WrongUnlockResponse => "wrong_unlock_response",
             Self::Validation(_) => "validation",
             Self::Unsupported => "unsupported",
             Self::Core(_) => "core",
@@ -106,6 +110,7 @@ impl CommandError {
         match self {
             Self::BlockListNotFound(_) | Self::RuleNotFound(_) | Self::AllowanceNotFound(_) => 4,
             Self::Protected => 5,
+            Self::WrongUnlockResponse => 3,
             Self::Validation(_) => 2,
             Self::Unsupported => 6,
             Self::Core(_) | Self::Internal(_) => 1,
@@ -138,6 +143,7 @@ mod tests {
         let errors = [
             CommandError::BlockListNotFound(EntityId::nil()),
             CommandError::Protected,
+            CommandError::WrongUnlockResponse,
             CommandError::Validation("bad".into()),
             CommandError::Unsupported,
             CommandError::Internal("boom".into()),

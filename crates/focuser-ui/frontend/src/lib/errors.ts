@@ -20,6 +20,7 @@ const BY_CODE: Record<string, () => string> = {
   rule_not_found: m.error_rule_not_found,
   allowance_not_found: m.error_allowance_not_found,
   protected: m.error_protected,
+  wrong_unlock_response: m.error_wrong_unlock_response,
   unsupported: m.error_unsupported,
   transport: m.error_transport,
 };

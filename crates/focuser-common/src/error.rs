@@ -41,6 +41,9 @@ pub enum FocuserError {
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
 
+    #[error("Password hashing failed: {0}")]
+    PasswordHash(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
