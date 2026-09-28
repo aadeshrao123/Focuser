@@ -437,5 +437,9 @@
   "update_version_ready": "版本 {version} 已就绪",
   "update_installing": "正在安装…",
   "settings_autostart_pending": "已保存。安装程序还注册了一个启动任务，修改它需要管理员权限，因此该设置会在下次启动 Focuser 时完成应用。",
-  "settings_locked": "锁定期间无法关闭。"
+  "settings_locked": "锁定期间无法关闭。",
+  "schedule_protection_label": "在计划生效期间保护",
+  "schedule_protection_description": "在已保存的每周计划生效期间自动保护此列表。提前解锁后，可在当前生效时段结束前多次编辑。",
+  "schedule_protection_hint": "保护会阻止编辑、卸载和停止 Focuser。选择“无”则需等待当前时段结束。启用保护前请先保存计划更改。",
+  "schedule_protection_save": "保存计划保护"
 }

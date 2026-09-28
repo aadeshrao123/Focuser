@@ -453,5 +453,9 @@
   "update_version_ready": "La version {version} est prête",
   "update_installing": "Installation…",
   "settings_autostart_pending": "Enregistré. Le programme d'installation a aussi créé une tâche de démarrage qui exige des droits d'administrateur, ce réglage finira donc de s'appliquer au prochain démarrage de Focuser.",
-  "settings_locked": "Impossible à désactiver tant qu'un verrou est actif."
+  "settings_locked": "Impossible à désactiver tant qu'un verrou est actif.",
+  "schedule_protection_label": "Protéger pendant les plages actives",
+  "schedule_protection_description": "Protège automatiquement cette liste pendant son planning hebdomadaire enregistré. Le déverrouillage anticipé autorise plusieurs modifications jusqu’à la fin de la plage en cours.",
+  "schedule_protection_hint": "La protection empêche les modifications, la désinstallation et l’arrêt de Focuser. Choisissez Aucun pour attendre la fin de la plage. Enregistrez le planning avant d’activer la protection.",
+  "schedule_protection_save": "Enregistrer la protection planifiée"
 }

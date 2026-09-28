@@ -445,5 +445,9 @@
         "countPlural=other": "Imported {count} rules."
       }
     }
-  ]
+  ],
+  "schedule_protection_label": "Protect while schedule is active",
+  "schedule_protection_description": "Automatically protect this list during its saved weekly schedule. Early unlock allows repeated edits until the current occurrence ends.",
+  "schedule_protection_hint": "Protection prevents edits, uninstalling, and stopping Focuser. Choose None to wait until the schedule ends. Save schedule changes before enabling protection.",
+  "schedule_protection_save": "Save scheduled protection"
 }

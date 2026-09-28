@@ -445,5 +445,9 @@
   "update_version_ready": "Version {version} ist bereit",
   "update_installing": "Wird installiert…",
   "settings_autostart_pending": "Gespeichert. Das Installationsprogramm hat außerdem eine Startaufgabe angelegt, deren Änderung Administratorrechte braucht. Die Einstellung wird beim nächsten Start von Focuser fertig übernommen.",
-  "settings_locked": "Lässt sich nicht ausschalten, solange eine Sperre läuft."
+  "settings_locked": "Lässt sich nicht ausschalten, solange eine Sperre läuft.",
+  "schedule_protection_label": "Schützen, solange der Zeitplan aktiv ist",
+  "schedule_protection_description": "Diese Liste während ihres gespeicherten Wochenplans automatisch schützen. Vorzeitiges Entsperren erlaubt wiederholte Änderungen bis zum Ende des aktuellen Zeitraums.",
+  "schedule_protection_hint": "Der Schutz verhindert Änderungen, die Deinstallation und das Beenden von Focuser. Wähle Keine, um bis zum Ende des Zeitraums zu warten. Speichere den Zeitplan, bevor du den Schutz aktivierst.",
+  "schedule_protection_save": "Zeitplangesteuerten Schutz speichern"
 }

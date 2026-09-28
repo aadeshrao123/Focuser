@@ -453,5 +453,9 @@
   "update_version_ready": "La versione {version} è pronta",
   "update_installing": "Installazione…",
   "settings_autostart_pending": "Salvato. Il programma di installazione ha anche registrato un'attività di avvio che richiede diritti di amministratore per essere modificata, quindi l'impostazione verrà applicata del tutto al prossimo avvio di Focuser.",
-  "settings_locked": "Non si può disattivare finché c'è un blocco attivo."
+  "settings_locked": "Non si può disattivare finché c'è un blocco attivo.",
+  "schedule_protection_label": "Proteggi quando la pianificazione è attiva",
+  "schedule_protection_description": "Protegge automaticamente questa lista durante la pianificazione settimanale salvata. Lo sblocco anticipato consente più modifiche fino alla fine del periodo corrente.",
+  "schedule_protection_hint": "La protezione impedisce modifiche, disinstallazione e arresto di Focuser. Scegli Nessuno per attendere la fine del periodo. Salva la pianificazione prima di attivare la protezione.",
+  "schedule_protection_save": "Salva protezione programmata"
 }

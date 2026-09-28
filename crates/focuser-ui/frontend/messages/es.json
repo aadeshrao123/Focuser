@@ -453,5 +453,9 @@
   "update_version_ready": "La versión {version} está lista",
   "update_installing": "Instalando…",
   "settings_autostart_pending": "Guardado. El instalador también registró una tarea de inicio que necesita permisos de administrador para cambiarse, así que esto terminará de aplicarse la próxima vez que arranque Focuser.",
-  "settings_locked": "No se puede desactivar mientras haya un bloqueo activo."
+  "settings_locked": "No se puede desactivar mientras haya un bloqueo activo.",
+  "schedule_protection_label": "Proteger mientras el horario esté activo",
+  "schedule_protection_description": "Protege automáticamente esta lista durante su horario semanal guardado. El desbloqueo anticipado permite realizar varios cambios hasta que termine el período actual.",
+  "schedule_protection_hint": "La protección impide editar, desinstalar y detener Focuser. Elige Ninguno para esperar hasta que termine el período. Guarda los cambios del horario antes de activar la protección.",
+  "schedule_protection_save": "Guardar protección programada"
 }

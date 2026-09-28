@@ -241,10 +241,10 @@ impl BlockEngine {
     pub fn active_protection_info(&self) -> Vec<ProtectionInfo> {
         self.cached_lists
             .iter()
-            .filter(|l| l.has_active_protection())
-            .map(|l| {
-                let p = l.protection.as_ref().unwrap();
-                ProtectionInfo {
+            .filter(|l| l.enabled)
+            .filter_map(|l| {
+                let p = l.effective_protection()?;
+                Some(ProtectionInfo {
                     block_list_id: l.id,
                     block_list_name: l.name.clone(),
                     prevent_uninstall: p.prevent_uninstall,
@@ -252,7 +252,7 @@ impl BlockEngine {
                     prevent_modification: p.prevent_modification,
                     remaining_seconds: p.remaining_seconds(),
                     expires_at: p.expires_at,
-                }
+                })
             })
             .collect()
     }

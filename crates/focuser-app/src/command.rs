@@ -177,6 +177,11 @@ pub enum Command {
         /// pure-commitment mode where nothing can end it before it expires.
         lock: Option<LockSetup>,
     },
+    ConfigureScheduledProtection {
+        list_id: EntityId,
+        enabled: bool,
+        lock: Option<LockSetup>,
+    },
     GetProtectionStatus,
     /// Issue a fresh random-text challenge for a protected list. Only valid
     /// on a list whose lock is [`focuser_common::types::Lock::RandomText`].

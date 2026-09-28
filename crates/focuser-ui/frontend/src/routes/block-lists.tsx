@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
   useBlockLists,
+  useConfigureScheduledProtection,
   useCreateBlockList,
   useDeleteBlockList,
   useEnableProtection,
@@ -90,16 +91,21 @@ export function BlockLists() {
   );
 }
 
+function effectiveLock(list: BlockList) {
+  return list.protection && new Date(list.protection.expires_at).getTime() > Date.now()
+    ? list.lock
+    : (list.scheduled_protection?.lock ?? null);
+}
+
 function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null }) {
   const toggle = useToggleBlockList();
   const remove = useDeleteBlockList();
   const [protecting, setProtecting] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
-  // `list.lock` only matters while `lock` (the active protection window) is
-  // set — it is what `UnlockProtection` will check. With no lock configured,
-  // a protected list simply cannot be ended early.
-  const canUnlockEarly = lock !== null && list.lock !== null;
+  // The backend prioritizes a manual commitment when both protections overlap.
+  // With no early-unlock method, the active protection must expire.
+  const canUnlockEarly = lock !== null && effectiveLock(list) !== null;
 
   return (
     <li>
@@ -203,7 +209,19 @@ const LOCK_KIND_HINTS: Record<LockKind, () => string> = {
   random_text: m.lists_lock_kind_hint_random_text,
 };
 
-function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) {
+export function ProtectForm({
+  list,
+  onDone,
+  scheduled = false,
+}: {
+  list: BlockList;
+  onDone: () => void;
+  scheduled?: boolean;
+}) {
+  const configure = useConfigureScheduledProtection();
+  const [scheduleEnabled, setScheduleEnabled] = useState(!!list.scheduled_protection);
+  const savedLock = scheduled ? list.scheduled_protection?.lock : null;
+  const pending = configure.isPending;
   const protect = useEnableProtection();
   const id = useId();
   const passwordId = useId();
@@ -215,10 +233,16 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
   const [modification, setModification] = useState(true);
 
   const randomTextLengthId = useId();
-  const [lockKind, setLockKind] = useState<LockKind>("none");
+  const [lockKind, setLockKind] = useState<LockKind>(
+    savedLock && "Password" in savedLock
+      ? "password"
+      : savedLock && "RandomText" in savedLock
+        ? "random_text"
+        : "none",
+  );
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [randomTextLength, setRandomTextLength] = useState(16);
+  const [randomTextLength, setRandomTextLength] = useState(savedLock?.RandomText?.length ?? 16);
 
   const passwordMismatch =
     lockKind === "password" && confirmPassword.length > 0 && password !== confirmPassword;
@@ -242,121 +266,156 @@ function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => void }) 
         <Lock aria-hidden className="size-4 text-warning" />
         {m.lists_lock_heading()}
       </p>
-      <p className="mt-1 text-muted-foreground text-sm">{m.lists_lock_warning()}</p>
+      <p className="mt-1 text-muted-foreground text-sm">
+        {scheduled ? m.schedule_protection_description() : m.lists_lock_warning()}
+      </p>
+      {scheduled && (
+        <Guard
+          label={m.schedule_protection_label()}
+          checked={scheduleEnabled}
+          onChange={setScheduleEnabled}
+        />
+      )}
+      {scheduled && (
+        <p className="mt-2 text-muted-foreground text-xs">{m.schedule_protection_hint()}</p>
+      )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex items-center gap-2">
-          <label htmlFor={id} className="text-muted-foreground text-sm">
-            {m.lists_lock_for()}
-          </label>
-          <NumberField
-            id={id}
-            value={minutes}
-            onCommit={setMinutes}
-            min={1}
-            max={10080}
-            suffix="min"
-          />
-        </div>
-
-        <Guard label={m.lists_guard_uninstall()} checked={uninstall} onChange={setUninstall} />
-        <Guard label={m.lists_guard_service()} checked={serviceStop} onChange={setServiceStop} />
-        <Guard label={m.lists_guard_edit()} checked={modification} onChange={setModification} />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">{m.lists_lock_kind_label()}</span>
-          <Select
-            value={lockKind}
-            onValueChange={setLockKind}
-            size="sm"
-            aria-label={m.lists_lock_kind_label()}
-            options={[
-              { value: "none", label: m.lists_lock_kind_none() },
-              { value: "password", label: m.lists_lock_kind_password() },
-              { value: "random_text", label: m.lists_lock_kind_random_text() },
-            ]}
-          />
-        </div>
-
-        {lockKind === "password" && (
-          <>
-            <Input
-              id={passwordId}
-              type="password"
-              size="sm"
-              className="w-40"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={m.lists_lock_password_placeholder()}
-              aria-label={m.lists_lock_password_placeholder()}
-            />
-            <Input
-              id={confirmId}
-              type="password"
-              size="sm"
-              className="w-40"
-              autoComplete="new-password"
-              invalid={passwordMismatch}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder={m.lists_lock_password_confirm_placeholder()}
-              aria-label={m.lists_lock_password_confirm_placeholder()}
-            />
-          </>
-        )}
-
-        {lockKind === "random_text" && (
+      {!scheduled && (
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
           <div className="flex items-center gap-2">
-            <label htmlFor={randomTextLengthId} className="text-muted-foreground text-sm">
-              {m.lists_lock_random_text_length()}
+            <label htmlFor={id} className="text-muted-foreground text-sm">
+              {m.lists_lock_for()}
             </label>
             <NumberField
-              id={randomTextLengthId}
-              value={randomTextLength}
-              onCommit={setRandomTextLength}
-              min={6}
-              max={64}
+              id={id}
+              value={minutes}
+              onCommit={setMinutes}
+              min={1}
+              max={10080}
+              suffix="min"
             />
           </div>
-        )}
-      </div>
 
-      <p className="mt-2 text-faint-foreground text-xs">
-        {passwordMismatch ? m.lists_lock_password_mismatch() : LOCK_KIND_HINTS[lockKind]()}
-      </p>
+          <Guard label={m.lists_guard_uninstall()} checked={uninstall} onChange={setUninstall} />
+          <Guard label={m.lists_guard_service()} checked={serviceStop} onChange={setServiceStop} />
+          <Guard label={m.lists_guard_edit()} checked={modification} onChange={setModification} />
+        </div>
+      )}
+
+      {(!scheduled || scheduleEnabled) && (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">{m.lists_lock_kind_label()}</span>
+              <Select
+                value={lockKind}
+                onValueChange={setLockKind}
+                size="sm"
+                aria-label={m.lists_lock_kind_label()}
+                options={[
+                  { value: "none", label: m.lists_lock_kind_none() },
+                  { value: "password", label: m.lists_lock_kind_password() },
+                  { value: "random_text", label: m.lists_lock_kind_random_text() },
+                ]}
+              />
+            </div>
+
+            {lockKind === "password" && (
+              <>
+                <Input
+                  id={passwordId}
+                  type="password"
+                  size="sm"
+                  className="w-40"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={m.lists_lock_password_placeholder()}
+                  aria-label={m.lists_lock_password_placeholder()}
+                />
+                <Input
+                  id={confirmId}
+                  type="password"
+                  size="sm"
+                  className="w-40"
+                  autoComplete="new-password"
+                  invalid={passwordMismatch}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={m.lists_lock_password_confirm_placeholder()}
+                  aria-label={m.lists_lock_password_confirm_placeholder()}
+                />
+              </>
+            )}
+
+            {lockKind === "random_text" && (
+              <div className="flex items-center gap-2">
+                <label htmlFor={randomTextLengthId} className="text-muted-foreground text-sm">
+                  {m.lists_lock_random_text_length()}
+                </label>
+                <NumberField
+                  id={randomTextLengthId}
+                  value={randomTextLength}
+                  onCommit={setRandomTextLength}
+                  min={6}
+                  max={64}
+                />
+              </div>
+            )}
+          </div>
+
+          <p className="mt-2 text-faint-foreground text-xs">
+            {passwordMismatch ? m.lists_lock_password_mismatch() : LOCK_KIND_HINTS[lockKind]()}
+          </p>
+        </>
+      )}
 
       <div className="mt-4 flex items-center gap-2">
         <Button
           size="sm"
           tone="destructive"
-          disabled={protect.isPending || !canSubmit}
+          disabled={
+            protect.isPending || pending || (!(scheduled && !scheduleEnabled) && !canSubmit)
+          }
           onClick={() =>
-            protect.mutate(
-              {
-                listId: list.id,
-                minutes,
-                preventUninstall: uninstall,
-                preventServiceStop: serviceStop,
-                preventModification: modification,
-                lock: buildLock(),
-              },
-              { onSuccess: onDone },
-            )
+            scheduled
+              ? configure.mutate(
+                  {
+                    listId: list.id,
+                    enabled: scheduleEnabled,
+                    lock: scheduleEnabled ? buildLock() : null,
+                  },
+                  { onSuccess: onDone },
+                )
+              : protect.mutate(
+                  {
+                    listId: list.id,
+                    minutes,
+                    preventUninstall: uninstall,
+                    preventServiceStop: serviceStop,
+                    preventModification: modification,
+                    lock: buildLock(),
+                  },
+                  { onSuccess: onDone },
+                )
           }
         >
-          {protect.isPending
-            ? m.lists_locking()
-            : m.lists_lock_action({ duration: formatDuration(minutes * 60) })}
+          {scheduled
+            ? pending
+              ? m.schedule_saving()
+              : m.schedule_protection_save()
+            : protect.isPending
+              ? m.lists_locking()
+              : m.lists_lock_action({ duration: formatDuration(minutes * 60) })}
         </Button>
-        <Button variant="ghost" size="sm" onClick={onDone}>
-          {m.lists_cancel()}
-        </Button>
+        {!scheduled && (
+          <Button variant="ghost" size="sm" onClick={onDone}>
+            {m.lists_cancel()}
+          </Button>
+        )}
       </div>
 
-      <InlineError error={protect.error} />
+      <InlineError error={scheduled ? configure.error : protect.error} />
     </div>
   );
 }
@@ -367,7 +426,8 @@ function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => void }) {
   const inputId = useId();
   const [response, setResponse] = useState("");
 
-  const isRandomText = list.lock !== null && "RandomText" in list.lock;
+  const lock = effectiveLock(list);
+  const isRandomText = lock !== null && "RandomText" in lock;
 
   // Random text needs a challenge to display before there is anything to
   // type. Asking twice is harmless: the backend returns the one already out.

@@ -312,6 +312,12 @@ export function useProtectionStatus() {
   });
 }
 
+export const useConfigureScheduledProtection = () =>
+  useBlockListMutation<{ listId: string; enabled: boolean; lock: LockSetup | null }>((a) => ({
+    cmd: "configure_scheduled_protection",
+    args: { list_id: a.listId, enabled: a.enabled, lock: a.lock },
+  }));
+
 export const useEnableProtection = () =>
   useBlockListMutation<{
     listId: string;

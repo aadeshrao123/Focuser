@@ -437,5 +437,9 @@
   "update_version_ready": "バージョン {version} の準備ができました",
   "update_installing": "インストール中…",
   "settings_autostart_pending": "保存しました。インストーラーが登録した起動タスクの変更には管理者権限が必要なため、この設定は次回 Focuser を起動したときに適用が完了します。",
-  "settings_locked": "ロック中はオフにできません。"
+  "settings_locked": "ロック中はオフにできません。",
+  "schedule_protection_label": "スケジュールの有効時間中は保護する",
+  "schedule_protection_description": "保存した週間スケジュールの有効時間中、このリストを自動的に保護します。早期解除後は、現在の有効期間が終了するまで何度でも編集できます。",
+  "schedule_protection_hint": "保護中は編集、アンインストール、Focuserの終了ができません。「なし」を選ぶと有効期間の終了まで待つ必要があります。保護を有効にする前にスケジュールの変更を保存してください。",
+  "schedule_protection_save": "スケジュール連動の保護を保存"
 }

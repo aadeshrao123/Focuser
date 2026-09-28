@@ -437,5 +437,9 @@
   "update_version_ready": "버전 {version} 준비 완료",
   "update_installing": "설치 중…",
   "settings_autostart_pending": "저장했습니다. 설치 프로그램이 만든 시작 작업을 바꾸려면 관리자 권한이 필요해서, 이 설정은 다음에 Focuser를 시작할 때 적용이 끝납니다.",
-  "settings_locked": "잠금이 걸려 있는 동안에는 끌 수 없습니다."
+  "settings_locked": "잠금이 걸려 있는 동안에는 끌 수 없습니다.",
+  "schedule_protection_label": "일정이 활성화된 동안 보호",
+  "schedule_protection_description": "저장된 주간 일정이 활성화된 동안 이 목록을 자동으로 보호합니다. 조기 잠금 해제 후에는 현재 활성 기간이 끝날 때까지 여러 번 편집할 수 있습니다.",
+  "schedule_protection_hint": "보호 중에는 편집, 제거 및 Focuser 종료가 차단됩니다. 없음을 선택하면 활성 기간이 끝날 때까지 기다려야 합니다. 보호를 활성화하기 전에 일정 변경 사항을 저장하세요.",
+  "schedule_protection_save": "일정 보호 저장"
 }

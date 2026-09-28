@@ -31,7 +31,13 @@ export function slotsToCells(slots: TimeSlot[]): Set<CellKey> {
     // written, so there is no other reading of it.
     const end = rawEnd === 0 ? 24 : rawEnd;
 
-    for (let h = start; h < end; h++) cells.add(cellKey(day, h));
+    if (end < start) {
+      const nextDay = DAYS[(DAYS.indexOf(day) + 1) % DAYS.length];
+      for (let h = start; h < 24; h++) cells.add(cellKey(day, h));
+      for (let h = 0; h < end; h++) cells.add(cellKey(nextDay, h));
+    } else {
+      for (let h = start; h < end; h++) cells.add(cellKey(day, h));
+    }
   }
 
   return cells;

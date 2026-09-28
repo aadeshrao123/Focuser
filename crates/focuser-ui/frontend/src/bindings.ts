@@ -110,6 +110,10 @@ export type BlockList = {
 	lock: Lock | null,
 	protection: Protection | null,
 	schedule: Schedule | null,
+	/**  JSON defaults migrate existing lists to unprotected schedules. */
+	scheduled_protection?: ScheduledProtection | null,
+	/**  Trusted occurrence bypass; never accepted from wholesale list updates. */
+	schedule_unlocked_until?: string | null,
 	breaks: BreakConfig | null,
 	created_at: string,
 	updated_at: string,
@@ -287,6 +291,10 @@ export type Command =
 	 *  pure-commitment mode where nothing can end it before it expires.
 	 */
 	lock: LockSetup | null,
+} } | { cmd: "configure_scheduled_protection"; args: {
+	list_id: string,
+	enabled: boolean,
+	lock: LockSetup | null,
 } } | { cmd: "get_protection_status" } | 
 /**
  *  Issue a fresh random-text challenge for a protected list. Only valid
@@ -441,8 +449,8 @@ export type ExceptionType =
 /**
  *  How a protection window can be ended early — Cold Turkey calls this a
  *  block's "lock". Meaningless on its own; it only matters while
- *  [`BlockList::protection`] is active, and it can only be set or cleared
- *  through the `EnableProtection` / `UnlockProtection` commands, never
+ *  manual or scheduled protection is active, and it can only be configured
+ *  through protection commands, never
  *  through a wholesale [`BlockList`] update.
  * 
  *  With no lock, an active protection window simply cannot be ended early —
@@ -599,6 +607,11 @@ export type Schedule = {
 	name: string,
 	time_slots: TimeSlot[],
 	enabled: boolean,
+};
+
+/**  Opt-in recurring Focus Lock; reuses the existing early-unlock methods. */
+export type ScheduledProtection = {
+	lock: Lock | null,
 };
 
 /**  A time range on a specific day of the week. */
