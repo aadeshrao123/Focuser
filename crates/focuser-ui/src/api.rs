@@ -20,8 +20,6 @@ use crate::AppState;
 use focuser_common::host::{any_host_matches, canonical_host};
 use focuser_common::types::WebsiteMatchType;
 
-use crate::blocker;
-
 /// Flag to request the main window to show itself.
 pub static SHOW_WINDOW_REQUESTED: AtomicBool = AtomicBool::new(false);
 
@@ -424,6 +422,12 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
         Ok(l) => l,
         Err(e) => return ("404 Not Found", format!(r#"{{"error":"{}"}}"#, e)),
     };
+    if list.is_modification_protected() {
+        return (
+            "403 Forbidden",
+            serde_json::json!({"error": "protected"}).to_string(),
+        );
+    }
 
     use focuser_common::types::WebsiteRule;
     let rule = match rule_type {
@@ -456,7 +460,7 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
         );
     }
     let _ = eng.refresh();
-    let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
+    state.sync_hosts(&eng);
 
     (
         "200 OK",
@@ -492,6 +496,12 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
         Ok(l) => l,
         Err(e) => return ("404 Not Found", format!(r#"{{"error":"{}"}}"#, e)),
     };
+    if list.is_modification_protected() {
+        return (
+            "403 Forbidden",
+            serde_json::json!({"error": "protected"}).to_string(),
+        );
+    }
 
     let before = list.websites.len();
     let mut left_behind = 0usize;
@@ -527,7 +537,7 @@ fn api_remove_site(body: &str, state: &AppState) -> (&'static str, String) {
         );
     }
     let _ = eng.refresh();
-    let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
+    state.sync_hosts(&eng);
 
     // `removed` matters: removing nothing used to answer "ok" exactly like a
     // real removal, so the popup reported success while the site stayed blocked.
@@ -680,6 +690,12 @@ fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {
         Ok(l) => l,
         Err(e) => return ("404 Not Found", format!(r#"{{"error":"{}"}}"#, e)),
     };
+    if list.is_modification_protected() {
+        return (
+            "403 Forbidden",
+            serde_json::json!({"error": "protected"}).to_string(),
+        );
+    }
 
     list.enabled = enabled;
     list.updated_at = chrono::Utc::now();
@@ -691,7 +707,7 @@ fn api_toggle_list(body: &str, state: &AppState) -> (&'static str, String) {
         );
     }
     let _ = eng.refresh();
-    let _ = blocker::apply_hosts_blocks(&eng.collect_blocked_domains());
+    state.sync_hosts(&eng);
 
     ("200 OK", r#"{"ok":true}"#.into())
 }
@@ -831,6 +847,54 @@ mod tests {
         let eng = state.engine.lock().unwrap();
         let allowances = eng.db().list_allowances().unwrap();
         eng.db().get_allowance_used_today(allowances[0].id).unwrap()
+    }
+
+    #[test]
+    fn scheduled_lock_guards_extension_mutations_and_relock() {
+        use chrono::Datelike;
+        use focuser_common::types::{Lock, Schedule, ScheduledProtection, TimeSlot, new_id};
+        let mut list = BlockList::new("Scheduled");
+        list.websites.push(WebsiteRule::domain("example.com"));
+        list.schedule = Some(Schedule {
+            id: new_id(),
+            name: "Today".into(),
+            enabled: true,
+            time_slots: vec![TimeSlot::new(
+                chrono::Local::now().weekday(),
+                chrono::NaiveTime::MIN,
+                chrono::NaiveTime::MIN,
+            )],
+        });
+        list.scheduled_protection = Some(ScheduledProtection {
+            lock: Some(Lock::password("secret").unwrap()),
+        });
+        let state = ctx_with_extension(|db| {
+            db.create_block_list(&list).unwrap();
+        });
+        let body = serde_json::json!({"list_id": list.id, "domain":"example.com", "enabled":false})
+            .to_string();
+        let attempt = || {
+            assert_eq!(super::api_add_site(&body, &state).0, "403 Forbidden");
+            assert_eq!(super::api_remove_site(&body, &state).0, "403 Forbidden");
+            assert_eq!(super::api_toggle_list(&body, &state).0, "403 Forbidden");
+        };
+        attempt();
+        focuser_app::execute(
+            &state,
+            focuser_app::Command::UnlockProtection {
+                list_id: list.id,
+                response: "secret".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(super::api_remove_site(&body, &state).0, "200 OK");
+        assert_eq!(super::api_add_site(&body, &state).0, "200 OK");
+        focuser_app::execute(
+            &state,
+            focuser_app::Command::RelockScheduledProtection { list_id: list.id },
+        )
+        .unwrap();
+        attempt();
     }
 
     #[test]

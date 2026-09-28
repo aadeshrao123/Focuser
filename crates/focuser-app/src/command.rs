@@ -182,6 +182,10 @@ pub enum Command {
         enabled: bool,
         lock: Option<LockSetup>,
     },
+    RelockScheduledProtection {
+        list_id: EntityId,
+    },
+    GetScheduledProtectionStatus,
     GetProtectionStatus,
     /// Issue a fresh random-text challenge for a protected list. Only valid
     /// on a list whose lock is [`focuser_common::types::Lock::RandomText`].
@@ -364,6 +368,12 @@ impl BlockingHealth {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ScheduledProtectionStatus {
+    pub block_list_id: EntityId,
+    pub state: focuser_common::types::ScheduledLockState,
+}
+
 /// An active protection window on a block list.
 ///
 /// Replaces the ad-hoc `serde_json::json!` object the old command built.
@@ -401,6 +411,7 @@ pub enum CommandResult {
     Stats(Vec<UsageStat>),
     BlockedEvents(Vec<BlockedEvent>),
     ProtectionStatus(Vec<ProtectionInfo>),
+    ScheduledProtectionStatus(Vec<ScheduledProtectionStatus>),
     BlockingHealth(BlockingHealth),
     /// A setting value; `None` when unset and no default was supplied.
     Setting(Option<String>),

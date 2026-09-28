@@ -446,8 +446,13 @@
   "update_installing": "Wird installiert…",
   "settings_autostart_pending": "Gespeichert. Das Installationsprogramm hat außerdem eine Startaufgabe angelegt, deren Änderung Administratorrechte braucht. Die Einstellung wird beim nächsten Start von Focuser fertig übernommen.",
   "settings_locked": "Lässt sich nicht ausschalten, solange eine Sperre läuft.",
-  "schedule_protection_label": "Schützen, solange der Zeitplan aktiv ist",
-  "schedule_protection_description": "Diese Liste während ihres gespeicherten Wochenplans automatisch schützen. Vorzeitiges Entsperren erlaubt wiederholte Änderungen bis zum Ende des aktuellen Zeitraums.",
-  "schedule_protection_hint": "Der Schutz verhindert Änderungen, die Deinstallation und das Beenden von Focuser. Wähle Keine, um bis zum Ende des Zeitraums zu warten. Speichere den Zeitplan, bevor du den Schutz aktivierst.",
-  "schedule_protection_save": "Zeitplangesteuerten Schutz speichern"
+  "schedule_protection_label": "Während des Zeitplans sperren",
+  "schedule_lock_off": "Zeitplangesteuerter Schutz AUS",
+  "schedule_lock_inactive": "Zeitplangesteuerter Schutz aktiviert",
+  "schedule_lock_locked": "GESPERRT",
+  "schedule_lock_editing": "ZUM BEARBEITEN ENTSPERRT",
+  "schedule_lock_next": "Der nächste Zeitraum wird automatisch gesperrt. Eine deaktivierte Liste wird beim erneuten Aktivieren während eines Zeitraums gesperrt.",
+  "schedule_lock_unlock": "Zum Bearbeiten entsperren",
+  "schedule_lock_again": "Jetzt wieder sperren",
+  "schedule_lock_setup": "Wähle eine Entsperrmethode und aktiviere den Schalter. Er gilt sofort für den gespeicherten Zeitplan. Zum Ändern der Methode: gegebenenfalls entsperren, ausschalten, konfigurieren und wieder einschalten."
 }

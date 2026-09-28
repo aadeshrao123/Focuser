@@ -107,6 +107,45 @@ impl BlockList {
         })
     }
 
+    pub fn scheduled_lock_state(&self) -> ScheduledLockState {
+        self.scheduled_lock_state_at(chrono::Local::now())
+    }
+
+    pub fn scheduled_lock_state_at<T: chrono::TimeZone>(
+        &self,
+        now: DateTime<T>,
+    ) -> ScheduledLockState {
+        if self.scheduled_protection.is_none() {
+            return ScheduledLockState::Off;
+        }
+        if !self
+            .schedule
+            .as_ref()
+            .is_some_and(|s| s.active_period_at(now.clone()).is_some())
+        {
+            return ScheduledLockState::Inactive;
+        }
+        // A separate manual commitment can still prohibit editing.
+        if self
+            .protection
+            .as_ref()
+            .is_some_and(|p| p.prevent_modification && now.with_timezone(&Utc) < p.expires_at)
+        {
+            return ScheduledLockState::Locked;
+        }
+        if self
+            .schedule_unlocked_until
+            .is_some_and(|end| now.with_timezone(&Utc) < end)
+        {
+            return ScheduledLockState::UnlockedForEditing;
+        }
+        if self.enabled {
+            ScheduledLockState::Locked
+        } else {
+            ScheduledLockState::Inactive
+        }
+    }
+
     pub fn effective_protection(&self) -> Option<Protection> {
         let manual = self.protection.as_ref().filter(|p| p.is_active()).cloned();
         let scheduled = self.scheduled_protection_at(chrono::Local::now());
@@ -325,6 +364,15 @@ impl ExceptionRule {
             enabled: true,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ScheduledLockState {
+    Off,
+    Inactive,
+    Locked,
+    UnlockedForEditing,
 }
 
 /// Opt-in recurring Focus Lock; reuses the existing early-unlock methods.

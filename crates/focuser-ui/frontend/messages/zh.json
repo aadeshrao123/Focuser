@@ -438,8 +438,13 @@
   "update_installing": "正在安装…",
   "settings_autostart_pending": "已保存。安装程序还注册了一个启动任务，修改它需要管理员权限，因此该设置会在下次启动 Focuser 时完成应用。",
   "settings_locked": "锁定期间无法关闭。",
-  "schedule_protection_label": "在计划生效期间保护",
-  "schedule_protection_description": "在已保存的每周计划生效期间自动保护此列表。提前解锁后，可在当前生效时段结束前多次编辑。",
-  "schedule_protection_hint": "保护会阻止编辑、卸载和停止 Focuser。选择“无”则需等待当前时段结束。启用保护前请先保存计划更改。",
-  "schedule_protection_save": "保存计划保护"
+  "schedule_protection_label": "在计划期间锁定",
+  "schedule_lock_off": "计划保护已关闭",
+  "schedule_lock_inactive": "计划保护已启用",
+  "schedule_lock_locked": "已锁定",
+  "schedule_lock_editing": "已解锁，可编辑",
+  "schedule_lock_next": "下一个计划时段将自动锁定。已禁用的列表在计划生效期间重新启用时会锁定。",
+  "schedule_lock_unlock": "解锁以编辑",
+  "schedule_lock_again": "立即重新锁定",
+  "schedule_lock_setup": "选择解锁方式，然后打开开关。此设置立即应用于已保存的计划。要更改解锁方式，请先按需解锁，关闭开关，配置后再打开。"
 }

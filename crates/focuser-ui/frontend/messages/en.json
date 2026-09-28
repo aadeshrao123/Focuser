@@ -446,8 +446,13 @@
       }
     }
   ],
-  "schedule_protection_label": "Protect while schedule is active",
-  "schedule_protection_description": "Automatically protect this list during its saved weekly schedule. Early unlock allows repeated edits until the current occurrence ends.",
-  "schedule_protection_hint": "Protection prevents edits, uninstalling, and stopping Focuser. Choose None to wait until the schedule ends. Save schedule changes before enabling protection.",
-  "schedule_protection_save": "Save scheduled protection"
+  "schedule_protection_label": "Lock during schedule",
+  "schedule_lock_off": "Scheduled protection OFF",
+  "schedule_lock_inactive": "Scheduled protection enabled",
+  "schedule_lock_locked": "LOCKED",
+  "schedule_lock_editing": "UNLOCKED FOR EDITING",
+  "schedule_lock_next": "Next scheduled period will lock automatically. A disabled list locks when re-enabled during a scheduled period.",
+  "schedule_lock_unlock": "Unlock for editing",
+  "schedule_lock_again": "Lock again now",
+  "schedule_lock_setup": "Choose an unlock method, then turn on Lock during schedule. The switch applies immediately to the saved schedule. To change the method later, unlock if needed, turn this switch off, configure it, and turn it on again."
 }

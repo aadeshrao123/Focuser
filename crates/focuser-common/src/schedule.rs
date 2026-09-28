@@ -160,6 +160,20 @@ mod protection_tests {
     }
 
     #[test]
+    fn scheduled_state_tracks_off_inactive_locked_and_occurrence_bypass() {
+        use crate::types::ScheduledLockState::*;
+        let mut list = list();
+        assert_eq!(list.scheduled_lock_state_at(at(21, 10)), Off);
+        list.scheduled_protection = Some(ScheduledProtection { lock: None });
+        assert_eq!(list.scheduled_lock_state_at(at(21, 8)), Inactive);
+        assert_eq!(list.scheduled_lock_state_at(at(21, 10)), Locked);
+        list.schedule_unlocked_until = Some(at(21, 17));
+        assert_eq!(list.scheduled_lock_state_at(at(21, 11)), UnlockedForEditing);
+        assert_eq!(list.scheduled_lock_state_at(at(21, 17)), Inactive);
+        assert_eq!(list.scheduled_lock_state_at(at(28, 10)), Locked);
+    }
+
+    #[test]
     fn opt_in_and_transitions() {
         let mut list = list();
         assert!(list.scheduled_protection_at(at(21, 10)).is_none());

@@ -68,6 +68,12 @@ pub fn print_human(result: &CommandResult) {
             }
         }
 
+        CommandResult::ScheduledProtectionStatus(statuses) => {
+            for status in statuses {
+                println!("{}  {:?}", status.block_list_id, status.state);
+            }
+        }
+
         CommandResult::ProtectionStatus(infos) if infos.is_empty() => {
             println!("No active protection.");
         }

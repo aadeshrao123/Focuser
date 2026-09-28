@@ -454,8 +454,13 @@
   "update_installing": "Instalando…",
   "settings_autostart_pending": "Guardado. El instalador también registró una tarea de inicio que necesita permisos de administrador para cambiarse, así que esto terminará de aplicarse la próxima vez que arranque Focuser.",
   "settings_locked": "No se puede desactivar mientras haya un bloqueo activo.",
-  "schedule_protection_label": "Proteger mientras el horario esté activo",
-  "schedule_protection_description": "Protege automáticamente esta lista durante su horario semanal guardado. El desbloqueo anticipado permite realizar varios cambios hasta que termine el período actual.",
-  "schedule_protection_hint": "La protección impide editar, desinstalar y detener Focuser. Elige Ninguno para esperar hasta que termine el período. Guarda los cambios del horario antes de activar la protección.",
-  "schedule_protection_save": "Guardar protección programada"
+  "schedule_protection_label": "Bloquear durante el horario",
+  "schedule_lock_off": "Protección programada DESACTIVADA",
+  "schedule_lock_inactive": "Protección programada activada",
+  "schedule_lock_locked": "BLOQUEADO",
+  "schedule_lock_editing": "DESBLOQUEADO PARA EDITAR",
+  "schedule_lock_next": "El próximo período se bloqueará automáticamente. Una lista desactivada se bloqueará al reactivarla durante un período programado.",
+  "schedule_lock_unlock": "Desbloquear para editar",
+  "schedule_lock_again": "Bloquear de nuevo ahora",
+  "schedule_lock_setup": "Elige un método de desbloqueo y activa el interruptor. Se aplica inmediatamente al horario guardado. Para cambiar el método, desbloquea si hace falta, desactiva, configura y vuelve a activar."
 }

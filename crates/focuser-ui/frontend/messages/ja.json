@@ -438,8 +438,13 @@
   "update_installing": "インストール中…",
   "settings_autostart_pending": "保存しました。インストーラーが登録した起動タスクの変更には管理者権限が必要なため、この設定は次回 Focuser を起動したときに適用が完了します。",
   "settings_locked": "ロック中はオフにできません。",
-  "schedule_protection_label": "スケジュールの有効時間中は保護する",
-  "schedule_protection_description": "保存した週間スケジュールの有効時間中、このリストを自動的に保護します。早期解除後は、現在の有効期間が終了するまで何度でも編集できます。",
-  "schedule_protection_hint": "保護中は編集、アンインストール、Focuserの終了ができません。「なし」を選ぶと有効期間の終了まで待つ必要があります。保護を有効にする前にスケジュールの変更を保存してください。",
-  "schedule_protection_save": "スケジュール連動の保護を保存"
+  "schedule_protection_label": "スケジュール中にロック",
+  "schedule_lock_off": "スケジュール保護：オフ",
+  "schedule_lock_inactive": "スケジュール保護が有効",
+  "schedule_lock_locked": "ロック中",
+  "schedule_lock_editing": "編集用にロック解除済み",
+  "schedule_lock_next": "次の有効期間に自動でロックします。無効なリストは、スケジュールの有効期間中に再び有効にするとロックされます。",
+  "schedule_lock_unlock": "編集のためにロック解除",
+  "schedule_lock_again": "今すぐ再ロック",
+  "schedule_lock_setup": "解除方法を選び、スイッチをオンにしてください。保存済みのスケジュールに即座に適用されます。方法を変更するには、必要に応じて解除し、オフにして設定後に再びオンにしてください。"
 }

@@ -69,6 +69,7 @@ const run = (command: Command) => send<CommandResult>(command);
 export const queryKeys = {
   blockLists: ["block-lists"] as const,
   protection: ["protection"] as const,
+  scheduledProtection: ["scheduled-protection"] as const,
   allowances: ["allowances"] as const,
   pomodoro: ["pomodoro"] as const,
   stats: (from: string, to: string) => ["stats", from, to] as const,
@@ -87,6 +88,7 @@ function useBlockListMutation<TArgs>(build: (args: TArgs) => Command) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.blockLists });
       qc.invalidateQueries({ queryKey: queryKeys.protection });
+      qc.invalidateQueries({ queryKey: queryKeys.scheduledProtection });
     },
   });
 }
@@ -311,6 +313,21 @@ export function useProtectionStatus() {
       expect(await run({ cmd: "get_protection_status" }), "protection_status").data,
   });
 }
+
+export function useScheduledProtectionStatus() {
+  return useQuery({
+    queryKey: queryKeys.scheduledProtection,
+    queryFn: async () =>
+      expect(await run({ cmd: "get_scheduled_protection_status" }), "scheduled_protection_status")
+        .data,
+  });
+}
+
+export const useRelockScheduledProtection = () =>
+  useBlockListMutation<string>((listId) => ({
+    cmd: "relock_scheduled_protection",
+    args: { list_id: listId },
+  }));
 
 export const useConfigureScheduledProtection = () =>
   useBlockListMutation<{ listId: string; enabled: boolean; lock: LockSetup | null }>((a) => ({

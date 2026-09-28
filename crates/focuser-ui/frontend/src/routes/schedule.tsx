@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { ScheduleGrid } from "@/components/schedule-grid";
+import { ScheduledProtectionControl } from "@/components/scheduled-protection-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
@@ -31,7 +32,6 @@ import {
 } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import { m } from "@/paraglide/messages.js";
-import { ProtectForm } from "./block-lists";
 
 const sameCells = (a: Set<CellKey>, b: Set<CellKey>) =>
   a.size === b.size && [...a].every((k) => b.has(k));
@@ -128,14 +128,7 @@ export function Schedule() {
             </div>
 
             <InlineError error={save.error} />
-            {mode === "scheduled" && list.schedule && (
-              <ProtectForm
-                key={`${list.id}-${JSON.stringify(list.scheduled_protection)}`}
-                list={list}
-                scheduled
-                onDone={() => lists.refetch()}
-              />
-            )}
+            <ScheduledProtectionControl list={list} />
           </>
         )}
       </QueryState>

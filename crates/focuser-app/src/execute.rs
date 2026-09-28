@@ -79,9 +79,13 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         Command::ToggleBlockList { id, enabled } => {
-            // Protection guards *disabling* only — turning blocking back on is
-            // always allowed, since it cannot be used to escape a commitment.
-            if !enabled {
+            // Scheduled locks freeze both toggle directions. Preserve the
+            // existing manual-lock behavior that permits re-enabling.
+            if !enabled
+                || engine.block_lists().iter().any(|l| {
+                    l.id == id && l.scheduled_protection_at(chrono::Local::now()).is_some()
+                })
+            {
                 ensure_unprotected(&engine, id)?;
             }
 
@@ -356,6 +360,26 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             Ok(CommandResult::Unit)
         }
 
+        Command::RelockScheduledProtection { list_id } => {
+            let mut list = engine.db().get_block_list(list_id)?;
+            list.schedule_unlocked_until = None;
+            list.updated_at = chrono::Utc::now();
+            engine.db().take_unlock_challenge(list_id)?;
+            engine.db().update_block_list(&list)?;
+            engine.refresh()?;
+            Ok(CommandResult::Unit)
+        }
+        Command::GetScheduledProtectionStatus => Ok(CommandResult::ScheduledProtectionStatus(
+            engine
+                .block_lists()
+                .iter()
+                .map(|list| crate::command::ScheduledProtectionStatus {
+                    block_list_id: list.id,
+                    state: list.scheduled_lock_state(),
+                })
+                .collect(),
+        )),
+
         Command::GetProtectionStatus => {
             let infos = engine
                 .block_lists()
@@ -493,6 +517,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         Command::RemoveBlocks => {
+            ensure_nothing_protected(&engine)?;
             // An empty domain set is how "unblock everything" is expressed —
             // the sync writes the list, so an empty list clears the section.
             ctx.sync_hosts_with(&[]);
@@ -516,6 +541,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 .validate()
                 .map_err(|e| CommandError::Validation(e.to_string()))?;
 
+            ensure_unprotected(&engine, block_list_id)?;
             let session = pomodoro::start_session(&mut engine, block_list_id, config)?;
             // A work phase suspends allowances and can change what is blocked.
             ctx.sync_hosts(&engine);
@@ -578,6 +604,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             daily_limit_secs,
             strict_mode,
         } => {
+            ensure_scheduled_unprotected(&engine)?;
             let allowance = Allowance::new(target, daily_limit_secs, strict_mode);
             allowance.validate().map_err(CommandError::Validation)?;
 
@@ -594,6 +621,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             strict_mode,
             enabled,
         } => {
+            ensure_scheduled_unprotected(&engine)?;
             let mut allowance = engine
                 .db()
                 .get_allowance(id)?
@@ -610,12 +638,14 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         Command::AllowanceDelete { id } => {
+            ensure_scheduled_unprotected(&engine)?;
             engine.db().delete_allowance(id)?;
             ctx.allowance_tracker.rebuild_from_db(engine.db())?;
             Ok(CommandResult::Unit)
         }
 
         Command::AllowanceResetToday { id } => {
+            ensure_scheduled_unprotected(&engine)?;
             engine.db().reset_allowance_usage_today(id)?;
             // Rebuild clears the exhausted flag, so the target unblocks at once.
             ctx.allowance_tracker.rebuild_from_db(engine.db())?;
@@ -773,8 +803,21 @@ struct ConfigDocument {
     block_lists: Vec<BlockList>,
 }
 
-/// Wholesale operations are refused while any list is locked — otherwise a
-/// commitment could be escaped by importing over it or wiping everything.
+/// Allowances are global and can affect several lists. Freeze their configuration
+/// while a scheduled commitment is locked; an occurrence bypass releases it.
+fn ensure_scheduled_unprotected(engine: &BlockEngine) -> CommandOutcome<()> {
+    if engine
+        .block_lists()
+        .iter()
+        .any(|l| l.scheduled_protection_at(chrono::Local::now()).is_some())
+    {
+        Err(CommandError::Protected)
+    } else {
+        Ok(())
+    }
+}
+
+/// Wholesale operations cannot replace or disable a protected list.
 fn ensure_nothing_protected(engine: &BlockEngine) -> CommandOutcome<()> {
     for list in engine.block_lists() {
         if engine.is_block_list_protected(list.id) {
@@ -1870,6 +1913,167 @@ mod tests {
         )
         .unwrap();
         assert!(!ctx.engine.lock().unwrap().is_block_list_protected(list.id));
+    }
+
+    #[test]
+    fn scheduled_lock_rejects_every_configuration_mutation_and_relock_restores_guards() {
+        use focuser_common::types::ScheduledLockState;
+        let ctx = ctx();
+        let list = scheduled_list(
+            &ctx,
+            Some(LockSetup::Password {
+                password: "secret".into(),
+            }),
+        );
+        let site = WebsiteRule::domain("example.com");
+        let app = AppRule::executable("game");
+        let exception = ExceptionRule {
+            id: focuser_common::types::new_id(),
+            exception_type: ExceptionType::Domain("safe.example.com".into()),
+            enabled: true,
+        };
+        // Seed rules before exercising removal, so a not-found error cannot pass this test.
+        let mut stored = ctx
+            .engine
+            .lock()
+            .unwrap()
+            .db()
+            .get_block_list(list.id)
+            .unwrap();
+        stored.websites.push(site.clone());
+        stored.applications.push(app.clone());
+        stored.exceptions.push(exception.clone());
+        {
+            let mut engine = ctx.engine.lock().unwrap();
+            engine.db().update_block_list(&stored).unwrap();
+            engine.refresh().unwrap();
+        }
+        let commands = || {
+            vec![
+            Command::AddWebsiteRule { list_id: list.id, rule: WebsiteMatchType::Domain("another.com".into()) },
+            Command::RemoveWebsiteRule { list_id: list.id, rule_id: site.id },
+            Command::BulkImportWebsites { list_id: list.id, values: vec!["other.com".into()], kind: WebsiteRuleKind::Domain },
+            Command::AddAppRule { list_id: list.id, rule: AppMatchType::ExecutableName("other-game".into()) },
+            Command::RemoveAppRule { list_id: list.id, rule_id: app.id },
+            Command::AddException { list_id: list.id, exception: ExceptionType::Domain("example.com".into()) },
+            Command::RemoveException { list_id: list.id, exception_id: exception.id },
+            Command::UpdateSchedule { list_id: list.id, slots: vec![], always_active: false },
+            Command::UpdateSchedule { list_id: list.id, slots: vec![], always_active: true },
+            Command::UpdateBlockList { list: Box::new(stored.clone()) },
+            Command::ToggleBlockList { id: list.id, enabled: false },
+            Command::ToggleBlockList { id: list.id, enabled: true },
+            Command::DeleteBlockList { id: list.id },
+            Command::ConfigureScheduledProtection { list_id: list.id, enabled: false, lock: None },
+            Command::ConfigureScheduledProtection { list_id: list.id, enabled: true, lock: Some(LockSetup::RandomText { length: 64 }) },
+            Command::ConfigureScheduledProtection { list_id: list.id, enabled: true, lock: Some(LockSetup::Password { password: "changed".into() }) },
+            Command::RemoveBlocks,
+            Command::AllowanceCreate { target: AllowanceMatch::Domain("example.com".into()), daily_limit_secs: 600, strict_mode: false },
+            Command::AllowanceUpdate { id: list.id, daily_limit_secs: 600, strict_mode: false, enabled: false },
+            Command::AllowanceDelete { id: list.id }, Command::AllowanceResetToday { id: list.id },
+            Command::PomodoroStart { block_list_id: list.id, config: PomodoroConfig::CLASSIC },
+            Command::DeleteAllData, Command::ResetSettings,
+            Command::SetSetting { key: SETTING_CLOSE_BROWSERS.into(), value: "false".into() },
+            Command::ImportConfiguration { json: r#"{"version":1,"app":"Focuser","exported_at":"2026-07-27T00:00:00Z","block_lists":[]}"#.into() },
+        ]
+        };
+        for cmd in commands() {
+            assert_eq!(execute(&ctx, cmd).unwrap_err().code(), "protected");
+        }
+        execute(&ctx, Command::ClearAllWebsites).unwrap();
+        execute(&ctx, Command::ClearAllApps).unwrap();
+        assert_eq!(
+            ctx.engine
+                .lock()
+                .unwrap()
+                .db()
+                .get_block_list(list.id)
+                .unwrap()
+                .websites
+                .len(),
+            1
+        );
+        assert_eq!(
+            ctx.engine
+                .lock()
+                .unwrap()
+                .db()
+                .get_block_list(list.id)
+                .unwrap()
+                .applications
+                .len(),
+            1
+        );
+        let state = || {
+            ctx.engine
+                .lock()
+                .unwrap()
+                .db()
+                .get_block_list(list.id)
+                .unwrap()
+                .scheduled_lock_state()
+        };
+        assert_eq!(state(), ScheduledLockState::Locked);
+        execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: "secret".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(state(), ScheduledLockState::UnlockedForEditing);
+        for _ in 0..2 {
+            execute(
+                &ctx,
+                Command::AddWebsiteRule {
+                    list_id: list.id,
+                    rule: WebsiteMatchType::Domain("editing.com".into()),
+                },
+            )
+            .unwrap();
+            execute(
+                &ctx,
+                Command::AddAppRule {
+                    list_id: list.id,
+                    rule: AppMatchType::ExecutableName("editing".into()),
+                },
+            )
+            .unwrap();
+        }
+        let before = ctx
+            .engine
+            .lock()
+            .unwrap()
+            .db()
+            .get_block_list(list.id)
+            .unwrap();
+        execute(
+            &ctx,
+            Command::RelockScheduledProtection { list_id: list.id },
+        )
+        .unwrap();
+        let after = ctx
+            .engine
+            .lock()
+            .unwrap()
+            .db()
+            .get_block_list(list.id)
+            .unwrap();
+        assert!(after.schedule_unlocked_until.is_none());
+        assert_eq!(
+            serde_json::to_value(before.schedule).unwrap(),
+            serde_json::to_value(after.schedule).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(before.scheduled_protection).unwrap(),
+            serde_json::to_value(after.scheduled_protection).unwrap()
+        );
+        assert_eq!(state(), ScheduledLockState::Locked);
+        for cmd in commands() {
+            assert_eq!(execute(&ctx, cmd).unwrap_err().code(), "protected");
+        }
+        execute(&ctx, Command::ListBlockLists).unwrap();
+        execute(&ctx, Command::GetScheduledProtectionStatus).unwrap();
     }
 
     #[test]
