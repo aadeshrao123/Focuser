@@ -451,7 +451,7 @@ impl Lock {
     /// Characters that stay unambiguous in a UI font — no `0`/`O`, `1`/`l`/`I`.
     /// A challenge that is impossible to transcribe correctly defeats the
     /// point, which is friction, not a puzzle.
-    const CHALLENGE_ALPHABET: &'static [u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
+    const CHALLENGE_ALPHABET: &'static [u8] = b"abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
     /// Hash `plain` with Argon2 and build a password lock. The plaintext is
     /// never stored or returned.
