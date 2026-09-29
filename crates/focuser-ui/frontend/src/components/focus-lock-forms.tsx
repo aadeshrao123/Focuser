@@ -143,7 +143,7 @@ export function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => v
               value={randomTextLength}
               onCommit={setRandomTextLength}
               min={6}
-              max={64}
+              max={256}
             />
           </div>
         )}

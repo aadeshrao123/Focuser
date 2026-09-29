@@ -450,7 +450,7 @@ impl Lock {
     /// A challenge shorter than this is typed too easily to add real
     /// friction; longer than this is just a typo generator.
     pub const MIN_RANDOM_TEXT_LEN: u32 = 6;
-    pub const MAX_RANDOM_TEXT_LEN: u32 = 64;
+    pub const MAX_RANDOM_TEXT_LEN: u32 = 256;
 
     /// Characters that stay unambiguous in a UI font — no `0`/`O`, `1`/`l`/`I`.
     /// A challenge that is impossible to transcribe correctly defeats the

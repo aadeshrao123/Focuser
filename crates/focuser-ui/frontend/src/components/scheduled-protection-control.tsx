@@ -189,7 +189,7 @@ export function ScheduledProtectionControl({
               onCommit={setLength}
               disabled={configurationDisabled}
               min={6}
-              max={64}
+              max={256}
               aria-label={m.lists_lock_random_text_length()}
             />
           )}

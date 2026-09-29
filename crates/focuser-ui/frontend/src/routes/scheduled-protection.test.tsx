@@ -397,7 +397,7 @@ it("keeps supported random-text bounds and permits None", async () => {
   await waitFor(() => expect(toggle("lists")).toBeEnabled());
   const length = page("lists").getByRole("spinbutton", { name: "Challenge length" });
   expect(length).toHaveAttribute("min", "6");
-  expect(length).toHaveAttribute("max", "64");
+  expect(length).toHaveAttribute("max", "256");
   fireEvent.change(page("lists").getByRole("combobox", { name: "Unlock method" }), {
     target: { value: "none" },
   });
