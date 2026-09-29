@@ -462,5 +462,6 @@
   "shared_allowance_hint": "Einzelne Website-/App-Zeitbudgets pausieren, während das gemeinsame Zeitbudget aktiv ist.",
   "shared_allowance_exhausted": "Gemeinsames Zeitbudget: Für diesen Zeitraum aufgebraucht",
   "shared_allowance_remaining": "Gemeinsames Zeitbudget: {remaining} Min. von {total} Min. übrig",
-  "shared_allowance_paused": "Pausiert, während das gemeinsame Zeitbudget aktiv ist."
+  "shared_allowance_paused": "Pausiert, während das gemeinsame Zeitbudget aktiv ist.",
+  "lists_unlock_random_text_mismatch": "Abweichung bei Zeichen {position}."
 }

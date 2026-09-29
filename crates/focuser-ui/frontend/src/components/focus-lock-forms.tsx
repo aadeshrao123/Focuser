@@ -194,6 +194,16 @@ export function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => vo
 
   const lock = effectiveLock(list);
   const isRandomText = lock !== null && "RandomText" in lock;
+  const challenge = requestChallenge.data;
+  const challengeCharacters = Array.from(challenge ?? "");
+  const mismatchIndex =
+    isRandomText && challenge
+      ? Array.from(response).findIndex(
+          (character, index) => character !== challengeCharacters[index],
+        )
+      : -1;
+  const randomTextMatches = !!challenge && !requestChallenge.isPending && response === challenge;
+  const mismatchId = `${inputId}-mismatch`;
 
   // Random text needs a challenge to display before there is anything to
   // type. Asking twice is harmless: the backend returns the one already out.
@@ -204,6 +214,7 @@ export function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => vo
   }, [isRandomText, list.id, requestChallenge.mutate]);
 
   function submit() {
+    if (isRandomText && (!randomTextMatches || unlock.isPending)) return;
     unlock.mutate(
       { listId: list.id, response },
       {
@@ -256,6 +267,8 @@ export function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => vo
           size="sm"
           className="max-w-xs"
           disabled={isRandomText && !requestChallenge.data}
+          invalid={mismatchIndex !== -1}
+          aria-describedby={mismatchIndex !== -1 ? mismatchId : undefined}
           value={response}
           onChange={(e) => setResponse(e.target.value)}
           placeholder={
@@ -271,18 +284,25 @@ export function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => vo
           autoCapitalize="off"
           spellCheck={false}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && response.length > 0) submit();
+            if (e.key === "Enter") {
+              if (isRandomText) e.preventDefault();
+              if (response.length > 0) submit();
+            }
           }}
         />
       </div>
+
+      {mismatchIndex !== -1 && (
+        <p id={mismatchId} role="status" className="mt-2 text-destructive text-sm">
+          {m.lists_unlock_random_text_mismatch({ position: mismatchIndex + 1 })}
+        </p>
+      )}
 
       <div className="mt-4 flex items-center gap-2">
         <Button
           size="sm"
           tone="destructive"
-          disabled={
-            unlock.isPending || response.length === 0 || (isRandomText && !requestChallenge.data)
-          }
+          disabled={unlock.isPending || (isRandomText ? !randomTextMatches : response.length === 0)}
           onClick={submit}
         >
           {unlock.isPending ? m.lists_unlocking() : m.lists_unlock_action()}

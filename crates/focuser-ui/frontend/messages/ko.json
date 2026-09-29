@@ -454,5 +454,6 @@
   "shared_allowance_hint": "공유 허용 시간이 활성화된 동안 개별 사이트 및 앱 허용 시간은 일시 중지됩니다.",
   "shared_allowance_exhausted": "공유 허용 시간: 이번 예약된 차단 기간의 시간을 모두 사용했습니다",
   "shared_allowance_remaining": "공유 허용 시간: {total}분 중 {remaining}분 남음",
-  "shared_allowance_paused": "공유 허용 시간이 활성화된 동안 일시 중지됩니다."
+  "shared_allowance_paused": "공유 허용 시간이 활성화된 동안 일시 중지됩니다.",
+  "lists_unlock_random_text_mismatch": "{position}번째 문자가 일치하지 않습니다."
 }

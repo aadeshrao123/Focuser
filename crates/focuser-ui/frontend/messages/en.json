@@ -462,5 +462,6 @@
   "shared_allowance_hint": "Individual site/app allowances are paused while shared allowance is active.",
   "shared_allowance_exhausted": "Shared allowance: Used up for this scheduled block",
   "shared_allowance_remaining": "Shared allowance: {remaining}m remaining of {total}m",
-  "shared_allowance_paused": "Paused while shared allowance is active."
+  "shared_allowance_paused": "Paused while shared allowance is active.",
+  "lists_unlock_random_text_mismatch": "Mismatch at character {position}."
 }

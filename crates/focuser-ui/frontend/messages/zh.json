@@ -454,5 +454,6 @@
   "shared_allowance_hint": "共享时长生效期间，各网站和应用的单独使用时长将暂停。",
   "shared_allowance_exhausted": "共享使用时长：本计划时段的时长已用完",
   "shared_allowance_remaining": "共享使用时长：共 {total} 分钟，剩余 {remaining} 分钟",
-  "shared_allowance_paused": "共享时长生效期间暂停。"
+  "shared_allowance_paused": "共享时长生效期间暂停。",
+  "lists_unlock_random_text_mismatch": "第 {position} 个字符不匹配。"
 }

@@ -470,5 +470,6 @@
   "shared_allowance_hint": "Los límites individuales de sitios y aplicaciones se pausan mientras el tiempo compartido está activo.",
   "shared_allowance_exhausted": "Tiempo compartido: Agotado para este período programado",
   "shared_allowance_remaining": "Tiempo compartido: Quedan {remaining} min de {total} min",
-  "shared_allowance_paused": "En pausa mientras el tiempo compartido está activo."
+  "shared_allowance_paused": "En pausa mientras el tiempo compartido está activo.",
+  "lists_unlock_random_text_mismatch": "El carácter {position} no coincide."
 }

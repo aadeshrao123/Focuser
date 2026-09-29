@@ -454,5 +454,6 @@
   "shared_allowance_hint": "共有時間枠が有効な間、サイト・アプリごとの時間枠は一時停止されます。",
   "shared_allowance_exhausted": "共有時間枠：このスケジュール期間の時間を使い切りました",
   "shared_allowance_remaining": "共有時間枠：{total}分中、残り{remaining}分",
-  "shared_allowance_paused": "共有時間枠が有効な間は一時停止されます。"
+  "shared_allowance_paused": "共有時間枠が有効な間は一時停止されます。",
+  "lists_unlock_random_text_mismatch": "{position}文字目が一致しません。"
 }

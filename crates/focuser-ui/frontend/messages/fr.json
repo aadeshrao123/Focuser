@@ -470,5 +470,6 @@
   "shared_allowance_hint": "Les quotas individuels des sites et applications sont suspendus lorsque le temps partagé est actif.",
   "shared_allowance_exhausted": "Temps partagé : épuisé pour cette période planifiée",
   "shared_allowance_remaining": "Temps partagé : {remaining} min restantes sur {total} min",
-  "shared_allowance_paused": "En pause lorsque le temps partagé est actif."
+  "shared_allowance_paused": "En pause lorsque le temps partagé est actif.",
+  "lists_unlock_random_text_mismatch": "Le caractère {position} ne correspond pas."
 }
