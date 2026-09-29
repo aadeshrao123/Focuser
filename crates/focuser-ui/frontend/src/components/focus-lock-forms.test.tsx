@@ -174,3 +174,19 @@ it("retains the backend rejection fallback and requires the fresh challenge", as
   fireEvent.click(button);
   await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
 });
+
+it("colors only the correct prefix and first mismatch, updating as corrected", async () => {
+  const { input } = await show();
+  const challengeText = screen.getByText(challenge);
+  const characters = () => Array.from(challengeText.nextElementSibling?.children ?? []);
+  type(input, "AbXDef");
+  expect(characters()[0]).toHaveClass("text-success");
+  expect(characters()[1]).toHaveClass("text-success");
+  expect(characters()[2]).toHaveClass("text-destructive");
+  for (const character of characters().slice(3)) expect(character).not.toHaveAttribute("class");
+  expect(screen.getByRole("status")).toHaveTextContent("Mismatch at character 3.");
+  type(input, "AbcD");
+  for (const character of characters().slice(0, 4)) expect(character).toHaveClass("text-success");
+  for (const character of characters().slice(4)) expect(character).not.toHaveAttribute("class");
+  expect(screen.queryByRole("status")).toBeNull();
+});

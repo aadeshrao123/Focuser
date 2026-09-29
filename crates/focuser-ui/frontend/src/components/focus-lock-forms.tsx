@@ -243,7 +243,25 @@ export function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => vo
           </p>
           {requestChallenge.data && (
             <p className="mt-3 select-all break-all rounded-md border border-border bg-surface px-3 py-2 font-mono text-foreground text-sm tracking-wide">
-              {requestChallenge.data}
+              <span className="sr-only select-none">{requestChallenge.data}</span>
+              <span aria-hidden="true">
+                {challengeCharacters.map((character, index) => (
+                  <span
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Challenge positions are fixed, stateless characters.
+                    key={`${index}-${character}`}
+                    className={
+                      index === mismatchIndex
+                        ? "text-destructive"
+                        : index < Array.from(response).length &&
+                            (mismatchIndex === -1 || index < mismatchIndex)
+                          ? "text-success"
+                          : undefined
+                    }
+                  >
+                    {character}
+                  </span>
+                ))}
+              </span>
             </p>
           )}
           {requestChallenge.isPending && (

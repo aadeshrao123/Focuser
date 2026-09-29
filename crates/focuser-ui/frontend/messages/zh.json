@@ -446,7 +446,7 @@
   "schedule_lock_next": "下一个计划时段将自动锁定。已禁用的列表在计划生效期间重新启用时会锁定。",
   "schedule_lock_unlock": "解锁以编辑",
   "schedule_lock_again": "立即重新锁定",
-  "schedule_lock_setup": "选择解锁方式，然后打开开关。此设置立即应用于已保存的计划。要更改解锁方式，请先按需解锁，关闭开关，配置后再打开。",
+  "schedule_lock_setup": "启用保护前请选择解锁方式。解锁编辑期间，方式和长度的更改立即生效。两次密码一致时，离开输入框即可保存。然后点击立即重新锁定。",
   "shared_allowance_label": "共享使用时长",
   "shared_allowance_minutes": "共享使用时长（分钟）",
   "shared_allowance_period": "分钟 / 每个计划时段",

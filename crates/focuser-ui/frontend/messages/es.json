@@ -462,7 +462,7 @@
   "schedule_lock_next": "El próximo período se bloqueará automáticamente. Una lista desactivada se bloqueará al reactivarla durante un período programado.",
   "schedule_lock_unlock": "Desbloquear para editar",
   "schedule_lock_again": "Bloquear de nuevo ahora",
-  "schedule_lock_setup": "Elige un método de desbloqueo y activa el interruptor. Se aplica inmediatamente al horario guardado. Para cambiar el método, desbloquea si hace falta, desactiva, configura y vuelve a activar.",
+  "schedule_lock_setup": "Elige un método antes de activar la protección. Al desbloquear para editar, el método y la longitud se aplican al instante. Las contraseñas coincidentes se aplican al salir de un campo. Después, vuelve a bloquear.",
   "shared_allowance_label": "Tiempo compartido",
   "shared_allowance_minutes": "Minutos de tiempo compartido",
   "shared_allowance_period": "minutos por período programado",

@@ -35,6 +35,7 @@ export function ScheduledProtectionControl({
   const [length, setLength] = useState(16);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [editingPassword, setEditingPassword] = useState(false);
   const state = status.data?.find((s) => s.block_list_id === list.id)?.state;
   const enabled = !!list.scheduled_protection;
   const protectedNow =
@@ -49,9 +50,31 @@ export function ScheduledProtectionControl({
     : savedLock?.Password
       ? "password"
       : "none";
-  const displayedKind = enabled ? savedKind : kind;
+  const displayedKind = enabled ? (editingPassword ? "password" : savedKind) : kind;
   const displayedLength = enabled ? (savedLock?.RandomText?.length ?? 16) : length;
-  const configurationDisabled = enabled || protectedNow || configure.isPending;
+  const canEditEnabled = state === "unlocked_for_editing";
+  const configurationDisabled =
+    !state ||
+    protection.isPending ||
+    (enabled && !canEditEnabled) ||
+    protectedNow ||
+    configure.isPending;
+  function saveLock(nextLock: LockSetup | null) {
+    if (!canEditEnabled || configurationDisabled) return;
+    configure.mutate(
+      { listId: list.id, enabled: true, lock: nextLock },
+      {
+        onSuccess: () => {
+          setEditingPassword(false);
+          setPassword("");
+          setConfirm("");
+        },
+      },
+    );
+  }
+  function savePassword() {
+    if (password.trim() && password === confirm) saveLock({ kind: "password", password });
+  }
   // With protection off there is no persisted method. The compact toggle uses
   // the existing default; custom setup stays on Block Lists.
   const summaryKind = enabled ? savedKind : "random_text";
@@ -150,7 +173,13 @@ export function ScheduledProtectionControl({
         <Button
           className="mt-3"
           icon={<Lock />}
-          disabled={relock.isPending}
+          disabled={
+            relock.isPending ||
+            configure.isPending ||
+            editingPassword ||
+            password.length > 0 ||
+            confirm.length > 0
+          }
           onClick={() => relock.mutate(list.id)}
         >
           {m.schedule_lock_again()}
@@ -163,7 +192,13 @@ export function ScheduledProtectionControl({
           )}
           <Select
             value={displayedKind}
-            onValueChange={setKind}
+            onValueChange={(next) => {
+              setKind(next);
+              if (!enabled) return;
+              setEditingPassword(next === "password");
+              if (next !== "password")
+                saveLock(next === "none" ? null : { kind: "random_text", length: displayedLength });
+            }}
             disabled={configurationDisabled}
             aria-label={m.lists_lock_kind_label()}
             options={[
@@ -172,11 +207,11 @@ export function ScheduledProtectionControl({
               { value: "none", label: m.lists_lock_kind_none() },
             ]}
           />
-          {!enabled && !protectedNow && (
+          {(!enabled || canEditEnabled) && !protectedNow && (
             <p className="text-sm text-muted-foreground">
-              {kind === "none"
+              {displayedKind === "none"
                 ? m.lists_lock_kind_hint_none()
-                : kind === "random_text"
+                : displayedKind === "random_text"
                   ? m.lists_lock_kind_hint_random_text()
                   : confirm && password !== confirm
                     ? m.lists_lock_password_mismatch()
@@ -186,14 +221,17 @@ export function ScheduledProtectionControl({
           {displayedKind === "random_text" && (
             <NumberField
               value={displayedLength}
-              onCommit={setLength}
+              onCommit={(next) => {
+                setLength(next);
+                if (enabled) saveLock({ kind: "random_text", length: next });
+              }}
               disabled={configurationDisabled}
               min={6}
               max={256}
               aria-label={m.lists_lock_random_text_length()}
             />
           )}
-          {displayedKind === "password" && !enabled && (
+          {displayedKind === "password" && (!enabled || canEditEnabled) && (
             <div className="flex gap-2">
               <Input
                 type="password"
@@ -201,6 +239,7 @@ export function ScheduledProtectionControl({
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onBlur={savePassword}
                 placeholder={m.lists_lock_password_placeholder()}
                 aria-label={m.lists_lock_password_placeholder()}
               />
@@ -210,6 +249,7 @@ export function ScheduledProtectionControl({
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
+                onBlur={savePassword}
                 placeholder={m.lists_lock_password_confirm_placeholder()}
                 aria-label={m.lists_lock_password_confirm_placeholder()}
               />

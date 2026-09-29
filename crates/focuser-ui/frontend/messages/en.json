@@ -454,7 +454,7 @@
   "schedule_lock_next": "Next scheduled period will lock automatically. A disabled list locks when re-enabled during a scheduled period.",
   "schedule_lock_unlock": "Unlock for editing",
   "schedule_lock_again": "Lock again now",
-  "schedule_lock_setup": "Choose an unlock method, then turn on Lock during schedule. The switch applies immediately to the saved schedule. To change the method later, unlock if needed, turn this switch off, configure it, and turn it on again.",
+  "schedule_lock_setup": "Choose an unlock method before enabling protection. While unlocked for editing, method and length changes apply immediately. Matching password fields apply when you leave either field. Then use Lock again now.",
   "shared_allowance_label": "Shared allowance",
   "shared_allowance_minutes": "Shared allowance minutes",
   "shared_allowance_period": "minutes per scheduled block",

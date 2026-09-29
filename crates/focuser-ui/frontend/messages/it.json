@@ -462,7 +462,7 @@
   "schedule_lock_next": "Il prossimo periodo verrà bloccato automaticamente. Una lista disattivata si blocca quando viene riattivata durante un periodo programmato.",
   "schedule_lock_unlock": "Sblocca per modificare",
   "schedule_lock_again": "Blocca di nuovo ora",
-  "schedule_lock_setup": "Scegli un metodo di sblocco e attiva l’interruttore. Si applica subito alla pianificazione salvata. Per cambiare metodo, sblocca se necessario, disattiva, configura e riattiva.",
+  "schedule_lock_setup": "Scegli un metodo prima di attivare la protezione. Durante lo sblocco per modificare, metodo e lunghezza si applicano subito. Le password coincidenti si applicano uscendo da un campo. Poi blocca di nuovo.",
   "shared_allowance_label": "Tempo condiviso",
   "shared_allowance_minutes": "Minuti di tempo condiviso",
   "shared_allowance_period": "minuti per periodo programmato",

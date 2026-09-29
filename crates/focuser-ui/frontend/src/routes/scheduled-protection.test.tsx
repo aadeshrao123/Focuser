@@ -152,7 +152,13 @@ beforeEach(() => {
                     : null,
             }
           : null;
-        state = cmd.args.enabled ? (active ? "locked" : "inactive") : "off";
+        state = cmd.args.enabled
+          ? state === "unlocked_for_editing"
+            ? state
+            : active
+              ? "locked"
+              : "inactive"
+          : "off";
         return { kind: "unit" };
       }
       case "request_unlock_challenge":
@@ -419,4 +425,57 @@ it("preserves the manual timed Focus Lock action", async () => {
       }),
     ),
   );
+});
+
+it("editing bypass permits direct method, length and password changes before relocking", async () => {
+  stored.scheduled_protection = { lock: { RandomText: { length: 16 } } };
+  active = true;
+  state = "unlocked_for_editing";
+  show();
+  const method = () => page("lists").getByRole("combobox", { name: "Unlock method" });
+  await waitFor(() => expect(method()).toBeEnabled());
+  const length = page("lists").getByRole("spinbutton", { name: "Challenge length" });
+  expect(length).toBeEnabled();
+  fireEvent.change(length, { target: { value: "32" } });
+  fireEvent.blur(length);
+  await waitFor(() =>
+    expect(stored.scheduled_protection?.lock).toEqual({ RandomText: { length: 32 } }),
+  );
+  expect(toggle("lists")).toBeChecked();
+  await waitFor(() => expect(method()).toBeEnabled());
+  fireEvent.change(method(), { target: { value: "password" } });
+  const password = page("lists").getByPlaceholderText("Choose a password");
+  const confirmation = page("lists").getByPlaceholderText("Confirm password");
+  fireEvent.change(password, { target: { value: "new secret" } });
+  fireEvent.change(confirmation, { target: { value: "new secret" } });
+  fireEvent.blur(confirmation);
+  await waitFor(() =>
+    expect(stored.scheduled_protection?.lock).toEqual({ Password: { hash: "hashed" } }),
+  );
+  expect(toggle("lists")).toBeChecked();
+  expect(page("lists").getByText("UNLOCKED FOR EDITING")).toBeVisible();
+  await waitFor(() => expect(method()).toBeEnabled());
+  fireEvent.change(method(), { target: { value: "random_text" } });
+  await waitFor(() => expect(stored.scheduled_protection?.lock).toHaveProperty("RandomText"));
+  const updatedLength = await page("lists").findByRole("spinbutton", { name: "Challenge length" });
+  await waitFor(() => expect(updatedLength).toBeEnabled());
+  fireEvent.change(updatedLength, { target: { value: "48" } });
+  fireEvent.blur(updatedLength);
+  await waitFor(() =>
+    expect(stored.scheduled_protection?.lock).toEqual({ RandomText: { length: 48 } }),
+  );
+  await waitFor(() =>
+    expect(page("lists").getByRole("button", { name: "Lock again now" })).toBeEnabled(),
+  );
+  fireEvent.click(page("lists").getByRole("button", { name: "Lock again now" }));
+  await page("lists").findByText("LOCKED");
+  expect(method()).toBeDisabled();
+  expect(page("lists").getByRole("spinbutton", { name: "Challenge length" })).toBeDisabled();
+  expect(toggle("lists")).toBeChecked();
+  expect(stored.scheduled_protection?.lock).toEqual({ RandomText: { length: 48 } });
+  expect(
+    send.mock.calls
+      .filter(([cmd]) => cmd.cmd === "configure_scheduled_protection")
+      .every(([cmd]) => cmd.args.enabled),
+  ).toBe(true);
 });
