@@ -446,5 +446,13 @@
   "schedule_lock_next": "次の有効期間に自動でロックします。無効なリストは、スケジュールの有効期間中に再び有効にするとロックされます。",
   "schedule_lock_unlock": "編集のためにロック解除",
   "schedule_lock_again": "今すぐ再ロック",
-  "schedule_lock_setup": "解除方法を選び、スイッチをオンにしてください。保存済みのスケジュールに即座に適用されます。方法を変更するには、必要に応じて解除し、オフにして設定後に再びオンにしてください。"
+  "schedule_lock_setup": "解除方法を選び、スイッチをオンにしてください。保存済みのスケジュールに即座に適用されます。方法を変更するには、必要に応じて解除し、オフにして設定後に再びオンにしてください。",
+  "shared_allowance_label": "共有時間枠",
+  "shared_allowance_minutes": "共有時間枠（分）",
+  "shared_allowance_period": "分（スケジュール期間ごと）",
+  "shared_allowance_schedule_hint": "共有時間枠を使うには週間スケジュールを設定してください。",
+  "shared_allowance_hint": "共有時間枠が有効な間、サイト・アプリごとの時間枠は一時停止されます。",
+  "shared_allowance_exhausted": "共有時間枠：このスケジュール期間の時間を使い切りました",
+  "shared_allowance_remaining": "共有時間枠：{total}分中、残り{remaining}分",
+  "shared_allowance_paused": "共有時間枠が有効な間は一時停止されます。"
 }

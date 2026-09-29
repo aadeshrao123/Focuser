@@ -186,6 +186,11 @@ pub enum Command {
         list_id: EntityId,
     },
     GetScheduledProtectionStatus,
+    ConfigureSharedAllowance {
+        list_id: EntityId,
+        minutes: Option<u32>,
+    },
+    GetSharedAllowanceStatus,
     GetProtectionStatus,
     /// Issue a fresh random-text challenge for a protected list. Only valid
     /// on a list whose lock is [`focuser_common::types::Lock::RandomText`].
@@ -412,6 +417,7 @@ pub enum CommandResult {
     BlockedEvents(Vec<BlockedEvent>),
     ProtectionStatus(Vec<ProtectionInfo>),
     ScheduledProtectionStatus(Vec<ScheduledProtectionStatus>),
+    SharedAllowanceStatus(Vec<focuser_common::allowance::SharedAllowanceStatus>),
     BlockingHealth(BlockingHealth),
     /// A setting value; `None` when unset and no default was supplied.
     Setting(Option<String>),

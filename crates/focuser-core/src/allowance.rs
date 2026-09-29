@@ -112,6 +112,9 @@ impl AllowanceTracker {
     /// Handle one tick. Attributes the tick to any matching allowance,
     /// increments usage, and updates the blocked set when exhausted.
     pub fn ingest_tick(&self, db: &Database, tick: &AllowanceTick) -> Result<()> {
+        if db.ingest_shared_at(tick, Local::now())? || tick.shared_only {
+            return Ok(());
+        }
         let mut inner = self.inner.lock().expect("tracker mutex poisoned");
         self.reset_if_new_day(&mut inner);
         drop(inner);
@@ -381,6 +384,9 @@ mod tests {
 
         let tracker = AllowanceTracker::new();
         let tick = AllowanceTick {
+            url: None,
+            shared_active: false,
+            shared_only: false,
             hostname: Some("youtube.com".into()),
             app_exe: None,
             active: true,
@@ -402,6 +408,9 @@ mod tests {
 
         let tracker = AllowanceTracker::new();
         let tick = AllowanceTick {
+            url: None,
+            shared_active: false,
+            shared_only: false,
             hostname: Some("twitter.com".into()),
             app_exe: None,
             active: false,
@@ -420,6 +429,9 @@ mod tests {
 
         let tracker = AllowanceTracker::new();
         let tick = AllowanceTick {
+            url: None,
+            shared_active: false,
+            shared_only: false,
             hostname: Some("reddit.com".into()),
             app_exe: None,
             active: true,

@@ -462,5 +462,13 @@
   "schedule_lock_next": "El próximo período se bloqueará automáticamente. Una lista desactivada se bloqueará al reactivarla durante un período programado.",
   "schedule_lock_unlock": "Desbloquear para editar",
   "schedule_lock_again": "Bloquear de nuevo ahora",
-  "schedule_lock_setup": "Elige un método de desbloqueo y activa el interruptor. Se aplica inmediatamente al horario guardado. Para cambiar el método, desbloquea si hace falta, desactiva, configura y vuelve a activar."
+  "schedule_lock_setup": "Elige un método de desbloqueo y activa el interruptor. Se aplica inmediatamente al horario guardado. Para cambiar el método, desbloquea si hace falta, desactiva, configura y vuelve a activar.",
+  "shared_allowance_label": "Tiempo compartido",
+  "shared_allowance_minutes": "Minutos de tiempo compartido",
+  "shared_allowance_period": "minutos por período programado",
+  "shared_allowance_schedule_hint": "Configura un horario semanal para usar el tiempo compartido.",
+  "shared_allowance_hint": "Los límites individuales de sitios y aplicaciones se pausan mientras el tiempo compartido está activo.",
+  "shared_allowance_exhausted": "Tiempo compartido: Agotado para este período programado",
+  "shared_allowance_remaining": "Tiempo compartido: Quedan {remaining} min de {total} min",
+  "shared_allowance_paused": "En pausa mientras el tiempo compartido está activo."
 }

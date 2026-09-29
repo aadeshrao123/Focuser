@@ -32,6 +32,9 @@ pub struct BlockList {
     #[serde(default)]
     pub schedule_unlocked_until: Option<DateTime<Utc>>,
     pub breaks: Option<BreakConfig>,
+    /// Optional shared budget per merged weekly schedule occurrence.
+    #[serde(default)]
+    pub shared_allowance: Option<crate::allowance::SharedAllowanceConfig>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -52,6 +55,7 @@ impl BlockList {
             scheduled_protection: None,
             schedule_unlocked_until: None,
             breaks: None,
+            shared_allowance: None,
             created_at: now,
             updated_at: now,
         }
@@ -451,7 +455,8 @@ impl Lock {
     /// Characters that stay unambiguous in a UI font — no `0`/`O`, `1`/`l`/`I`.
     /// A challenge that is impossible to transcribe correctly defeats the
     /// point, which is friction, not a puzzle.
-    const CHALLENGE_ALPHABET: &'static [u8] = b"abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const CHALLENGE_ALPHABET: &'static [u8] =
+        b"abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
     /// Hash `plain` with Argon2 and build a password lock. The plaintext is
     /// never stored or returned.

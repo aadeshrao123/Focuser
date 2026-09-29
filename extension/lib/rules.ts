@@ -10,6 +10,7 @@
 
 /** The rule set exactly as the desktop app serves it. */
 export interface RuleSet {
+  scopes?: { rules: RuleSet; shared_permits: boolean | null; scheduled: boolean }[];
   blocked_domains: string[];
   blocked_keywords: string[];
   blocked_wildcards: string[];
@@ -23,6 +24,7 @@ export interface RuleSet {
 
 /** Rules with the hot paths pre-canonicalised, built once per rules update. */
 export interface CompiledRules {
+  scopes?: { rules: CompiledRules; sharedPermits: boolean | null; scheduled: boolean }[];
   domains: Set<string>;
   keywords: string[];
   wildcards: string[];
@@ -127,7 +129,9 @@ export function matchHostWildcard(pattern: string, hostname: string): boolean {
 
   // Both the host as given and its canonical form: a glob may be aiming at the
   // `www.` label that canonicalHost removes.
-  const raw = String(hostname ?? "").trim().toLowerCase();
+  const raw = String(hostname ?? "")
+    .trim()
+    .toLowerCase();
   const glob = pattern.trim().toLowerCase();
   if (matchWildcard(glob, raw) || matchWildcard(glob, canonical)) return true;
 
@@ -139,6 +143,11 @@ export function matchHostWildcard(pattern: string, hostname: string): boolean {
 export function compile(rules: RuleSet | null): CompiledRules {
   if (!rules) return EMPTY_RULES;
   return {
+    scopes: rules.scopes?.map((s) => ({
+      rules: compile(s.rules),
+      sharedPermits: s.shared_permits,
+      scheduled: s.scheduled,
+    })),
     domains: canonicalSet(rules.blocked_domains),
     keywords: (rules.blocked_keywords ?? []).map((k) => k.toLowerCase()),
     wildcards: rules.blocked_wildcards ?? [],
@@ -175,13 +184,22 @@ export type BlockMatch =
  * Exceptions win over every rule, including "block the entire internet" —
  * an allowance that cannot be honoured is not an allowance.
  */
-export function match(
-  rules: CompiledRules,
-  hostname: string,
-  url: string,
-): BlockMatch | null {
+export function match(rules: CompiledRules, hostname: string, url: string): BlockMatch | null {
   const host = canonicalHost(hostname);
   const lowerUrl = (url ?? "").toLowerCase();
+
+  if (rules.scopes?.length) {
+    const applicable = rules.scopes
+      .map((s) => ({ ...s, hit: match(s.rules, hostname, url) }))
+      .filter((s) => s.hit);
+    const shared = applicable.some((s) => s.sharedPermits !== null);
+    for (const scope of applicable) {
+      if (scope.sharedPermits === true) continue;
+      if (!shared && !scope.scheduled && isAllowed(rules, hostname)) continue;
+      return scope.hit;
+    }
+    return null;
+  }
 
   if (isAllowed(rules, hostname)) return null;
   if (rules.blockEverything) return { reason: "everything", target: host };
@@ -201,11 +219,7 @@ export function match(
   return null;
 }
 
-export function isBlocked(
-  rules: CompiledRules,
-  hostname: string,
-  url: string,
-): boolean {
+export function isBlocked(rules: CompiledRules, hostname: string, url: string): boolean {
   return match(rules, hostname, url) !== null;
 }
 
@@ -237,9 +251,6 @@ export function trackingKey(hit: BlockMatch): string {
 /** How many distinct things the current rules block, for the toolbar badge. */
 export function ruleCount(rules: CompiledRules): number {
   return (
-    rules.domains.size +
-    rules.keywords.length +
-    rules.urlPaths.length +
-    rules.wildcards.length
+    rules.domains.size + rules.keywords.length + rules.urlPaths.length + rules.wildcards.length
   );
 }

@@ -132,6 +132,23 @@ pub fn run_all(conn: &Connection) -> Result<()> {
                 challenge TEXT NOT NULL
             );",
         ),
+        (
+            "v6: shared scheduled allowance activity",
+            "CREATE TABLE shared_allowance_usage (
+                block_list_id TEXT NOT NULL,
+                occurrence_start INTEGER NOT NULL,
+                intervals TEXT NOT NULL DEFAULT '[]',
+                PRIMARY KEY (block_list_id, occurrence_start)
+            );",
+        ),
+        (
+            "v7: stable shared allowance occurrence anchors",
+            "CREATE TABLE shared_allowance_occurrences (
+                block_list_id TEXT PRIMARY KEY,
+                usage_start INTEGER NOT NULL,
+                ends_at INTEGER NOT NULL
+            );",
+        ),
     ];
 
     for (i, (name, sql)) in migrations.iter().enumerate() {

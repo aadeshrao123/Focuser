@@ -386,7 +386,8 @@ fn api_check_domain(path: &str, state: &AppState) -> (&'static str, String) {
 
     let eng = state.engine.lock().unwrap();
     let exemptions = state.allowance_exempt_domains(&eng);
-    let blocked = if any_host_matches(&exemptions, domain) {
+    let blocked = if any_host_matches(&exemptions, domain) && !eng.scheduled_block_on_domain(domain)
+    {
         false
     } else {
         eng.check_domain(domain).is_some()
@@ -739,8 +740,19 @@ fn api_allowance_tick(body: &str, state: &AppState) -> (&'static str, String) {
 }
 
 fn api_allowance_blocked(state: &AppState) -> (&'static str, String) {
-    let domains = state.allowance_tracker.blocked_domains();
-    let apps = state.allowance_tracker.blocked_apps();
+    let eng = state.engine.lock().unwrap();
+    let domains: Vec<_> = state
+        .allowance_tracker
+        .blocked_domains()
+        .into_iter()
+        .filter(|d| !eng.shared_covers_domain(d))
+        .collect();
+    let apps: Vec<_> = state
+        .allowance_tracker
+        .blocked_apps()
+        .into_iter()
+        .filter(|a| !eng.shared_covers_app(a))
+        .collect();
     let json = serde_json::json!({ "domains": domains, "apps": apps });
     ("200 OK", json.to_string())
 }
@@ -765,7 +777,7 @@ fn api_allowances_list(state: &AppState) -> (&'static str, String) {
         Ok(e) => e,
         Err(_) => return ("500 Internal Server Error", r#"{"error":"lock"}"#.into()),
     };
-    match eng.db().list_allowance_statuses() {
+    match eng.db().allowance_statuses_with_shared() {
         Ok(list) => (
             "200 OK",
             serde_json::to_string(&list).unwrap_or_else(|_| "[]".into()),
@@ -1004,6 +1016,64 @@ mod tests {
 
     // A hosts file cannot express these, so this endpoint is the only way they
     // ever reach anything that enforces them.
+    #[test]
+    fn shared_allowance_api_preserves_scopes_pauses_individuals_and_exhausts() {
+        use chrono::Weekday;
+        use focuser_common::types::{Schedule, TimeSlot};
+        let state = ctx_with_extension(|db| {
+            let mut list = BlockList::new("Shared");
+            list.websites.push(WebsiteRule::domain("youtube.com"));
+            list.schedule = Some(Schedule {
+                id: list.id,
+                name: "Every day".into(),
+                enabled: true,
+                time_slots: [
+                    Weekday::Mon,
+                    Weekday::Tue,
+                    Weekday::Wed,
+                    Weekday::Thu,
+                    Weekday::Fri,
+                    Weekday::Sat,
+                    Weekday::Sun,
+                ]
+                .into_iter()
+                .map(|d| TimeSlot::new(d, chrono::NaiveTime::MIN, chrono::NaiveTime::MIN))
+                .collect(),
+            });
+            list.shared_allowance =
+                Some(focuser_common::allowance::SharedAllowanceConfig { minutes: 1 });
+            db.create_block_list(&list).unwrap();
+            db.create_allowance(&focuser_common::allowance::Allowance::new(
+                AllowanceMatch::Domain("youtube.com".into()),
+                600,
+                true,
+            ))
+            .unwrap();
+        });
+        let rules: serde_json::Value = serde_json::from_str(&super::api_rules(&state).1).unwrap();
+        assert_eq!(rules["scopes"][0]["shared_permits"], true);
+        assert!(rules["allowed_domains"].as_array().unwrap().is_empty());
+        assert!(
+            rules["blocked_domains"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|d| d == "youtube.com"),
+            "old extension fallback stays blocked"
+        );
+        let result = super::api_allowance_tick(
+            r#"{"hostname":"youtube.com","url":"https://youtube.com/watch","active":true,"shared_active":true,"shared_only":true,"increment_secs":60,"source":"test"}"#,
+            &state,
+        );
+        assert_eq!(result.0, "200 OK");
+        assert_eq!(used_secs(&state), 0);
+        let rules: serde_json::Value = serde_json::from_str(&super::api_rules(&state).1).unwrap();
+        assert_eq!(rules["scopes"][0]["shared_permits"], false);
+        let eng = state.engine.lock().unwrap();
+        assert_eq!(eng.check_domain("youtube.com"), Some("Shared"));
+        assert!(eng.db().allowance_statuses_with_shared().unwrap()[0].paused_by_shared);
+    }
+
     #[test]
     fn compiled_rules_carry_the_extension_only_kinds() {
         let state = ctx_with_extension(|db| {

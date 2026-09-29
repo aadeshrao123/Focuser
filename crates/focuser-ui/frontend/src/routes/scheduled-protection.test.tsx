@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { BlockList, Command, CommandResult, ScheduledLockState } from "@/bindings";
 import { ProtectForm } from "@/components/focus-lock-forms";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Allowances } from "./allowances";
 import { BlockLists } from "./block-lists";
 import { Schedule } from "./schedule";
 
@@ -34,9 +35,11 @@ vi.mock("@/components/ui/select", () => ({
 let stored: BlockList;
 let state: ScheduledLockState;
 let active: boolean;
+let remaining: number;
 beforeEach(() => {
   vi.clearAllMocks();
   active = false;
+  remaining = 1800;
   state = "off";
   stored = {
     id: "list-1",
@@ -56,11 +59,62 @@ beforeEach(() => {
       time_slots: [{ day: "Mon", start: "09:00:00", end: "17:00:00" }],
     },
     breaks: null,
+    shared_allowance: null,
     created_at: "2026-09-21T00:00:00Z",
     updated_at: "2026-09-21T00:00:00Z",
   };
   send.mockImplementation(async (cmd: Command): Promise<CommandResult> => {
     switch (cmd.cmd) {
+      case "get_shared_allowance_status":
+        return {
+          kind: "shared_allowance_status",
+          data: stored.shared_allowance
+            ? [
+                {
+                  block_list_id: stored.id,
+                  active,
+                  limit_secs: stored.shared_allowance.minutes * 60,
+                  remaining_secs: remaining,
+                },
+              ]
+            : [],
+        };
+      case "configure_shared_allowance":
+        stored.shared_allowance = cmd.args.minutes === null ? null : { minutes: cmd.args.minutes };
+        return { kind: "unit" };
+      case "allowance_list":
+        return {
+          kind: "allowances",
+          data: [
+            {
+              allowance: {
+                id: "allowance-1",
+                target: { kind: "Domain", value: "youtube.com" },
+                daily_limit_secs: 600,
+                strict_mode: true,
+                enabled: true,
+                created_at: stored.created_at,
+              },
+              used_today_secs: 100,
+              remaining_secs: 500,
+              exhausted: false,
+              paused_by_shared: true,
+            },
+          ],
+        };
+      case "get_browser_status":
+        return { kind: "browser_status", data: [] };
+      case "get_blocking_health":
+        return {
+          kind: "blocking_health",
+          data: {
+            active_lists: 1,
+            extension_connected: false,
+            hosts_writable: false,
+            extension_only_rules: false,
+            app_usage_measurable: true,
+          },
+        };
       case "list_block_lists":
         return { kind: "block_lists", data: [structuredClone(stored)] };
       case "get_scheduled_protection_status":
@@ -112,6 +166,56 @@ beforeEach(() => {
         throw new Error(`Unexpected command: ${cmd.cmd}`);
     }
   });
+});
+
+it("shared allowance toggle and duration persist immediately on Block Lists", async () => {
+  show();
+  const control = () => page("lists").getByRole("switch", { name: "Shared allowance" });
+  await waitFor(() => expect(control()).toBeEnabled());
+  fireEvent.click(control());
+  await waitFor(() => expect(stored.shared_allowance?.minutes).toBe(30));
+  const minutes = await page("lists").findByRole("spinbutton", {
+    name: "Shared allowance minutes",
+  });
+  fireEvent.change(minutes, { target: { value: "15" } });
+  fireEvent.blur(minutes);
+  await waitFor(() => expect(stored.shared_allowance?.minutes).toBe(15));
+  expect(
+    page("lists").getByText(
+      "Individual site/app allowances are paused while shared allowance is active.",
+    ),
+  ).toBeVisible();
+  fireEvent.click(control());
+  await waitFor(() => expect(stored.shared_allowance).toBeNull());
+});
+
+it.each([
+  [1080, "Shared allowance: 18m remaining of 30m"],
+  [0, "Shared allowance: Used up for this scheduled block"],
+])("shared allowance shows active remaining/exhausted status %s", async (seconds, label) => {
+  stored.shared_allowance = { minutes: 30 };
+  active = true;
+  remaining = Number(seconds);
+  show();
+  expect(await screen.findByText(String(label))).toBeVisible();
+});
+
+it("shared configuration is disabled while protected and hides stale inactive usage", async () => {
+  stored.shared_allowance = { minutes: 30 };
+  remaining = 0;
+  state = "locked";
+  show();
+  await page("lists").findByText("LOCKED");
+  expect(page("lists").getByRole("switch", { name: "Shared allowance" })).toBeDisabled();
+  expect(
+    page("lists").getByRole("spinbutton", { name: "Shared allowance minutes" }),
+  ).toBeDisabled();
+  expect(screen.queryByText("Shared allowance: Used up for this scheduled block")).toBeNull();
+});
+
+it("individual allowance displays its paused state", async () => {
+  show(<Allowances />);
+  expect(await screen.findByText("Paused while shared allowance is active.")).toBeVisible();
 });
 
 function show(

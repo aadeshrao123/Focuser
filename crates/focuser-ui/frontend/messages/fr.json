@@ -462,5 +462,13 @@
   "schedule_lock_next": "La prochaine plage sera verrouillée automatiquement. Une liste désactivée se verrouille lorsqu’elle est réactivée pendant une plage planifiée.",
   "schedule_lock_unlock": "Déverrouiller pour modifier",
   "schedule_lock_again": "Verrouiller à nouveau",
-  "schedule_lock_setup": "Choisissez une méthode de déverrouillage, puis activez le commutateur. Il s’applique immédiatement au planning enregistré. Pour changer de méthode, déverrouillez si nécessaire, désactivez, configurez et réactivez."
+  "schedule_lock_setup": "Choisissez une méthode de déverrouillage, puis activez le commutateur. Il s’applique immédiatement au planning enregistré. Pour changer de méthode, déverrouillez si nécessaire, désactivez, configurez et réactivez.",
+  "shared_allowance_label": "Temps partagé",
+  "shared_allowance_minutes": "Minutes de temps partagé",
+  "shared_allowance_period": "minutes par période planifiée",
+  "shared_allowance_schedule_hint": "Définissez un planning hebdomadaire pour utiliser le temps partagé.",
+  "shared_allowance_hint": "Les quotas individuels des sites et applications sont suspendus lorsque le temps partagé est actif.",
+  "shared_allowance_exhausted": "Temps partagé : épuisé pour cette période planifiée",
+  "shared_allowance_remaining": "Temps partagé : {remaining} min restantes sur {total} min",
+  "shared_allowance_paused": "En pause lorsque le temps partagé est actif."
 }

@@ -26,6 +26,7 @@ const TICK_SOURCE: &str = "foreground-watcher";
 pub fn run_foreground_watcher(state: Arc<AppState>) {
     info!("Foreground app watcher started");
     let mut last_tick = Instant::now();
+    let mut previous_exe: Option<String> = None;
 
     loop {
         thread::sleep(TICK_INTERVAL);
@@ -36,25 +37,33 @@ pub fn run_foreground_watcher(state: Arc<AppState>) {
 
         // Skip idle users — quota only counts when they're actually present.
         if user_idle_seconds().unwrap_or(0) >= IDLE_THRESHOLD_SECS {
+            previous_exe = None;
             continue;
         }
 
         let Some(sample) = foreground_app() else {
+            previous_exe = None;
             continue;
         };
 
         // Don't count the Focuser UI itself.
         if sample.is_self {
+            previous_exe = None;
             continue;
         }
 
         let tick = AllowanceTick {
+            url: None,
+            shared_active: previous_exe.as_deref() == Some(sample.exe_name.as_str())
+                && elapsed <= 10,
+            shared_only: false,
             hostname: None,
             app_exe: Some(sample.exe_name.clone()),
             active: true,
             source: TICK_SOURCE.into(),
             increment_secs: Some(elapsed.clamp(1, 60)),
         };
+        previous_exe = Some(sample.exe_name.clone());
 
         if let Ok(eng) = state.engine.lock()
             && let Err(e) = state.allowance_tracker.ingest_tick(eng.db(), &tick)

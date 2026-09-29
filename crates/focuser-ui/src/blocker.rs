@@ -119,7 +119,7 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
             // Kill blocked processes
             kill_blocked_processes(&eng, &state.allowance_tracker);
             // Also kill apps whose allowance is exhausted today.
-            kill_allowance_blocked_apps(&state.allowance_tracker);
+            kill_allowance_blocked_apps(&state.allowance_tracker, &eng);
 
             // Uninstall protection. Only while a lock actually asks for it —
             // scanning command lines is expensive and this is the one case
@@ -297,10 +297,14 @@ fn kill_blocked_processes(
 
 /// Kill processes whose executable name matches an allowance that is
 /// exhausted for today.
-fn kill_allowance_blocked_apps(tracker: &focuser_core::allowance::AllowanceTracker) {
+fn kill_allowance_blocked_apps(
+    tracker: &focuser_core::allowance::AllowanceTracker,
+    eng: &focuser_core::BlockEngine,
+) {
     let exhausted: HashSet<String> = tracker
         .blocked_apps()
         .into_iter()
+        .filter(|exe| !eng.shared_covers_app(exe))
         .map(|s| s.to_ascii_lowercase())
         .collect();
     if exhausted.is_empty() {

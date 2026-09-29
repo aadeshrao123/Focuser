@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 import type { BlockList, ProtectionInfo } from "@/bindings";
 import { effectiveLock, ProtectForm, UnlockForm } from "@/components/focus-lock-forms";
 import { ScheduledProtectionControl } from "@/components/scheduled-protection-control";
+import { SharedAllowanceControl } from "@/components/shared-allowance-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
@@ -185,6 +186,7 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
         </div>
 
         <ScheduledProtectionControl list={list} />
+        <SharedAllowanceControl list={list} />
         {protecting && !lock && <ProtectForm list={list} onDone={() => setProtecting(false)} />}
         {unlocking && canUnlockEarly && (
           <UnlockForm list={list} onDone={() => setUnlocking(false)} />

@@ -446,5 +446,13 @@
   "schedule_lock_next": "다음 활성 기간에 자동으로 잠깁니다. 비활성 목록을 일정 활성 기간 중 다시 켜면 잠깁니다.",
   "schedule_lock_unlock": "편집을 위해 잠금 해제",
   "schedule_lock_again": "지금 다시 잠금",
-  "schedule_lock_setup": "잠금 해제 방법을 선택하고 스위치를 켜세요. 저장된 일정에 즉시 적용됩니다. 방법을 변경하려면 필요 시 잠금을 해제하고, 스위치를 끈 후 설정하고 다시 켜세요."
+  "schedule_lock_setup": "잠금 해제 방법을 선택하고 스위치를 켜세요. 저장된 일정에 즉시 적용됩니다. 방법을 변경하려면 필요 시 잠금을 해제하고, 스위치를 끈 후 설정하고 다시 켜세요.",
+  "shared_allowance_label": "공유 허용 시간",
+  "shared_allowance_minutes": "공유 허용 시간(분)",
+  "shared_allowance_period": "분 / 예약된 차단 기간",
+  "shared_allowance_schedule_hint": "공유 허용 시간을 사용하려면 주간 일정을 설정하세요.",
+  "shared_allowance_hint": "공유 허용 시간이 활성화된 동안 개별 사이트 및 앱 허용 시간은 일시 중지됩니다.",
+  "shared_allowance_exhausted": "공유 허용 시간: 이번 예약된 차단 기간의 시간을 모두 사용했습니다",
+  "shared_allowance_remaining": "공유 허용 시간: {total}분 중 {remaining}분 남음",
+  "shared_allowance_paused": "공유 허용 시간이 활성화된 동안 일시 중지됩니다."
 }

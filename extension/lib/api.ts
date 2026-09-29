@@ -66,10 +66,7 @@ export async function sendHeartbeat(browser: BrowserName): Promise<void> {
  * than throwing, because a statistics hiccup must never stop the page being
  * blocked.
  */
-export async function reportBlocked(
-  domain: string,
-  key: string,
-): Promise<number> {
+export async function reportBlocked(domain: string, key: string): Promise<number> {
   try {
     const response = await fetch(`${API_BASE}/api/blocked`, {
       method: "POST",
@@ -93,6 +90,8 @@ export async function sendAllowanceTick(
   hostname: string,
   incrementSecs: number,
   source: string,
+  url?: string,
+  sharedOnly = false,
 ): Promise<void> {
   try {
     await fetch(`${API_BASE}/api/allowance-tick`, {
@@ -104,6 +103,9 @@ export async function sendAllowanceTick(
         active: true,
         source,
         increment_secs: incrementSecs,
+        url: url ?? null,
+        shared_active: sharedOnly,
+        shared_only: sharedOnly,
       }),
     });
   } catch {

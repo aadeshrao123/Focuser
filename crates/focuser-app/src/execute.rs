@@ -59,6 +59,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             list.lock = stored.lock;
             list.scheduled_protection = stored.scheduled_protection;
             list.schedule_unlocked_until = stored.schedule_unlocked_until;
+            list.shared_allowance = stored.shared_allowance;
             list.reconcile_schedule_bypass();
 
             engine.db().update_block_list(&list)?;
@@ -360,6 +361,29 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             Ok(CommandResult::Unit)
         }
 
+        Command::ConfigureSharedAllowance { list_id, minutes } => {
+            ensure_unprotected(&engine, list_id)?;
+            let config =
+                minutes.map(|minutes| focuser_common::allowance::SharedAllowanceConfig { minutes });
+            if let Some(config) = &config {
+                config.validate().map_err(CommandError::Validation)?;
+            }
+            let mut list = engine.db().get_block_list(list_id)?;
+            list.shared_allowance = config;
+            list.updated_at = chrono::Utc::now();
+            engine.db().update_block_list(&list)?;
+            engine.refresh()?;
+            Ok(CommandResult::Unit)
+        }
+        Command::GetSharedAllowanceStatus => {
+            let mut statuses = Vec::new();
+            for list in engine.block_lists() {
+                if let Some(status) = engine.db().shared_status_at(list, chrono::Local::now())? {
+                    statuses.push(status);
+                }
+            }
+            Ok(CommandResult::SharedAllowanceStatus(statuses))
+        }
         Command::RelockScheduledProtection { list_id } => {
             let mut list = engine.db().get_block_list(list_id)?;
             list.schedule_unlocked_until = None;
@@ -596,7 +620,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
 
         // ─── Allowances ───────────────────────────────────────────
         Command::AllowanceList => Ok(CommandResult::Allowances(
-            engine.db().list_allowance_statuses()?,
+            engine.db().allowance_statuses_with_shared()?,
         )),
 
         Command::AllowanceCreate {
@@ -704,6 +728,11 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
 
             ensure_nothing_protected(&engine)?;
 
+            for list in &document.block_lists {
+                if let Some(config) = &list.shared_allowance {
+                    config.validate().map_err(CommandError::Validation)?;
+                }
+            }
             for id in engine
                 .block_lists()
                 .iter()
@@ -717,7 +746,9 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 let _ = engine.db().take_unlock_challenge(id);
             }
             for list in &document.block_lists {
-                engine.db().create_block_list(list)?;
+                let mut list = list.clone();
+                list.schedule_unlocked_until = None;
+                engine.db().create_block_list(&list)?;
             }
 
             engine.refresh()?;
@@ -738,7 +769,8 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             // A domain with allowance time left is reachable even though it
             // appears in a block list, so check that before the rules.
             let exemptions = ctx.allowance_exempt_domains(&engine);
-            let allowed = focuser_common::host::any_host_matches(&exemptions, &domain);
+            let allowed = focuser_common::host::any_host_matches(&exemptions, &domain)
+                && !engine.scheduled_block_on_domain(&domain);
 
             Ok(CommandResult::Flag(
                 !allowed && engine.check_domain(&domain).is_some(),
@@ -1651,6 +1683,215 @@ mod tests {
         )
         .unwrap();
         list
+    }
+
+    #[test]
+    fn shared_allowance_configuration_is_guarded_but_consumption_never_unlocks() {
+        let ctx = ctx();
+        let list = scheduled_list(
+            &ctx,
+            Some(LockSetup::Password {
+                password: "secret".into(),
+            }),
+        );
+        for minutes in [Some(30), Some(15), None] {
+            assert!(
+                execute(
+                    &ctx,
+                    Command::ConfigureSharedAllowance {
+                        list_id: list.id,
+                        minutes
+                    }
+                )
+                .is_err()
+            );
+        }
+        execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: "secret".into(),
+            },
+        )
+        .unwrap();
+        execute(
+            &ctx,
+            Command::ConfigureSharedAllowance {
+                list_id: list.id,
+                minutes: Some(1),
+            },
+        )
+        .unwrap();
+        execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("youtube.com".into()),
+            },
+        )
+        .unwrap();
+        execute(
+            &ctx,
+            Command::RelockScheduledProtection { list_id: list.id },
+        )
+        .unwrap();
+        {
+            let engine = ctx.engine.lock().unwrap();
+            let tick = focuser_common::allowance::AllowanceTick {
+                hostname: Some("youtube.com".into()),
+                url: Some("https://youtube.com/".into()),
+                app_exe: None,
+                active: true,
+                shared_active: true,
+                shared_only: true,
+                source: "test".into(),
+                increment_secs: Some(20),
+            };
+            engine
+                .db()
+                .ingest_shared_at(&tick, chrono::Local::now())
+                .unwrap();
+            assert!(engine.is_block_list_protected(list.id));
+            assert!(
+                engine
+                    .db()
+                    .get_block_list(list.id)
+                    .unwrap()
+                    .schedule_unlocked_until
+                    .is_none()
+            );
+            assert_eq!(
+                engine
+                    .db()
+                    .shared_status_at(
+                        &engine.db().get_block_list(list.id).unwrap(),
+                        chrono::Local::now()
+                    )
+                    .unwrap()
+                    .unwrap()
+                    .remaining_secs,
+                40
+            );
+        }
+        assert!(
+            execute(
+                &ctx,
+                Command::ConfigureSharedAllowance {
+                    list_id: list.id,
+                    minutes: None
+                }
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn shared_allowance_import_discards_runtime_fields_and_editing_bypass() {
+        let ctx = ctx();
+        let list = scheduled_list(
+            &ctx,
+            Some(LockSetup::Password {
+                password: "secret".into(),
+            }),
+        );
+        execute(
+            &ctx,
+            Command::UnlockProtection {
+                list_id: list.id,
+                response: "secret".into(),
+            },
+        )
+        .unwrap();
+        execute(
+            &ctx,
+            Command::ConfigureSharedAllowance {
+                list_id: list.id,
+                minutes: Some(30),
+            },
+        )
+        .unwrap();
+        let CommandResult::Text(json) = execute(&ctx, Command::ExportConfiguration).unwrap() else {
+            panic!("export")
+        };
+        let mut doc: serde_json::Value = serde_json::from_str(&json).unwrap();
+        doc["block_lists"][0]["shared_allowance"]["used_secs"] = serde_json::json!(1800);
+        doc["block_lists"][0]["schedule_unlocked_until"] =
+            serde_json::json!("2099-01-01T00:00:00Z");
+        execute(
+            &ctx,
+            Command::ImportConfiguration {
+                json: doc.to_string(),
+            },
+        )
+        .unwrap();
+        let engine = ctx.engine.lock().unwrap();
+        let stored = engine.db().get_block_list(list.id).unwrap();
+        assert!(stored.schedule_unlocked_until.is_none());
+        assert!(stored.is_modification_protected());
+        assert_eq!(
+            engine
+                .db()
+                .shared_status_at(&stored, chrono::Local::now())
+                .unwrap()
+                .unwrap()
+                .remaining_secs,
+            1800
+        );
+    }
+
+    #[test]
+    fn shared_allowance_update_cannot_import_runtime_or_bypass_validation() {
+        let ctx = ctx();
+        let mut list = create(&ctx, "Shared");
+        assert!(
+            execute(
+                &ctx,
+                Command::ConfigureSharedAllowance {
+                    list_id: list.id,
+                    minutes: Some(0)
+                }
+            )
+            .is_err()
+        );
+        list.shared_allowance =
+            Some(focuser_common::allowance::SharedAllowanceConfig { minutes: 100 });
+        execute(
+            &ctx,
+            Command::UpdateBlockList {
+                list: Box::new(list.clone()),
+            },
+        )
+        .unwrap();
+        assert!(
+            ctx.engine
+                .lock()
+                .unwrap()
+                .db()
+                .get_block_list(list.id)
+                .unwrap()
+                .shared_allowance
+                .is_none()
+        );
+        execute(
+            &ctx,
+            Command::ConfigureSharedAllowance {
+                list_id: list.id,
+                minutes: Some(30),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            ctx.engine
+                .lock()
+                .unwrap()
+                .db()
+                .get_block_list(list.id)
+                .unwrap()
+                .shared_allowance
+                .unwrap()
+                .minutes,
+            30
+        );
     }
 
     #[test]

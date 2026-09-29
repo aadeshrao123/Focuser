@@ -28,6 +28,7 @@ import {
   trackingKey,
 } from "@/lib/rules";
 import type { BlockContext, Message, MessageReply } from "@/lib/messages";
+import { SharedActivity } from "@/lib/shared-activity";
 
 /**
  * Blocking works by *replacing* the page, not redirecting it.
@@ -54,6 +55,40 @@ export default defineBackground(() => {
   const recentInjections = new Map<string, number>();
   const recentReports = new Map<string, number>();
   let lastTickAt = 0;
+  const sharedActivity = new SharedActivity();
+  let samplingShared = false;
+
+  async function tickShared() {
+    if (samplingShared) return;
+    samplingShared = true;
+    try {
+      const window = await browser.windows.getLastFocused();
+      const idle = await browser.idle.queryState(60);
+      const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
+      let url: string | null = null;
+      if (connected && window.focused && idle === "active" && tab?.url) {
+        const parsed = new URL(tab.url);
+        if (
+          (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+          !match(rules, parsed.hostname, tab.url)
+        )
+          url = tab.url;
+      }
+      const report = sharedActivity.sample(url, Date.now());
+      if (report)
+        await sendAllowanceTick(
+          new URL(report.url).hostname,
+          report.seconds,
+          "shared-activity",
+          report.url,
+          true,
+        );
+    } catch {
+      sharedActivity.sample(null, Date.now());
+    } finally {
+      samplingShared = false;
+    }
+  }
 
   // ─── Rules ────────────────────────────────────────────────────────
 
@@ -101,10 +136,7 @@ export default defineBackground(() => {
   // ─── Enforcement ──────────────────────────────────────────────────
 
   /** Everything the block page needs, resolved once in the background. */
-  async function buildContext(
-    hit: BlockMatch,
-    hostname: string,
-  ): Promise<BlockContext> {
+  async function buildContext(hit: BlockMatch, hostname: string): Promise<BlockContext> {
     const category =
       hit.reason === "keyword" || hit.reason === "wildcard" || hit.reason === "url-path"
         ? categoryForKeyword(index, hit.target)
@@ -193,7 +225,7 @@ export default defineBackground(() => {
       const parsed = new URL(active.url);
       if (isInternalUrl(parsed.protocol)) return;
       const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
-      await sendAllowanceTick(hostname, clampIncrement(elapsed), source);
+      await sendAllowanceTick(hostname, clampIncrement(elapsed), source, active.url);
     } catch {
       /* unparseable */
     }
@@ -290,10 +322,14 @@ export default defineBackground(() => {
     void sendHeartbeat(browserName);
     void refreshRules();
     void tickAllowance("extension-alarm");
+    void tickShared();
   });
 
   browser.tabs.onActivated.addListener(() => void tickAllowance("tab-switch"));
+  browser.tabs.onActivated.addListener(() => void tickShared());
+  browser.idle.onStateChanged.addListener(() => void tickShared());
   browser.windows.onFocusChanged.addListener((windowId) => {
+    void tickShared();
     if (windowId !== browser.windows.WINDOW_ID_NONE) void tickAllowance("window-focus");
   });
 
@@ -302,5 +338,7 @@ export default defineBackground(() => {
     await sendHeartbeat(browserName);
     await refreshRules();
     setInterval(() => void refreshRules(), POLL_INTERVAL_MS);
+    void tickShared();
+    setInterval(() => void tickShared(), POLL_INTERVAL_MS);
   })();
 });

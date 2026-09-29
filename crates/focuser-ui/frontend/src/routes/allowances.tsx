@@ -207,6 +207,9 @@ function AllowanceRow({ status }: { status: AllowanceStatus }) {
               <p className="mt-0.5 text-faint-foreground text-xs">
                 {a.strict_mode ? m.allowances_counted_focused() : m.allowances_counted_open()}
               </p>
+              {status.paused_by_shared && (
+                <p className="mt-1 text-sm text-warning">{m.shared_allowance_paused()}</p>
+              )}
             </div>
           </div>
 

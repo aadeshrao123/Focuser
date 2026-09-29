@@ -70,6 +70,7 @@ export const queryKeys = {
   blockLists: ["block-lists"] as const,
   protection: ["protection"] as const,
   scheduledProtection: ["scheduled-protection"] as const,
+  sharedAllowance: ["shared-allowance"] as const,
   allowances: ["allowances"] as const,
   pomodoro: ["pomodoro"] as const,
   stats: (from: string, to: string) => ["stats", from, to] as const,
@@ -89,6 +90,8 @@ function useBlockListMutation<TArgs>(build: (args: TArgs) => Command) {
       qc.invalidateQueries({ queryKey: queryKeys.blockLists });
       qc.invalidateQueries({ queryKey: queryKeys.protection });
       qc.invalidateQueries({ queryKey: queryKeys.scheduledProtection });
+      qc.invalidateQueries({ queryKey: queryKeys.sharedAllowance });
+      qc.invalidateQueries({ queryKey: queryKeys.allowances });
     },
   });
 }
@@ -322,6 +325,20 @@ export function useScheduledProtectionStatus() {
         .data,
   });
 }
+
+export function useSharedAllowanceStatus() {
+  return useQuery({
+    queryKey: queryKeys.sharedAllowance,
+    queryFn: async () =>
+      expect(await run({ cmd: "get_shared_allowance_status" }), "shared_allowance_status").data,
+  });
+}
+
+export const useConfigureSharedAllowance = () =>
+  useBlockListMutation<{ listId: string; minutes: number | null }>((a) => ({
+    cmd: "configure_shared_allowance",
+    args: { list_id: a.listId, minutes: a.minutes },
+  }));
 
 export const useRelockScheduledProtection = () =>
   useBlockListMutation<string>((listId) => ({

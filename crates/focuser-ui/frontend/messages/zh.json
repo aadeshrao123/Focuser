@@ -446,5 +446,13 @@
   "schedule_lock_next": "下一个计划时段将自动锁定。已禁用的列表在计划生效期间重新启用时会锁定。",
   "schedule_lock_unlock": "解锁以编辑",
   "schedule_lock_again": "立即重新锁定",
-  "schedule_lock_setup": "选择解锁方式，然后打开开关。此设置立即应用于已保存的计划。要更改解锁方式，请先按需解锁，关闭开关，配置后再打开。"
+  "schedule_lock_setup": "选择解锁方式，然后打开开关。此设置立即应用于已保存的计划。要更改解锁方式，请先按需解锁，关闭开关，配置后再打开。",
+  "shared_allowance_label": "共享使用时长",
+  "shared_allowance_minutes": "共享使用时长（分钟）",
+  "shared_allowance_period": "分钟 / 每个计划时段",
+  "shared_allowance_schedule_hint": "请设置每周计划以使用共享时长。",
+  "shared_allowance_hint": "共享时长生效期间，各网站和应用的单独使用时长将暂停。",
+  "shared_allowance_exhausted": "共享使用时长：本计划时段的时长已用完",
+  "shared_allowance_remaining": "共享使用时长：共 {total} 分钟，剩余 {remaining} 分钟",
+  "shared_allowance_paused": "共享时长生效期间暂停。"
 }

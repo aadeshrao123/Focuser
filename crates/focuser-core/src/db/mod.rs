@@ -70,12 +70,37 @@ impl Database {
     }
 
     pub fn update_block_list(&self, list: &BlockList) -> Result<()> {
-        let conn = self
+        self.update_block_list_at(list, chrono::Local::now())
+    }
+
+    pub(crate) fn update_block_list_at<T: chrono::TimeZone>(
+        &self,
+        list: &BlockList,
+        now: chrono::DateTime<T>,
+    ) -> Result<()> {
+        let mut conn = self
             .conn
             .lock()
             .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let tx = conn
+            .transaction()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let old_json: String = tx
+            .query_row(
+                "SELECT data FROM block_lists WHERE id = ?1",
+                [list.id.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    FocuserError::BlockListNotFound(list.id.to_string())
+                }
+                _ => FocuserError::Database(e.to_string()),
+            })?;
+        let old: BlockList = serde_json::from_str(&old_json)?;
+        crate::shared_allowance::schedule_edited(&tx, &old, list, now)?;
         let json = serde_json::to_string(list)?;
-        let rows = conn
+        let rows = tx
             .execute(
                 "UPDATE block_lists SET name = ?1, data = ?2, enabled = ?3, updated_at = ?4
                  WHERE id = ?5",
@@ -91,6 +116,8 @@ impl Database {
         if rows == 0 {
             return Err(FocuserError::BlockListNotFound(list.id.to_string()));
         }
+        tx.commit()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         Ok(())
     }
 
@@ -451,6 +478,8 @@ impl Database {
             "block_lists",
             "settings",
             "unlock_challenges",
+            "shared_allowance_usage",
+            "shared_allowance_occurrences",
         ] {
             let _ = conn.execute(&format!("DELETE FROM {table}"), []);
         }

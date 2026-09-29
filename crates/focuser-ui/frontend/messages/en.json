@@ -454,5 +454,13 @@
   "schedule_lock_next": "Next scheduled period will lock automatically. A disabled list locks when re-enabled during a scheduled period.",
   "schedule_lock_unlock": "Unlock for editing",
   "schedule_lock_again": "Lock again now",
-  "schedule_lock_setup": "Choose an unlock method, then turn on Lock during schedule. The switch applies immediately to the saved schedule. To change the method later, unlock if needed, turn this switch off, configure it, and turn it on again."
+  "schedule_lock_setup": "Choose an unlock method, then turn on Lock during schedule. The switch applies immediately to the saved schedule. To change the method later, unlock if needed, turn this switch off, configure it, and turn it on again.",
+  "shared_allowance_label": "Shared allowance",
+  "shared_allowance_minutes": "Shared allowance minutes",
+  "shared_allowance_period": "minutes per scheduled block",
+  "shared_allowance_schedule_hint": "Set a weekly schedule to use a shared allowance.",
+  "shared_allowance_hint": "Individual site/app allowances are paused while shared allowance is active.",
+  "shared_allowance_exhausted": "Shared allowance: Used up for this scheduled block",
+  "shared_allowance_remaining": "Shared allowance: {remaining}m remaining of {total}m",
+  "shared_allowance_paused": "Paused while shared allowance is active."
 }
