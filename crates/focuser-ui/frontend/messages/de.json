@@ -463,5 +463,8 @@
   "shared_allowance_exhausted": "Gemeinsames Zeitbudget: Für diesen Zeitraum aufgebraucht",
   "shared_allowance_remaining": "Gemeinsames Zeitbudget: {remaining} Min. von {total} Min. übrig",
   "shared_allowance_paused": "Pausiert, während das gemeinsame Zeitbudget aktiv ist.",
-  "lists_unlock_random_text_mismatch": "Abweichung bei Zeichen {position}."
+  "lists_unlock_random_text_mismatch": "Abweichung bei Zeichen {position}.",
+  "schedule_lock_random_summary": "Zufallstext · {count} Zeichen",
+  "schedule_lock_none_summary": "Kein vorzeitiges Entsperren",
+  "schedule_lock_manage": "Sperreinstellungen verwalten"
 }

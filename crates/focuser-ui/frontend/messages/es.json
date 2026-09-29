@@ -471,5 +471,8 @@
   "shared_allowance_exhausted": "Tiempo compartido: Agotado para este período programado",
   "shared_allowance_remaining": "Tiempo compartido: Quedan {remaining} min de {total} min",
   "shared_allowance_paused": "En pausa mientras el tiempo compartido está activo.",
-  "lists_unlock_random_text_mismatch": "El carácter {position} no coincide."
+  "lists_unlock_random_text_mismatch": "El carácter {position} no coincide.",
+  "schedule_lock_random_summary": "Texto aleatorio · {count} caracteres",
+  "schedule_lock_none_summary": "Sin desbloqueo anticipado",
+  "schedule_lock_manage": "Gestionar ajustes de bloqueo"
 }

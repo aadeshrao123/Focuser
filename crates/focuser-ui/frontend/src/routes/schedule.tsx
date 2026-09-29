@@ -128,7 +128,7 @@ export function Schedule() {
             </div>
 
             <InlineError error={save.error} />
-            <ScheduledProtectionControl list={list} />
+            <ScheduledProtectionControl list={list} variant="compact" />
           </>
         )}
       </QueryState>

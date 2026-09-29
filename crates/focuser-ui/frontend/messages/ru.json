@@ -479,5 +479,8 @@
   "shared_allowance_exhausted": "Общий лимит: исчерпан на этот период расписания",
   "shared_allowance_remaining": "Общий лимит: осталось {remaining} мин. из {total} мин.",
   "shared_allowance_paused": "Приостановлено, пока действует общий лимит.",
-  "lists_unlock_random_text_mismatch": "Несовпадение в символе {position}."
+  "lists_unlock_random_text_mismatch": "Несовпадение в символе {position}.",
+  "schedule_lock_random_summary": "Случайный текст · {count} символов",
+  "schedule_lock_none_summary": "Без досрочной разблокировки",
+  "schedule_lock_manage": "Настройки блокировки"
 }

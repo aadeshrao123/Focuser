@@ -455,5 +455,8 @@
   "shared_allowance_exhausted": "共有時間枠：このスケジュール期間の時間を使い切りました",
   "shared_allowance_remaining": "共有時間枠：{total}分中、残り{remaining}分",
   "shared_allowance_paused": "共有時間枠が有効な間は一時停止されます。",
-  "lists_unlock_random_text_mismatch": "{position}文字目が一致しません。"
+  "lists_unlock_random_text_mismatch": "{position}文字目が一致しません。",
+  "schedule_lock_random_summary": "ランダムな文字列 · {count}文字",
+  "schedule_lock_none_summary": "早期解除なし",
+  "schedule_lock_manage": "ロック設定を管理"
 }

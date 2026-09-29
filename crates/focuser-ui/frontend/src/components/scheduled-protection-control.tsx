@@ -1,5 +1,6 @@
 import { Lock, Unlock } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { BlockList, LockSetup } from "@/bindings";
 import { effectiveLock, UnlockForm } from "@/components/focus-lock-forms";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,13 @@ import {
 import { m } from "@/paraglide/messages.js";
 
 /** Both pages use this control, the same queries, and the same persisted setting. */
-export function ScheduledProtectionControl({ list }: { list: BlockList }) {
+export function ScheduledProtectionControl({
+  list,
+  variant = "full",
+}: {
+  list: BlockList;
+  variant?: "full" | "compact";
+}) {
   const status = useScheduledProtectionStatus();
   const protection = useProtectionStatus();
   const configure = useConfigureScheduledProtection();
@@ -36,6 +43,24 @@ export function ScheduledProtectionControl({ list }: { list: BlockList }) {
   const ready = kind !== "password" || (password.trim().length > 0 && password === confirm);
   const lock: LockSetup | null =
     kind === "none" ? null : kind === "password" ? { kind, password } : { kind, length };
+  const savedLock = list.scheduled_protection?.lock;
+  const savedKind = savedLock?.RandomText
+    ? "random_text"
+    : savedLock?.Password
+      ? "password"
+      : "none";
+  const displayedKind = enabled ? savedKind : kind;
+  const displayedLength = enabled ? (savedLock?.RandomText?.length ?? 16) : length;
+  const configurationDisabled = enabled || protectedNow || configure.isPending;
+  // With protection off there is no persisted method. The compact toggle uses
+  // the existing default; custom setup stays on Block Lists.
+  const summaryKind = enabled ? savedKind : "random_text";
+  const summary =
+    summaryKind === "random_text"
+      ? m.schedule_lock_random_summary({ count: enabled ? displayedLength : 16 })
+      : summaryKind === "password"
+        ? m.lists_lock_kind_password()
+        : m.schedule_lock_none_summary();
   const labels = {
     off: m.schedule_lock_off,
     inactive: m.schedule_lock_inactive,
@@ -54,10 +79,18 @@ export function ScheduledProtectionControl({ list }: { list: BlockList }) {
             protection.isPending ||
             protectedNow ||
             configure.isPending ||
-            (!enabled && !ready)
+            (!enabled && variant === "full" && !ready)
           }
           onCheckedChange={(next) =>
-            configure.mutate({ listId: list.id, enabled: next, lock: next ? lock : null })
+            configure.mutate({
+              listId: list.id,
+              enabled: next,
+              lock: next
+                ? variant === "compact"
+                  ? { kind: "random_text", length: 16 }
+                  : lock
+                : null,
+            })
           }
         />
         <span className="font-medium">{m.schedule_protection_label()}</span>
@@ -85,6 +118,14 @@ export function ScheduledProtectionControl({ list }: { list: BlockList }) {
           </Badge>
         )}
       </div>
+      {variant === "compact" && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="text-muted-foreground">{summary}</span>
+          <Link to="/block-lists" className="text-primary underline underline-offset-4">
+            {m.schedule_lock_manage()}
+          </Link>
+        </div>
+      )}
       {state === "inactive" && (
         <p className="mt-2 text-sm text-muted-foreground">{m.schedule_lock_next()}</p>
       )}
@@ -115,12 +156,15 @@ export function ScheduledProtectionControl({ list }: { list: BlockList }) {
           {m.schedule_lock_again()}
         </Button>
       )}
-      {!enabled && !protectedNow && (
+      {variant === "full" && (
         <div className="mt-3 space-y-3">
-          <p className="text-sm text-muted-foreground">{m.schedule_lock_setup()}</p>
+          {!protectedNow && (
+            <p className="text-sm text-muted-foreground">{m.schedule_lock_setup()}</p>
+          )}
           <Select
-            value={kind}
+            value={displayedKind}
             onValueChange={setKind}
+            disabled={configurationDisabled}
             aria-label={m.lists_lock_kind_label()}
             options={[
               { value: "random_text", label: m.lists_lock_kind_random_text() },
@@ -128,28 +172,32 @@ export function ScheduledProtectionControl({ list }: { list: BlockList }) {
               { value: "none", label: m.lists_lock_kind_none() },
             ]}
           />
-          <p className="text-sm text-muted-foreground">
-            {kind === "none"
-              ? m.lists_lock_kind_hint_none()
-              : kind === "random_text"
-                ? m.lists_lock_kind_hint_random_text()
-                : confirm && password !== confirm
-                  ? m.lists_lock_password_mismatch()
-                  : m.lists_lock_kind_hint_password()}
-          </p>
-          {kind === "random_text" && (
+          {!enabled && !protectedNow && (
+            <p className="text-sm text-muted-foreground">
+              {kind === "none"
+                ? m.lists_lock_kind_hint_none()
+                : kind === "random_text"
+                  ? m.lists_lock_kind_hint_random_text()
+                  : confirm && password !== confirm
+                    ? m.lists_lock_password_mismatch()
+                    : m.lists_lock_kind_hint_password()}
+            </p>
+          )}
+          {displayedKind === "random_text" && (
             <NumberField
-              value={length}
+              value={displayedLength}
               onCommit={setLength}
+              disabled={configurationDisabled}
               min={6}
               max={64}
               aria-label={m.lists_lock_random_text_length()}
             />
           )}
-          {kind === "password" && (
+          {displayedKind === "password" && !enabled && (
             <div className="flex gap-2">
               <Input
                 type="password"
+                disabled={configurationDisabled}
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -158,6 +206,7 @@ export function ScheduledProtectionControl({ list }: { list: BlockList }) {
               />
               <Input
                 type="password"
+                disabled={configurationDisabled}
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}

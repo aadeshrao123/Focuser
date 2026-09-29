@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { BlockList, Command, CommandResult, ScheduledLockState } from "@/bindings";
 import { ProtectForm } from "@/components/focus-lock-forms";
@@ -17,10 +18,12 @@ vi.mock("@/components/ui/select", () => ({
     onValueChange: (v: string) => void;
     options: { value: string; label: string }[];
     "aria-label"?: string;
+    disabled?: boolean;
   }) => (
     <select
       aria-label={p["aria-label"]}
       value={p.value}
+      disabled={p.disabled}
       onChange={(e) => p.onValueChange(e.target.value)}
     >
       {p.options.map((o) => (
@@ -235,12 +238,70 @@ function show(
   });
   return render(
     <QueryClientProvider client={client}>
-      <TooltipProvider>{children}</TooltipProvider>
+      <MemoryRouter initialEntries={["/schedule"]}>
+        <TooltipProvider>{children}</TooltipProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 const page = (name: string) => within(screen.getByTestId(name));
 const toggle = (name: string) => page(name).getByRole("switch", { name: "Lock during schedule" });
+
+it("Block Lists owns configuration while Schedule shows a compact default summary", async () => {
+  show();
+  await waitFor(() => expect(toggle("lists")).toBeEnabled());
+  expect(page("lists").getByRole("combobox", { name: "Unlock method" })).toBeEnabled();
+  expect(page("lists").getByRole("spinbutton", { name: "Challenge length" })).toHaveValue(16);
+  expect(page("schedule").queryByRole("combobox", { name: "Unlock method" })).toBeNull();
+  expect(page("schedule").queryByRole("spinbutton", { name: "Challenge length" })).toBeNull();
+  expect(page("schedule").queryByPlaceholderText(/password/i)).toBeNull();
+  expect(page("schedule").getByText("Random text · 16 characters")).toBeVisible();
+  expect(page("schedule").getByRole("link", { name: "Manage lock settings" })).toHaveAttribute(
+    "href",
+    "/block-lists",
+  );
+});
+
+it.each([
+  [{ RandomText: { length: 32 } }, "Random text · 32 characters"],
+  [{ Password: { hash: "hashed" } }, "Password"],
+  [null, "No early unlock"],
+] as const)(
+  "Schedule summarizes the persisted method %j without configuration fields",
+  async (lock, summary) => {
+    stored.scheduled_protection = { lock };
+    state = "inactive";
+    show();
+    expect(await page("schedule").findByText(summary)).toBeVisible();
+    expect(page("schedule").queryByRole("combobox", { name: "Unlock method" })).toBeNull();
+    expect(page("schedule").queryByRole("spinbutton", { name: "Challenge length" })).toBeNull();
+    expect(page("schedule").queryByPlaceholderText(/password/i)).toBeNull();
+    expect(page("lists").getByRole("combobox", { name: "Unlock method" })).toBeDisabled();
+    if (lock && "RandomText" in lock) {
+      expect(page("lists").getByRole("spinbutton", { name: "Challenge length" })).toHaveValue(32);
+    }
+    // Disabling uses the shared command and does not silently replace the saved method.
+    await waitFor(() => expect(toggle("schedule")).toBeEnabled());
+    fireEvent.click(toggle("schedule"));
+    await waitFor(() => expect(stored.scheduled_protection).toBeNull());
+    expect(send).toHaveBeenCalledWith({
+      cmd: "configure_scheduled_protection",
+      args: { list_id: stored.id, enabled: false, lock: null },
+    });
+  },
+);
+
+it("Manage lock settings navigates to Block Lists", async () => {
+  show(
+    <Routes>
+      <Route path="/schedule" element={<Schedule />} />
+      <Route path="/block-lists" element={<BlockLists />} />
+    </Routes>,
+  );
+  fireEvent.click(await screen.findByRole("link", { name: "Manage lock settings" }));
+  expect(await screen.findByRole("combobox", { name: "Unlock method" })).toBeVisible();
+  expect(screen.getByRole("switch", { name: "Shared allowance" })).toBeVisible();
+});
 
 it.each(["lists", "schedule"])(
   "%s toggle persists immediately and updates the same setting on both pages",
@@ -281,42 +342,50 @@ it.each([
   }
 });
 
-it("one unlock permits editing until Lock again now immediately restores both locked displays", async () => {
-  state = "locked";
-  stored.scheduled_protection = { lock: { RandomText: { length: 6 } } };
-  show();
-  fireEvent.click(await page("lists").findByRole("button", { name: "Unlock for editing" }));
-  await page("lists").findByText("abcdef");
-  fireEvent.change(page("lists").getByPlaceholderText("Type the string above"), {
-    target: { value: "abcdef" },
-  });
-  fireEvent.click(page("lists").getByRole("button", { name: /^Unlock$/ }));
-  await page("schedule").findByText("UNLOCKED FOR EDITING");
-  expect(page("lists").getByText("UNLOCKED FOR EDITING")).toBeVisible();
-  fireEvent.click(page("schedule").getByRole("button", { name: "Lock again now" }));
-  await page("lists").findByText("LOCKED");
-  expect(page("schedule").getByText("LOCKED")).toBeVisible();
-  expect(send.mock.calls.filter(([c]) => c.cmd === "unlock_protection")).toHaveLength(1);
-  expect(send).toHaveBeenCalledWith({
-    cmd: "relock_scheduled_protection",
-    args: { list_id: "list-1" },
-  });
-});
+it.each(["lists", "schedule"])(
+  "%s unlock permits editing until Lock again now restores both locked displays",
+  async (name) => {
+    state = "locked";
+    stored.scheduled_protection = { lock: { RandomText: { length: 6 } } };
+    show();
+    fireEvent.click(await page(name).findByRole("button", { name: "Unlock for editing" }));
+    await page(name).findByText("abcdef");
+    fireEvent.change(page(name).getByPlaceholderText("Type the string above"), {
+      target: { value: "abcdef" },
+    });
+    fireEvent.click(page(name).getByRole("button", { name: /^Unlock$/ }));
+    await page("schedule").findByText("UNLOCKED FOR EDITING");
+    expect(page("lists").getByText("UNLOCKED FOR EDITING")).toBeVisible();
+    fireEvent.click(
+      page(name === "lists" ? "schedule" : "lists").getByRole("button", { name: "Lock again now" }),
+    );
+    await page("lists").findByText("LOCKED");
+    expect(page("schedule").getByText("LOCKED")).toBeVisible();
+    expect(send.mock.calls.filter(([c]) => c.cmd === "unlock_protection")).toHaveLength(1);
+    expect(send).toHaveBeenCalledWith({
+      cmd: "relock_scheduled_protection",
+      args: { list_id: "list-1" },
+    });
+  },
+);
 
 it("password setup must be complete before the toggle enables protection", async () => {
   show();
-  await waitFor(() => expect(toggle("schedule")).toBeEnabled());
-  fireEvent.change(page("schedule").getByRole("combobox", { name: "Unlock method" }), {
+  await waitFor(() => expect(toggle("lists")).toBeEnabled());
+  fireEvent.change(page("lists").getByRole("combobox", { name: "Unlock method" }), {
     target: { value: "password" },
   });
-  expect(toggle("schedule")).toBeDisabled();
-  const inputs = page("schedule").getAllByPlaceholderText(/password/i);
+  expect(toggle("lists")).toBeDisabled();
+  const inputs = page("lists").getAllByPlaceholderText(/password/i);
   fireEvent.change(inputs[0], { target: { value: "secret" } });
   fireEvent.change(inputs[1], { target: { value: "different" } });
-  expect(toggle("schedule")).toBeDisabled();
+  expect(toggle("lists")).toBeDisabled();
   fireEvent.change(inputs[1], { target: { value: "secret" } });
-  fireEvent.click(toggle("schedule"));
+  fireEvent.click(toggle("lists"));
   await waitFor(() => expect(stored.scheduled_protection?.lock).toHaveProperty("Password"));
+  expect(await page("schedule").findByText("Password")).toBeVisible();
+  expect(page("schedule").queryByRole("combobox", { name: "Unlock method" })).toBeNull();
+  expect(page("schedule").queryByPlaceholderText(/password/i)).toBeNull();
   expect(send).toHaveBeenCalledWith({
     cmd: "configure_scheduled_protection",
     args: { list_id: "list-1", enabled: true, lock: { kind: "password", password: "secret" } },
