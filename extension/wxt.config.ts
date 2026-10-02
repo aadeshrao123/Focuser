@@ -36,7 +36,7 @@ export default defineConfig({
       "Blocks distracting sites so you stay focused. Enforces the block lists you set in the Focuser desktop app.",
     // Only what is actually used. `webRequest` and `nativeMessaging` were
     // declared before and never needed — both cost review scrutiny for nothing.
-    permissions: ["tabs", "webNavigation", "scripting", "storage", "alarms"],
+    permissions: ["tabs", "webNavigation", "scripting", "storage", "alarms", "idle"],
     host_permissions: ["<all_urls>"],
     icons: ICONS,
     action: { default_icon: ICONS },

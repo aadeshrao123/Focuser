@@ -25,7 +25,16 @@ pub struct BlockList {
     pub lock: Option<Lock>,
     pub protection: Option<Protection>,
     pub schedule: Option<Schedule>,
+    /// JSON defaults migrate existing lists to unprotected schedules.
+    #[serde(default)]
+    pub scheduled_protection: Option<ScheduledProtection>,
+    /// Trusted occurrence bypass; never accepted from wholesale list updates.
+    #[serde(default)]
+    pub schedule_unlocked_until: Option<DateTime<Utc>>,
     pub breaks: Option<BreakConfig>,
+    /// Optional shared budget per merged weekly schedule occurrence.
+    #[serde(default)]
+    pub shared_allowance: Option<crate::allowance::SharedAllowanceConfig>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -43,7 +52,10 @@ impl BlockList {
             lock: None,
             protection: None,
             schedule: None,
+            scheduled_protection: None,
+            schedule_unlocked_until: None,
             breaks: None,
+            shared_allowance: None,
             created_at: now,
             updated_at: now,
         }
@@ -75,30 +87,136 @@ impl BlockList {
         }
     }
 
+    pub fn scheduled_protection_at<T: chrono::TimeZone>(
+        &self,
+        now: DateTime<T>,
+    ) -> Option<Protection> {
+        self.scheduled_protection.as_ref()?;
+        if !self.enabled {
+            return None;
+        }
+        let (started_at, expires_at) = self.schedule.as_ref()?.active_period_at(now.clone())?;
+        if self
+            .schedule_unlocked_until
+            .is_some_and(|until| now.with_timezone(&Utc) < until)
+        {
+            return None;
+        }
+        Some(Protection {
+            started_at,
+            expires_at,
+            prevent_modification: true,
+            prevent_service_stop: true,
+            prevent_uninstall: true,
+        })
+    }
+
+    pub fn scheduled_lock_state(&self) -> ScheduledLockState {
+        self.scheduled_lock_state_at(chrono::Local::now())
+    }
+
+    pub fn scheduled_lock_state_at<T: chrono::TimeZone>(
+        &self,
+        now: DateTime<T>,
+    ) -> ScheduledLockState {
+        if self.scheduled_protection.is_none() {
+            return ScheduledLockState::Off;
+        }
+        if !self
+            .schedule
+            .as_ref()
+            .is_some_and(|s| s.active_period_at(now.clone()).is_some())
+        {
+            return ScheduledLockState::Inactive;
+        }
+        // A separate manual commitment can still prohibit editing.
+        if self
+            .protection
+            .as_ref()
+            .is_some_and(|p| p.prevent_modification && now.with_timezone(&Utc) < p.expires_at)
+        {
+            return ScheduledLockState::Locked;
+        }
+        if self
+            .schedule_unlocked_until
+            .is_some_and(|end| now.with_timezone(&Utc) < end)
+        {
+            return ScheduledLockState::UnlockedForEditing;
+        }
+        if self.enabled {
+            ScheduledLockState::Locked
+        } else {
+            ScheduledLockState::Inactive
+        }
+    }
+
+    pub fn effective_protection(&self) -> Option<Protection> {
+        let manual = self.protection.as_ref().filter(|p| p.is_active()).cloned();
+        let scheduled = self.scheduled_protection_at(chrono::Local::now());
+        match (manual, scheduled) {
+            (Some(mut p), Some(s)) => {
+                p.prevent_modification |= s.prevent_modification;
+                p.prevent_service_stop |= s.prevent_service_stop;
+                p.prevent_uninstall |= s.prevent_uninstall;
+                p.expires_at = p.expires_at.max(s.expires_at);
+                Some(p)
+            }
+            (p, s) => p.or(s),
+        }
+    }
+
+    /// Manual commitments take priority when both kinds of protection overlap.
+    pub fn effective_lock(&self) -> Option<&Lock> {
+        if self.protection.as_ref().is_some_and(|p| p.is_active()) {
+            self.lock.as_ref()
+        } else {
+            self.scheduled_protection
+                .as_ref()
+                .and_then(|p| p.lock.as_ref())
+        }
+    }
+
     pub fn has_active_protection(&self) -> bool {
-        self.enabled && self.protection.as_ref().is_some_and(|p| p.is_active())
+        self.enabled && self.effective_protection().is_some()
     }
 
     pub fn is_modification_protected(&self) -> bool {
-        self.protection
-            .as_ref()
-            .is_some_and(|p| p.is_active() && p.prevent_modification)
+        self.effective_protection()
+            .is_some_and(|p| p.prevent_modification)
     }
 
     pub fn has_uninstall_protection(&self) -> bool {
         self.enabled
             && self
-                .protection
-                .as_ref()
-                .is_some_and(|p| p.is_active() && p.prevent_uninstall)
+                .effective_protection()
+                .is_some_and(|p| p.prevent_uninstall)
     }
 
     pub fn has_service_protection(&self) -> bool {
         self.enabled
             && self
-                .protection
-                .as_ref()
-                .is_some_and(|p| p.is_active() && p.prevent_service_stop)
+                .effective_protection()
+                .is_some_and(|p| p.prevent_service_stop)
+    }
+
+    /// Called after edits: becoming inactive ends the occurrence bypass. Disabling
+    /// the list alone does not end it, so re-enabling permits further edits.
+    pub fn reconcile_schedule_bypass(&mut self) {
+        self.reconcile_schedule_bypass_at(chrono::Local::now());
+    }
+
+    pub fn reconcile_schedule_bypass_at<T: chrono::TimeZone>(&mut self, now: DateTime<T>) {
+        self.schedule_unlocked_until = self.schedule_unlocked_until.and_then(|until| {
+            if until <= now.with_timezone(&Utc) {
+                return None;
+            }
+            // An edit that keeps the schedule active continues this occurrence,
+            // including an extension. An inactive edit ends the bypass immediately.
+            self.schedule
+                .as_ref()?
+                .active_period_at(now)
+                .map(|(_, end)| end)
+        });
     }
 }
 
@@ -280,6 +398,21 @@ impl ExceptionRule {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ScheduledLockState {
+    Off,
+    Inactive,
+    Locked,
+    UnlockedForEditing,
+}
+
+/// Opt-in recurring Focus Lock; reuses the existing early-unlock methods.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ScheduledProtection {
+    pub lock: Option<Lock>,
+}
+
 // ─── Protection ────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -317,8 +450,8 @@ impl Protection {
 
 /// How a protection window can be ended early — Cold Turkey calls this a
 /// block's "lock". Meaningless on its own; it only matters while
-/// [`BlockList::protection`] is active, and it can only be set or cleared
-/// through the `EnableProtection` / `UnlockProtection` commands, never
+/// manual or scheduled protection is active, and it can only be configured
+/// through protection commands, never
 /// through a wholesale [`BlockList`] update.
 ///
 /// With no lock, an active protection window simply cannot be ended early —
@@ -345,12 +478,13 @@ impl Lock {
     /// A challenge shorter than this is typed too easily to add real
     /// friction; longer than this is just a typo generator.
     pub const MIN_RANDOM_TEXT_LEN: u32 = 6;
-    pub const MAX_RANDOM_TEXT_LEN: u32 = 64;
+    pub const MAX_RANDOM_TEXT_LEN: u32 = 256;
 
     /// Characters that stay unambiguous in a UI font — no `0`/`O`, `1`/`l`/`I`.
     /// A challenge that is impossible to transcribe correctly defeats the
     /// point, which is friction, not a puzzle.
-    const CHALLENGE_ALPHABET: &'static [u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
+    const CHALLENGE_ALPHABET: &'static [u8] =
+        b"abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
     /// Hash `plain` with Argon2 and build a password lock. The plaintext is
     /// never stored or returned.

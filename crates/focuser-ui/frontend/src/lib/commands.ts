@@ -69,6 +69,8 @@ const run = (command: Command) => send<CommandResult>(command);
 export const queryKeys = {
   blockLists: ["block-lists"] as const,
   protection: ["protection"] as const,
+  scheduledProtection: ["scheduled-protection"] as const,
+  sharedAllowance: ["shared-allowance"] as const,
   allowances: ["allowances"] as const,
   pomodoro: ["pomodoro"] as const,
   stats: (from: string, to: string) => ["stats", from, to] as const,
@@ -87,6 +89,9 @@ function useBlockListMutation<TArgs>(build: (args: TArgs) => Command) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.blockLists });
       qc.invalidateQueries({ queryKey: queryKeys.protection });
+      qc.invalidateQueries({ queryKey: queryKeys.scheduledProtection });
+      qc.invalidateQueries({ queryKey: queryKeys.sharedAllowance });
+      qc.invalidateQueries({ queryKey: queryKeys.allowances });
     },
   });
 }
@@ -311,6 +316,41 @@ export function useProtectionStatus() {
       expect(await run({ cmd: "get_protection_status" }), "protection_status").data,
   });
 }
+
+export function useScheduledProtectionStatus() {
+  return useQuery({
+    queryKey: queryKeys.scheduledProtection,
+    queryFn: async () =>
+      expect(await run({ cmd: "get_scheduled_protection_status" }), "scheduled_protection_status")
+        .data,
+  });
+}
+
+export function useSharedAllowanceStatus() {
+  return useQuery({
+    queryKey: queryKeys.sharedAllowance,
+    queryFn: async () =>
+      expect(await run({ cmd: "get_shared_allowance_status" }), "shared_allowance_status").data,
+  });
+}
+
+export const useConfigureSharedAllowance = () =>
+  useBlockListMutation<{ listId: string; minutes: number | null }>((a) => ({
+    cmd: "configure_shared_allowance",
+    args: { list_id: a.listId, minutes: a.minutes },
+  }));
+
+export const useRelockScheduledProtection = () =>
+  useBlockListMutation<string>((listId) => ({
+    cmd: "relock_scheduled_protection",
+    args: { list_id: listId },
+  }));
+
+export const useConfigureScheduledProtection = () =>
+  useBlockListMutation<{ listId: string; enabled: boolean; lock: LockSetup | null }>((a) => ({
+    cmd: "configure_scheduled_protection",
+    args: { list_id: a.listId, enabled: a.enabled, lock: a.lock },
+  }));
 
 export const useEnableProtection = () =>
   useBlockListMutation<{

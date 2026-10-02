@@ -161,3 +161,20 @@ describe("round trip", () => {
     expect(cellsToSlots(all)).toHaveLength(7);
   });
 });
+
+describe("overnight schedule editing", () => {
+  it.each([
+    ["Fri", "Sat"],
+    ["Sun", "Mon"],
+  ] as const)("keeps %s overnight hours on %s after a round trip", (day, nextDay) => {
+    const overnight = slotsToCells([{ day, start: "22:00:00", end: "06:00:00" }]);
+    expect(overnight).toEqual(
+      new Set([
+        cellKey(day, 22),
+        cellKey(day, 23),
+        ...Array.from({ length: 6 }, (_, hour) => cellKey(nextDay, hour)),
+      ]),
+    );
+    expect(slotsToCells(cellsToSlots(overnight))).toEqual(overnight);
+  });
+});

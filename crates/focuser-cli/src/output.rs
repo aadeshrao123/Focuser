@@ -68,6 +68,20 @@ pub fn print_human(result: &CommandResult) {
             }
         }
 
+        CommandResult::SharedAllowanceStatus(statuses) => {
+            for s in statuses {
+                println!(
+                    "{}: {}s remaining of {}s (active: {})",
+                    s.block_list_id, s.remaining_secs, s.limit_secs, s.active
+                );
+            }
+        }
+        CommandResult::ScheduledProtectionStatus(statuses) => {
+            for status in statuses {
+                println!("{}  {:?}", status.block_list_id, status.state);
+            }
+        }
+
         CommandResult::ProtectionStatus(infos) if infos.is_empty() => {
             println!("No active protection.");
         }

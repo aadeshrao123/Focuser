@@ -4,6 +4,28 @@ use specta::Type;
 
 use crate::types::{EntityId, new_id};
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SharedAllowanceConfig {
+    pub minutes: u32,
+}
+
+impl SharedAllowanceConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if !(1..=1440).contains(&self.minutes) {
+            return Err("shared allowance must be between 1 minute and 24 hours".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SharedAllowanceStatus {
+    pub block_list_id: EntityId,
+    pub limit_secs: u32,
+    pub remaining_secs: u32,
+    pub active: bool,
+}
+
 /// What an allowance targets: a domain or an application.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(tag = "kind", content = "value")]
@@ -84,6 +106,8 @@ impl Allowance {
 /// A snapshot of an allowance with today's usage, for the UI.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AllowanceStatus {
+    #[serde(default)]
+    pub paused_by_shared: bool,
     pub allowance: Allowance,
     pub used_today_secs: u32,
     /// `remaining = max(daily_limit - used, 0)`.
@@ -98,6 +122,7 @@ impl AllowanceStatus {
         let exhausted = used_today_secs >= allowance.daily_limit_secs;
         Self {
             allowance,
+            paused_by_shared: false,
             used_today_secs,
             remaining_secs,
             exhausted,
@@ -108,6 +133,13 @@ impl AllowanceStatus {
 /// Tick payload from the extension / app watcher.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AllowanceTick {
+    /// Full URL for path/keyword rules. Old extensions cannot spend shared time.
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub shared_active: bool,
+    #[serde(default)]
+    pub shared_only: bool,
     /// Hostname of the active tab (e.g., "youtube.com"). None for app ticks.
     pub hostname: Option<String>,
     /// App executable name (e.g., "steam.exe"). None for web ticks.

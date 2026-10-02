@@ -432,9 +432,12 @@ fn quit_blocked_by(state: &Arc<AppState>) -> Option<String> {
         .block_lists()
         .iter()
         .filter(|l| l.has_service_protection())
-        .max_by_key(|l| l.protection.as_ref().map_or(0, |p| p.remaining_seconds()))?;
+        .max_by_key(|l| {
+            l.effective_protection()
+                .map_or(0, |p| p.remaining_seconds())
+        })?;
 
-    let remaining = list.protection.as_ref()?.remaining_seconds();
+    let remaining = list.effective_protection()?.remaining_seconds();
     Some(format!(
         "{} — {} left",
         list.name,
@@ -625,6 +628,31 @@ mod tests {
             expires_at: now + chrono::Duration::minutes(minutes),
         });
         list
+    }
+
+    #[test]
+    fn scheduled_protection_holds_the_app_until_early_unlock() {
+        use chrono::Datelike;
+        use focuser_common::types::{Schedule, ScheduledProtection, TimeSlot, new_id};
+        let mut list = BlockList::new("Scheduled");
+        list.schedule = Some(Schedule {
+            id: new_id(),
+            name: "Today".into(),
+            enabled: true,
+            time_slots: vec![TimeSlot::new(
+                chrono::Local::now().weekday(),
+                chrono::NaiveTime::MIN,
+                chrono::NaiveTime::MIN,
+            )],
+        });
+        list.scheduled_protection = Some(ScheduledProtection { lock: None });
+        assert!(
+            quit_blocked_by(&state_with(list.clone()))
+                .unwrap()
+                .contains("Scheduled")
+        );
+        list.schedule_unlocked_until = Some(list.effective_protection().unwrap().expires_at);
+        assert!(quit_blocked_by(&state_with(list)).is_none());
     }
 
     #[test]

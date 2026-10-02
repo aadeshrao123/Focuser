@@ -23,15 +23,18 @@ async function start() {
   );
   vi.stubGlobal("fetch", fetched);
 
-  // fake-browser has no toolbar button and no script injection.
+  // fake-browser has no toolbar button, script injection or idle detection.
   const noop = vi.fn(async () => undefined);
+  const badge = vi.fn(async () => undefined);
   Object.assign(fakeBrowser, {
-    action: { setBadgeText: noop, setBadgeBackgroundColor: noop, setTitle: noop },
+    action: { setBadgeText: badge, setBadgeBackgroundColor: noop, setTitle: noop },
     scripting: { executeScript: noop },
+    idle: { queryState: noop, onStateChanged: { addListener: noop } },
   });
 
   background.main();
-  await vi.waitFor(() => expect(noop).toHaveBeenCalled());
+  // The badge is set once the first rules fetch has been applied.
+  await vi.waitFor(() => expect(badge).toHaveBeenCalled());
 }
 
 describe("moving between pages without a page load", () => {

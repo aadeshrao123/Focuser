@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ListPicker, resolveSelected } from "@/components/list-picker";
 import { ScheduleGrid } from "@/components/schedule-grid";
+import { ScheduledProtectionControl } from "@/components/scheduled-protection-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
@@ -127,6 +128,7 @@ export function Schedule() {
             </div>
 
             <InlineError error={save.error} />
+            <ScheduledProtectionControl list={list} variant="compact" />
           </>
         )}
       </QueryState>

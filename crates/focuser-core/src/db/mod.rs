@@ -70,12 +70,37 @@ impl Database {
     }
 
     pub fn update_block_list(&self, list: &BlockList) -> Result<()> {
-        let conn = self
+        self.update_block_list_at(list, chrono::Local::now())
+    }
+
+    pub(crate) fn update_block_list_at<T: chrono::TimeZone>(
+        &self,
+        list: &BlockList,
+        now: chrono::DateTime<T>,
+    ) -> Result<()> {
+        let mut conn = self
             .conn
             .lock()
             .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let tx = conn
+            .transaction()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let old_json: String = tx
+            .query_row(
+                "SELECT data FROM block_lists WHERE id = ?1",
+                [list.id.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    FocuserError::BlockListNotFound(list.id.to_string())
+                }
+                _ => FocuserError::Database(e.to_string()),
+            })?;
+        let old: BlockList = serde_json::from_str(&old_json)?;
+        crate::shared_allowance::schedule_edited(&tx, &old, list, now)?;
         let json = serde_json::to_string(list)?;
-        let rows = conn
+        let rows = tx
             .execute(
                 "UPDATE block_lists SET name = ?1, data = ?2, enabled = ?3, updated_at = ?4
                  WHERE id = ?5",
@@ -91,6 +116,8 @@ impl Database {
         if rows == 0 {
             return Err(FocuserError::BlockListNotFound(list.id.to_string()));
         }
+        tx.commit()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         Ok(())
     }
 
@@ -451,6 +478,8 @@ impl Database {
             "block_lists",
             "settings",
             "unlock_challenges",
+            "shared_allowance_usage",
+            "shared_allowance_occurrences",
         ] {
             let _ = conn.execute(&format!("DELETE FROM {table}"), []);
         }
@@ -480,6 +509,79 @@ impl Database {
 mod tests {
     use super::*;
     use focuser_common::types::BlockList;
+
+    #[test]
+    fn scheduled_protection_and_bypass_survive_reopening_database() {
+        use chrono::Datelike;
+        use focuser_common::types::{Schedule, ScheduledProtection, TimeSlot, new_id};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("scheduled.db");
+        let mut list = BlockList::new("Scheduled");
+        list.schedule = Some(Schedule {
+            id: new_id(),
+            name: "Today".into(),
+            enabled: true,
+            time_slots: vec![TimeSlot::new(
+                chrono::Local::now().weekday(),
+                chrono::NaiveTime::MIN,
+                chrono::NaiveTime::MIN,
+            )],
+        });
+        list.scheduled_protection = Some(ScheduledProtection { lock: None });
+        {
+            let db = Database::open(&path).unwrap();
+            db.create_block_list(&list).unwrap();
+        }
+        {
+            let engine = crate::BlockEngine::new(Database::open(&path).unwrap()).unwrap();
+            assert!(engine.is_block_list_protected(list.id));
+            assert!(engine.has_service_protection());
+            assert_eq!(engine.active_protection_info().len(), 1);
+            list.schedule_unlocked_until = Some(list.effective_protection().unwrap().expires_at);
+            engine.db().update_block_list(&list).unwrap();
+        }
+        {
+            let engine = crate::BlockEngine::new(Database::open(&path).unwrap()).unwrap();
+            assert!(!engine.is_block_list_protected(list.id));
+            assert!(!engine.has_service_protection());
+            assert!(engine.active_protection_info().is_empty());
+        }
+    }
+
+    #[test]
+    fn existing_database_records_default_to_no_scheduled_protection() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.db");
+        let list = BlockList::new("Legacy");
+        {
+            let db = Database::open(&path).unwrap();
+            db.create_block_list(&list).unwrap();
+            let mut legacy = serde_json::to_value(&list).unwrap();
+            legacy
+                .as_object_mut()
+                .unwrap()
+                .remove("scheduled_protection");
+            legacy
+                .as_object_mut()
+                .unwrap()
+                .remove("schedule_unlocked_until");
+            db.conn
+                .lock()
+                .unwrap()
+                .execute(
+                    "UPDATE block_lists SET data = ?1 WHERE id = ?2",
+                    rusqlite::params![legacy.to_string(), list.id.to_string()],
+                )
+                .unwrap();
+        }
+        let db = Database::open(&path).unwrap();
+        let loaded = db.get_block_list(list.id).unwrap();
+        assert!(loaded.scheduled_protection.is_none());
+        assert!(loaded.schedule_unlocked_until.is_none());
+        assert!(!loaded.is_modification_protected());
+        db.update_block_list(&loaded).unwrap();
+        assert_eq!(db.get_block_list(list.id).unwrap().name, "Legacy");
+    }
 
     #[test]
     fn test_crud_block_list() {

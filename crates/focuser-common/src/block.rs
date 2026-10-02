@@ -200,12 +200,13 @@ mod tests {
 
     /// Build a schedule with non-empty time slots that never match the
     /// current time, so `is_active_now()` is deterministically false.
-    /// `start == end` makes `contains_time` return false on that day, and
+    /// A zero-length slot away from midnight never matches (midnight to
+    /// midnight is the schedule grid's full-day representation), and
     /// every weekday is covered so the result doesn't depend on when the
     /// test runs.
     fn never_active_schedule() -> crate::types::Schedule {
         use chrono::{NaiveTime, Weekday};
-        let zero = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+        let zero = NaiveTime::from_hms_opt(12, 0, 0).unwrap();
         let days = [
             Weekday::Mon,
             Weekday::Tue,

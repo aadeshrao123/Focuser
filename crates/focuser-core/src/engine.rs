@@ -35,7 +35,9 @@ impl BlockEngine {
     /// Returns the name of the first matching block list, or None.
     pub fn check_domain(&self, domain: &str) -> Option<&str> {
         for list in &self.cached_lists {
-            if list.should_block_domain(domain) {
+            if list.should_block_domain(domain)
+                && !self.db.shared_permits_at(list, chrono::Local::now())
+            {
                 return Some(&list.name);
             }
         }
@@ -51,7 +53,10 @@ impl BlockEngine {
         window_title: Option<&str>,
     ) -> Option<&str> {
         for list in &self.cached_lists {
-            if list.should_block_app(process_name, exe_path, window_title) {
+            if list.should_block_app(process_name, exe_path, window_title)
+                && !(focuser_common::session::app_usage_measurable()
+                    && self.db.shared_permits_at(list, chrono::Local::now()))
+            {
                 return Some(&list.name);
             }
         }
@@ -71,6 +76,20 @@ impl BlockEngine {
         self.cached_lists
             .iter()
             .any(|l| has_hours(l) && l.should_block_app(exe, None, None))
+    }
+
+    pub fn shared_covers_app(&self, exe: &str) -> bool {
+        self.cached_lists.iter().any(|l| {
+            crate::shared_allowance::occurrence(l, chrono::Local::now()).is_some()
+                && crate::shared_allowance::covers(l, None, None, Some(exe))
+        })
+    }
+
+    pub fn shared_covers_domain(&self, domain: &str) -> bool {
+        self.cached_lists.iter().any(|l| {
+            crate::shared_allowance::occurrence(l, chrono::Local::now()).is_some()
+                && crate::shared_allowance::covers(l, Some(domain), None, None)
+        })
     }
 
     /// Collect all domains that need to be blocked (for hosts file generation).
@@ -200,6 +219,60 @@ impl BlockEngine {
         rules.allowed_url_paths.sort();
         rules.allowed_url_paths.dedup();
 
+        // Keep the old payload unchanged when no shared occurrence is active.
+        // The fallback rules remain blocking for extensions predating scopes.
+        if self
+            .cached_lists
+            .iter()
+            .any(|l| crate::shared_allowance::occurrence(l, chrono::Local::now()).is_some())
+        {
+            for list in self
+                .cached_lists
+                .iter()
+                .filter(|l| l.is_effectively_active())
+            {
+                let mut scoped = ExtensionRuleSet::empty();
+                for r in list.websites.iter().filter(|r| r.enabled) {
+                    match &r.match_type {
+                        WebsiteMatchType::Domain(d) => scoped.blocked_domains.push(d.clone()),
+                        WebsiteMatchType::Keyword(k) => scoped.blocked_keywords.push(k.clone()),
+                        WebsiteMatchType::Wildcard(w) => scoped.blocked_wildcards.push(w.clone()),
+                        WebsiteMatchType::UrlPath(p) => scoped.blocked_url_paths.push(p.clone()),
+                        WebsiteMatchType::EntireInternet => scoped.block_entire_internet = true,
+                    }
+                }
+                for e in list.exceptions.iter().filter(|e| e.enabled) {
+                    match &e.exception_type {
+                        ExceptionType::Domain(d) | ExceptionType::UrlPath(d) => {
+                            match e.exception_type.page() {
+                                Some((host, page)) => {
+                                    scoped.allowed_url_paths.push(format!("{host}{page}"));
+                                }
+                                None => scoped.allowed_domains.push(d.clone()),
+                            }
+                        }
+                        ExceptionType::Wildcard(w) => scoped.allowed_wildcards.push(w.clone()),
+                        ExceptionType::LocalFiles => {}
+                    }
+                }
+                rules
+                    .scopes
+                    .push(focuser_common::extension::ExtensionListScope {
+                        rules: scoped,
+                        shared_permits: crate::shared_allowance::occurrence(
+                            list,
+                            chrono::Local::now(),
+                        )
+                        .map(|_| self.db.shared_permits_at(list, chrono::Local::now())),
+                        scheduled: has_hours(list),
+                    });
+            }
+            // Scoped matching must not promote one list's exceptions globally.
+            rules.allowed_domains = extra_allowed_domains.to_vec();
+            rules.allowed_wildcards.clear();
+            rules.allowed_url_paths.clear();
+        }
+
         // Stable content-based version hash. Only changes when rules actually
         // change — NOT on every call. This prevents the extension from treating
         // every poll response as a rules update and re-running enforcement.
@@ -214,6 +287,9 @@ impl BlockEngine {
         rules.allowed_domains.hash(&mut hasher);
         rules.allowed_wildcards.hash(&mut hasher);
         rules.allowed_url_paths.hash(&mut hasher);
+        serde_json::to_string(&rules.scopes)
+            .unwrap_or_default()
+            .hash(&mut hasher);
         rules.version = hasher.finish();
 
         rules
@@ -250,10 +326,10 @@ impl BlockEngine {
     pub fn active_protection_info(&self) -> Vec<ProtectionInfo> {
         self.cached_lists
             .iter()
-            .filter(|l| l.has_active_protection())
-            .map(|l| {
-                let p = l.protection.as_ref().unwrap();
-                ProtectionInfo {
+            .filter(|l| l.enabled)
+            .filter_map(|l| {
+                let p = l.effective_protection()?;
+                Some(ProtectionInfo {
                     block_list_id: l.id,
                     block_list_name: l.name.clone(),
                     prevent_uninstall: p.prevent_uninstall,
@@ -261,7 +337,7 @@ impl BlockEngine {
                     prevent_modification: p.prevent_modification,
                     remaining_seconds: p.remaining_seconds(),
                     expires_at: p.expires_at,
-                }
+                })
             })
             .collect()
     }
