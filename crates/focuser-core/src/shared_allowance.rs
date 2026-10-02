@@ -20,6 +20,312 @@ pub fn occurrence<T: TimeZone>(
     list.schedule.as_ref()?.active_period_at(now)
 }
 
+pub fn active_at<T: TimeZone>(list: &BlockList, now: DateTime<T>) -> bool {
+    list.enabled
+        && list
+            .schedule
+            .as_ref()
+            .is_none_or(|s| s.time_slots.is_empty() || s.active_period_at(now).is_some())
+}
+
+/// Match the actual target, keeping exceptions local to their owning list.
+pub fn covers(
+    list: &BlockList,
+    hostname: Option<&str>,
+    url: Option<&str>,
+    app: Option<&str>,
+) -> bool {
+    if let Some(host) = hostname {
+        if list.exceptions.iter().any(|e| {
+            e.enabled
+                && match &e.exception_type {
+                    ExceptionType::Domain(d) | ExceptionType::UrlPath(d) => {
+                        e.exception_type.page().is_none()
+                            && focuser_common::host::host_matches(d, host)
+                    }
+                    ExceptionType::Wildcard(w) => focuser_common::host::wildcard_matches(w, host),
+                    ExceptionType::LocalFiles => false,
+                }
+        }) {
+            return false;
+        }
+        return list.websites.iter().any(|r| {
+            r.enabled && url.map_or_else(|| r.matches_domain(host), |u| r.matches_url(u))
+        });
+    }
+    app.is_some_and(|exe| {
+        list.applications
+            .iter()
+            .any(|r| r.enabled && r.matches_process(exe, None, None))
+    })
+}
+
+/// Resolve a schedule boundary to its persisted usage anchor. Changing a live
+/// boundary retains this anchor; expiry or an explicit inactive gap ends it.
+fn usage_anchor(conn: &Connection, id: EntityId, start: i64, end: i64, now: i64) -> Result<i64> {
+    let db_error = |e: rusqlite::Error| FocuserError::Database(e.to_string());
+    let current: Option<(i64, i64)> = conn
+        .query_row(
+            "SELECT usage_start, ends_at FROM shared_allowance_occurrences WHERE block_list_id=?1",
+            [id.to_string()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
+        .map_err(db_error)?;
+    let key = match current {
+        Some((key, until)) if now < until => {
+            if until == end {
+                return Ok(key);
+            }
+            key
+        }
+        Some((previous, _)) => {
+            let occupied: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM shared_allowance_usage WHERE block_list_id=?1 AND occurrence_start=?2)",
+                params![id.to_string(),start], |r| r.get(0),
+            ).map_err(db_error)?;
+            if occupied || start == previous {
+                // Restoring old boundaries after a genuine gap must not reuse
+                // an earlier occurrence. Reserve an unused anchor, persisted
+                // even before its first activity report arrives.
+                let last: Option<i64> = conn.query_row(
+                    "SELECT MAX(occurrence_start) FROM shared_allowance_usage WHERE block_list_id=?1",
+                    [id.to_string()], |r| r.get(0),
+                ).map_err(db_error)?;
+                now.max(previous).max(last.unwrap_or(start)) + 1
+            } else {
+                start
+            }
+        }
+        // Migration from the original usage model: retain any already consumed
+        // time stored under the current schedule's start.
+        None => start,
+    };
+    conn.execute(
+        "INSERT INTO shared_allowance_occurrences VALUES (?1,?2,?3)
+         ON CONFLICT(block_list_id) DO UPDATE SET usage_start=excluded.usage_start, ends_at=excluded.ends_at",
+        params![id.to_string(),key,end],
+    ).map_err(db_error)?;
+    Ok(key)
+}
+
+/// Called in the same transaction as every persisted list update, including
+/// wholesale updates. Use schedule activity independently of feature/list
+/// toggles, so toggling off, editing, and toggling on cannot refill a budget.
+pub(crate) fn schedule_edited<T: TimeZone>(
+    conn: &Connection,
+    old: &BlockList,
+    new: &BlockList,
+    now: DateTime<T>,
+) -> Result<()> {
+    if serde_json::to_value(&old.schedule)? == serde_json::to_value(&new.schedule)? {
+        return Ok(());
+    }
+    let before = old
+        .schedule
+        .as_ref()
+        .and_then(|s| s.active_period_at(now.clone()));
+    let after = new
+        .schedule
+        .as_ref()
+        .and_then(|s| s.active_period_at(now.clone()));
+    if let Some((start, end)) = before {
+        usage_anchor(
+            conn,
+            old.id,
+            start.timestamp(),
+            end.timestamp(),
+            now.timestamp(),
+        )?;
+    }
+    if before.is_none() || after.is_none() {
+        conn.execute(
+            "UPDATE shared_allowance_occurrences SET ends_at=MIN(ends_at,?2) WHERE block_list_id=?1",
+            params![old.id.to_string(),now.timestamp()],
+        ).map_err(|e| FocuserError::Database(e.to_string()))?;
+    }
+    if let Some((start, end)) = after {
+        usage_anchor(
+            conn,
+            new.id,
+            start.timestamp(),
+            end.timestamp(),
+            now.timestamp(),
+        )?;
+    }
+    Ok(())
+}
+
+impl Database {
+    fn shared_anchor(
+        &self,
+        list: &BlockList,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+        now: i64,
+    ) -> Result<i64> {
+        let conn = self.conn_lock()?;
+        usage_anchor(&conn, list.id, start.timestamp(), end.timestamp(), now)
+    }
+
+    fn shared_intervals(&self, id: EntityId, start: i64) -> Result<Vec<(i64, i64)>> {
+        let conn = self.conn_lock()?;
+        let json: Option<String> = conn.query_row(
+            "SELECT intervals FROM shared_allowance_usage WHERE block_list_id=?1 AND occurrence_start=?2",
+            params![id.to_string(), start], |r| r.get(0),
+        ).optional().map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(match json {
+            Some(s) => serde_json::from_str(&s)?,
+            None => vec![],
+        })
+    }
+
+    pub fn shared_used(&self, id: EntityId, start: i64) -> Result<u32> {
+        Ok(self
+            .shared_intervals(id, start)?
+            .iter()
+            .map(|(a, b)| (b - a) as u64)
+            .sum::<u64>()
+            .min(u32::MAX as u64) as u32)
+    }
+
+    fn record_shared_interval(
+        &self,
+        id: EntityId,
+        occurrence: i64,
+        from: i64,
+        to: i64,
+    ) -> Result<()> {
+        if from >= to {
+            return Ok(());
+        }
+        // One DB transaction serializes overlapping reports even across trackers.
+        let mut conn = self.conn_lock()?;
+        let tx = conn
+            .transaction()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        let json: Option<String> = tx.query_row(
+            "SELECT intervals FROM shared_allowance_usage WHERE block_list_id=?1 AND occurrence_start=?2",
+            params![id.to_string(), occurrence], |r| r.get(0),
+        ).optional().map_err(|e| FocuserError::Database(e.to_string()))?;
+        let mut intervals: Vec<(i64, i64)> = match json {
+            Some(s) => serde_json::from_str(&s)?,
+            None => vec![],
+        };
+        intervals.push((from, to));
+        intervals.sort_unstable();
+        let mut merged: Vec<(i64, i64)> = Vec::new();
+        for (a, b) in intervals {
+            if let Some(last) = merged.last_mut().filter(|last| last.1 >= a) {
+                last.1 = last.1.max(b);
+            } else {
+                merged.push((a, b));
+            }
+        }
+        tx.execute("INSERT INTO shared_allowance_usage VALUES (?1,?2,?3) ON CONFLICT(block_list_id,occurrence_start) DO UPDATE SET intervals=excluded.intervals",
+            params![id.to_string(), occurrence, serde_json::to_string(&merged)?])
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        tx.commit()
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    pub fn shared_status_at<T: TimeZone>(
+        &self,
+        list: &BlockList,
+        now: DateTime<T>,
+    ) -> Result<Option<SharedAllowanceStatus>> {
+        let Some(config) = &list.shared_allowance else {
+            return Ok(None);
+        };
+        let period = occurrence(list, now.clone());
+        let used = match period {
+            Some((start, end)) => self.shared_used(
+                list.id,
+                self.shared_anchor(list, start, end, now.timestamp())?,
+            )?,
+            None => 0,
+        };
+        let limit_secs = config.minutes.saturating_mul(60);
+        Ok(Some(SharedAllowanceStatus {
+            block_list_id: list.id,
+            limit_secs,
+            remaining_secs: limit_secs.saturating_sub(used),
+            active: period.is_some(),
+        }))
+    }
+
+    pub fn shared_permits_at<T: TimeZone>(&self, list: &BlockList, now: DateTime<T>) -> bool {
+        self.shared_status_at(list, now)
+            .ok()
+            .flatten()
+            .is_some_and(|s| s.active && s.remaining_secs > 0)
+    }
+
+    /// Returns whether the individual allowance is suppressed, even on inactive
+    /// reports or after exhaustion. Consumption never touches editing bypasses.
+    pub fn ingest_shared_at<T: TimeZone>(
+        &self,
+        tick: &AllowanceTick,
+        now: DateTime<T>,
+    ) -> Result<bool> {
+        let lists = self.list_block_lists()?;
+        let applicable: Vec<_> = lists
+            .iter()
+            .filter(|l| {
+                active_at(l, now.clone())
+                    && covers(
+                        l,
+                        tick.hostname.as_deref(),
+                        tick.url.as_deref(),
+                        tick.app_exe.as_deref(),
+                    )
+            })
+            .collect();
+        let suppressed = applicable
+            .iter()
+            .any(|l| occurrence(l, now.clone()).is_some());
+        if !suppressed
+            || !tick.active
+            || !tick.shared_active
+            || applicable
+                .iter()
+                .any(|l| !self.shared_permits_at(l, now.clone()))
+        {
+            return Ok(suppressed);
+        }
+        let to = now.timestamp();
+        let from = to - i64::from(tick.increment_secs.unwrap_or(5).clamp(1, 120));
+        for list in applicable {
+            if let Some((start, end)) = occurrence(list, now.clone()) {
+                let anchor = self.shared_anchor(list, start, end, to)?;
+                self.record_shared_interval(
+                    list.id,
+                    anchor,
+                    from.max(start.timestamp()),
+                    to.min(end.timestamp()),
+                )?;
+            }
+        }
+        Ok(true)
+    }
+
+    pub fn allowance_statuses_with_shared(&self) -> Result<Vec<AllowanceStatus>> {
+        let lists = self.list_block_lists()?;
+        let mut statuses = self.list_allowance_statuses()?;
+        for s in &mut statuses {
+            s.paused_by_shared = lists.iter().any(|l| {
+                occurrence(l, Local::now()).is_some()
+                    && match &s.allowance.target {
+                        AllowanceMatch::Domain(d) => covers(l, Some(d), None, None),
+                        AllowanceMatch::AppExecutable(a) => covers(l, None, None, Some(a)),
+                    }
+            });
+        }
+        Ok(statuses)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -503,311 +809,5 @@ mod tests {
         t.active = false;
         db.ingest_shared_at(&t, at(10, 0)).unwrap();
         assert_eq!(remaining(&db, &l, at(10, 0)), 60);
-    }
-}
-
-pub fn active_at<T: TimeZone>(list: &BlockList, now: DateTime<T>) -> bool {
-    list.enabled
-        && list
-            .schedule
-            .as_ref()
-            .is_none_or(|s| s.time_slots.is_empty() || s.active_period_at(now).is_some())
-}
-
-/// Match the actual target, keeping exceptions local to their owning list.
-pub fn covers(
-    list: &BlockList,
-    hostname: Option<&str>,
-    url: Option<&str>,
-    app: Option<&str>,
-) -> bool {
-    if let Some(host) = hostname {
-        if list.exceptions.iter().any(|e| {
-            e.enabled
-                && match &e.exception_type {
-                    ExceptionType::Domain(d) | ExceptionType::UrlPath(d) => {
-                        e.exception_type.page().is_none()
-                            && focuser_common::host::host_matches(d, host)
-                    }
-                    ExceptionType::Wildcard(w) => focuser_common::host::wildcard_matches(w, host),
-                    ExceptionType::LocalFiles => false,
-                }
-        }) {
-            return false;
-        }
-        return list.websites.iter().any(|r| {
-            r.enabled && url.map_or_else(|| r.matches_domain(host), |u| r.matches_url(u))
-        });
-    }
-    app.is_some_and(|exe| {
-        list.applications
-            .iter()
-            .any(|r| r.enabled && r.matches_process(exe, None, None))
-    })
-}
-
-/// Resolve a schedule boundary to its persisted usage anchor. Changing a live
-/// boundary retains this anchor; expiry or an explicit inactive gap ends it.
-fn usage_anchor(conn: &Connection, id: EntityId, start: i64, end: i64, now: i64) -> Result<i64> {
-    let db_error = |e: rusqlite::Error| FocuserError::Database(e.to_string());
-    let current: Option<(i64, i64)> = conn
-        .query_row(
-            "SELECT usage_start, ends_at FROM shared_allowance_occurrences WHERE block_list_id=?1",
-            [id.to_string()],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .optional()
-        .map_err(db_error)?;
-    let key = match current {
-        Some((key, until)) if now < until => {
-            if until == end {
-                return Ok(key);
-            }
-            key
-        }
-        Some((previous, _)) => {
-            let occupied: bool = conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM shared_allowance_usage WHERE block_list_id=?1 AND occurrence_start=?2)",
-                params![id.to_string(),start], |r| r.get(0),
-            ).map_err(db_error)?;
-            if occupied || start == previous {
-                // Restoring old boundaries after a genuine gap must not reuse
-                // an earlier occurrence. Reserve an unused anchor, persisted
-                // even before its first activity report arrives.
-                let last: Option<i64> = conn.query_row(
-                    "SELECT MAX(occurrence_start) FROM shared_allowance_usage WHERE block_list_id=?1",
-                    [id.to_string()], |r| r.get(0),
-                ).map_err(db_error)?;
-                now.max(previous).max(last.unwrap_or(start)) + 1
-            } else {
-                start
-            }
-        }
-        // Migration from the original usage model: retain any already consumed
-        // time stored under the current schedule's start.
-        None => start,
-    };
-    conn.execute(
-        "INSERT INTO shared_allowance_occurrences VALUES (?1,?2,?3)
-         ON CONFLICT(block_list_id) DO UPDATE SET usage_start=excluded.usage_start, ends_at=excluded.ends_at",
-        params![id.to_string(),key,end],
-    ).map_err(db_error)?;
-    Ok(key)
-}
-
-/// Called in the same transaction as every persisted list update, including
-/// wholesale updates. Use schedule activity independently of feature/list
-/// toggles, so toggling off, editing, and toggling on cannot refill a budget.
-pub(crate) fn schedule_edited<T: TimeZone>(
-    conn: &Connection,
-    old: &BlockList,
-    new: &BlockList,
-    now: DateTime<T>,
-) -> Result<()> {
-    if serde_json::to_value(&old.schedule)? == serde_json::to_value(&new.schedule)? {
-        return Ok(());
-    }
-    let before = old
-        .schedule
-        .as_ref()
-        .and_then(|s| s.active_period_at(now.clone()));
-    let after = new
-        .schedule
-        .as_ref()
-        .and_then(|s| s.active_period_at(now.clone()));
-    if let Some((start, end)) = before {
-        usage_anchor(
-            conn,
-            old.id,
-            start.timestamp(),
-            end.timestamp(),
-            now.timestamp(),
-        )?;
-    }
-    if before.is_none() || after.is_none() {
-        conn.execute(
-            "UPDATE shared_allowance_occurrences SET ends_at=MIN(ends_at,?2) WHERE block_list_id=?1",
-            params![old.id.to_string(),now.timestamp()],
-        ).map_err(|e| FocuserError::Database(e.to_string()))?;
-    }
-    if let Some((start, end)) = after {
-        usage_anchor(
-            conn,
-            new.id,
-            start.timestamp(),
-            end.timestamp(),
-            now.timestamp(),
-        )?;
-    }
-    Ok(())
-}
-
-impl Database {
-    fn shared_anchor(
-        &self,
-        list: &BlockList,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-        now: i64,
-    ) -> Result<i64> {
-        let conn = self.conn_lock()?;
-        usage_anchor(&conn, list.id, start.timestamp(), end.timestamp(), now)
-    }
-
-    fn shared_intervals(&self, id: EntityId, start: i64) -> Result<Vec<(i64, i64)>> {
-        let conn = self.conn_lock()?;
-        let json: Option<String> = conn.query_row(
-            "SELECT intervals FROM shared_allowance_usage WHERE block_list_id=?1 AND occurrence_start=?2",
-            params![id.to_string(), start], |r| r.get(0),
-        ).optional().map_err(|e| FocuserError::Database(e.to_string()))?;
-        Ok(match json {
-            Some(s) => serde_json::from_str(&s)?,
-            None => vec![],
-        })
-    }
-
-    pub fn shared_used(&self, id: EntityId, start: i64) -> Result<u32> {
-        Ok(self
-            .shared_intervals(id, start)?
-            .iter()
-            .map(|(a, b)| (b - a) as u64)
-            .sum::<u64>()
-            .min(u32::MAX as u64) as u32)
-    }
-
-    fn record_shared_interval(
-        &self,
-        id: EntityId,
-        occurrence: i64,
-        from: i64,
-        to: i64,
-    ) -> Result<()> {
-        if from >= to {
-            return Ok(());
-        }
-        // One DB transaction serializes overlapping reports even across trackers.
-        let mut conn = self.conn_lock()?;
-        let tx = conn
-            .transaction()
-            .map_err(|e| FocuserError::Database(e.to_string()))?;
-        let json: Option<String> = tx.query_row(
-            "SELECT intervals FROM shared_allowance_usage WHERE block_list_id=?1 AND occurrence_start=?2",
-            params![id.to_string(), occurrence], |r| r.get(0),
-        ).optional().map_err(|e| FocuserError::Database(e.to_string()))?;
-        let mut intervals: Vec<(i64, i64)> = match json {
-            Some(s) => serde_json::from_str(&s)?,
-            None => vec![],
-        };
-        intervals.push((from, to));
-        intervals.sort_unstable();
-        let mut merged: Vec<(i64, i64)> = Vec::new();
-        for (a, b) in intervals {
-            if let Some(last) = merged.last_mut().filter(|last| last.1 >= a) {
-                last.1 = last.1.max(b);
-            } else {
-                merged.push((a, b));
-            }
-        }
-        tx.execute("INSERT INTO shared_allowance_usage VALUES (?1,?2,?3) ON CONFLICT(block_list_id,occurrence_start) DO UPDATE SET intervals=excluded.intervals",
-            params![id.to_string(), occurrence, serde_json::to_string(&merged)?])
-            .map_err(|e| FocuserError::Database(e.to_string()))?;
-        tx.commit()
-            .map_err(|e| FocuserError::Database(e.to_string()))?;
-        Ok(())
-    }
-
-    pub fn shared_status_at<T: TimeZone>(
-        &self,
-        list: &BlockList,
-        now: DateTime<T>,
-    ) -> Result<Option<SharedAllowanceStatus>> {
-        let Some(config) = &list.shared_allowance else {
-            return Ok(None);
-        };
-        let period = occurrence(list, now.clone());
-        let used = match period {
-            Some((start, end)) => self.shared_used(
-                list.id,
-                self.shared_anchor(list, start, end, now.timestamp())?,
-            )?,
-            None => 0,
-        };
-        let limit_secs = config.minutes.saturating_mul(60);
-        Ok(Some(SharedAllowanceStatus {
-            block_list_id: list.id,
-            limit_secs,
-            remaining_secs: limit_secs.saturating_sub(used),
-            active: period.is_some(),
-        }))
-    }
-
-    pub fn shared_permits_at<T: TimeZone>(&self, list: &BlockList, now: DateTime<T>) -> bool {
-        self.shared_status_at(list, now)
-            .ok()
-            .flatten()
-            .is_some_and(|s| s.active && s.remaining_secs > 0)
-    }
-
-    /// Returns whether the individual allowance is suppressed, even on inactive
-    /// reports or after exhaustion. Consumption never touches editing bypasses.
-    pub fn ingest_shared_at<T: TimeZone>(
-        &self,
-        tick: &AllowanceTick,
-        now: DateTime<T>,
-    ) -> Result<bool> {
-        let lists = self.list_block_lists()?;
-        let applicable: Vec<_> = lists
-            .iter()
-            .filter(|l| {
-                active_at(l, now.clone())
-                    && covers(
-                        l,
-                        tick.hostname.as_deref(),
-                        tick.url.as_deref(),
-                        tick.app_exe.as_deref(),
-                    )
-            })
-            .collect();
-        let suppressed = applicable
-            .iter()
-            .any(|l| occurrence(l, now.clone()).is_some());
-        if !suppressed
-            || !tick.active
-            || !tick.shared_active
-            || applicable
-                .iter()
-                .any(|l| !self.shared_permits_at(l, now.clone()))
-        {
-            return Ok(suppressed);
-        }
-        let to = now.timestamp();
-        let from = to - i64::from(tick.increment_secs.unwrap_or(5).clamp(1, 120));
-        for list in applicable {
-            if let Some((start, end)) = occurrence(list, now.clone()) {
-                let anchor = self.shared_anchor(list, start, end, to)?;
-                self.record_shared_interval(
-                    list.id,
-                    anchor,
-                    from.max(start.timestamp()),
-                    to.min(end.timestamp()),
-                )?;
-            }
-        }
-        Ok(true)
-    }
-
-    pub fn allowance_statuses_with_shared(&self) -> Result<Vec<AllowanceStatus>> {
-        let lists = self.list_block_lists()?;
-        let mut statuses = self.list_allowance_statuses()?;
-        for s in &mut statuses {
-            s.paused_by_shared = lists.iter().any(|l| {
-                occurrence(l, Local::now()).is_some()
-                    && match &s.allowance.target {
-                        AllowanceMatch::Domain(d) => covers(l, Some(d), None, None),
-                        AllowanceMatch::AppExecutable(a) => covers(l, None, None, Some(a)),
-                    }
-            });
-        }
-        Ok(statuses)
     }
 }

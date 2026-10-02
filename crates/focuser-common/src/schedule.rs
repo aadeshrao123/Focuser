@@ -56,11 +56,11 @@ impl Schedule {
         periods.sort_unstable();
         let mut merged: Vec<(chrono::DateTime<Utc>, chrono::DateTime<Utc>)> = Vec::new();
         for (start, end) in periods {
-            if let Some(last) = merged.last_mut() {
-                if start <= last.1 {
-                    last.1 = last.1.max(end);
-                    continue;
-                }
+            if let Some(last) = merged.last_mut()
+                && start <= last.1
+            {
+                last.1 = last.1.max(end);
+                continue;
             }
             merged.push((start, end));
         }

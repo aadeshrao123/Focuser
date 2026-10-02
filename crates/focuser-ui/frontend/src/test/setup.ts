@@ -1,5 +1,10 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
 import { beforeEach } from "vitest";
+
+// The default second is not enough for a first render on a busy CI runner,
+// and a `findBy` that times out there fails a test that is otherwise right.
+configure({ asyncUtilTimeout: 5000 });
 
 /**
  * A `localStorage` for tests.

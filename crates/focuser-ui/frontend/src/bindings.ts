@@ -303,7 +303,7 @@ export type Command =
 } } | { cmd: "get_scheduled_protection_status" } | { cmd: "configure_shared_allowance"; args: {
 	list_id: string,
 	minutes: number | null,
-} } | { cmd: "get_shared_allowance_status" } | { cmd: "get_protection_status" } |
+} } | { cmd: "get_shared_allowance_status" } | { cmd: "get_protection_status" } | 
 /**
  *  Issue a fresh random-text challenge for a protected list. Only valid
  *  on a list whose lock is [`focuser_common::types::Lock::RandomText`].
@@ -430,7 +430,7 @@ export type CommandResult =
 /**  Succeeded, nothing to return. */
 { kind: "unit" } | { kind: "block_list"; data: BlockList } | { kind: "block_lists"; data: BlockList[] } | { kind: "website_rule"; data: WebsiteRule } | { kind: "app_rule"; data: AppRule } | { kind: "exception"; data: ExceptionRule } | 
 /**  A number of affected items — e.g. rules imported or cleared. */
-{ kind: "count"; data: number } | { kind: "stats"; data: UsageStat[] } | { kind: "blocked_events"; data: BlockedEvent[] } | { kind: "protection_status"; data: ProtectionInfo[] } | { kind: "scheduled_protection_status"; data: ScheduledProtectionStatus[] } | { kind: "shared_allowance_status"; data: SharedAllowanceStatus[] } | { kind: "blocking_health"; data: BlockingHealth } |
+{ kind: "count"; data: number } | { kind: "stats"; data: UsageStat[] } | { kind: "blocked_events"; data: BlockedEvent[] } | { kind: "protection_status"; data: ProtectionInfo[] } | { kind: "scheduled_protection_status"; data: ScheduledProtectionStatus[] } | { kind: "shared_allowance_status"; data: SharedAllowanceStatus[] } | { kind: "blocking_health"; data: BlockingHealth } | 
 /**  A setting value; `None` when unset and no default was supplied. */
 { kind: "setting"; data: string | null } | 
 /**  A yes/no outcome — e.g. "was a session actually paused". */

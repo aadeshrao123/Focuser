@@ -83,3 +83,8 @@ internal-docs/
 extension/.output/
 extension/.wxt/
 extension/stats.html
+
+# Tauri writes one of these per platform it is built on; the desktop one is
+# the copy that is kept.
+crates/focuser-ui/gen/schemas/linux-schema.json
+crates/focuser-ui/gen/schemas/macOS-schema.json

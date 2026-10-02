@@ -134,7 +134,7 @@ pub fn run_all(conn: &Connection) -> Result<()> {
         ),
         (
             "v6: shared scheduled allowance activity",
-            "CREATE TABLE shared_allowance_usage (
+            "CREATE TABLE IF NOT EXISTS shared_allowance_usage (
                 block_list_id TEXT NOT NULL,
                 occurrence_start INTEGER NOT NULL,
                 intervals TEXT NOT NULL DEFAULT '[]',
@@ -143,7 +143,7 @@ pub fn run_all(conn: &Connection) -> Result<()> {
         ),
         (
             "v7: stable shared allowance occurrence anchors",
-            "CREATE TABLE shared_allowance_occurrences (
+            "CREATE TABLE IF NOT EXISTS shared_allowance_occurrences (
                 block_list_id TEXT PRIMARY KEY,
                 usage_start INTEGER NOT NULL,
                 ends_at INTEGER NOT NULL
