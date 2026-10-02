@@ -14,6 +14,10 @@ export default mergeConfig(
       environmentOptions: { jsdom: { url: "http://localhost/" } },
       globals: true,
       setupFiles: ["./src/test/setup.ts"],
+      // Role queries on the Schedule page walk a grid of 168 buttons. One test
+      // that takes two seconds here took over five on a CI runner, which is
+      // the default limit. It also has to be longer than `asyncUtilTimeout`.
+      testTimeout: 20_000,
     },
   }),
 );
