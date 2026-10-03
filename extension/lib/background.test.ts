@@ -74,6 +74,57 @@ describe("moving between pages without a page load", () => {
     await move("https://www.youtube.com/watch?v=abc");
     expect(reload).toHaveBeenCalledWith(7);
   });
+
+  it("leaves a tab alone that already shows the block page", async () => {
+    const reload = vi.spyOn(fakeBrowser.tabs, "reload").mockResolvedValue();
+    await start();
+
+    // The site's scripts still run under the block page, and YouTube rewrites
+    // its URL as it starts. Reloading for that brought the block back, which
+    // the site rewrote again: a reload loop.
+    await fakeBrowser.webNavigation.onCommitted.trigger({
+      tabId: 7,
+      frameId: 0,
+      url: "https://www.youtube.com/watch?v=abc",
+    } as never);
+    await fakeBrowser.webNavigation.onHistoryStateUpdated.trigger({
+      tabId: 7,
+      frameId: 0,
+      url: "https://www.youtube.com/watch?v=abc&t=0",
+    } as never);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("leaves a tab alone while its block page is still on the way", async () => {
+    const reload = vi.spyOn(fakeBrowser.tabs, "reload").mockResolvedValue();
+    const fetched = await start();
+
+    // The block page waits on the app for its count, and the site runs in
+    // the meantime. A URL rewrite in that gap reloaded the tab.
+    let answer: (r: Response) => void = () => {};
+    fetched.mockImplementation(
+      (url: RequestInfo | URL) =>
+        new Promise((resolve) => {
+          if (String(url).includes("/api/blocked")) answer = resolve;
+          else resolve(new Response("{}"));
+        }),
+    );
+    const committed = fakeBrowser.webNavigation.onCommitted.trigger({
+      tabId: 7,
+      frameId: 0,
+      url: "https://www.youtube.com/watch?v=abc",
+    } as never);
+    await fakeBrowser.webNavigation.onHistoryStateUpdated.trigger({
+      tabId: 7,
+      frameId: 0,
+      url: "https://www.youtube.com/watch?v=abc&t=0",
+    } as never);
+    answer(new Response(JSON.stringify({ count: 1 })));
+    await committed;
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(blockPages()).toHaveLength(1);
+  });
 });
 
 describe("opening a blocked site", () => {

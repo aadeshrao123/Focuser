@@ -54,6 +54,11 @@ export default defineBackground(() => {
   // onCompleted, and without this the page is built twice.
   const recentInjections = new Map<string, number>();
   const recentReports = new Map<string, number>();
+  // Tabs whose current page is the block page. The site's own scripts keep
+  // running underneath it, and an SPA rewriting its URL on load must not set
+  // off the in-page reload below — that reload brings the block straight
+  // back, and the site rewrites again, forever.
+  const showingBlock = new Set<number>();
   let lastTickAt = 0;
   const sharedActivity = new SharedActivity();
   let samplingShared = false;
@@ -175,6 +180,9 @@ export default defineBackground(() => {
     const hit = match(rules, hostname, url);
     if (!hit) return;
     if (!shouldInject(tabId, trackingKey(hit))) return;
+    // Marked before anything is awaited: the site runs while the app is asked
+    // for the count, and a URL rewrite in that gap would reload the tab.
+    showingBlock.add(tabId);
 
     const context = await buildContext(hit, hostname);
     try {
@@ -194,6 +202,7 @@ export default defineBackground(() => {
     } catch {
       // Chrome refuses injection on its own pages and the web store. Nothing
       // to do but leave the tab alone.
+      showingBlock.delete(tabId);
     }
   }
 
@@ -259,6 +268,7 @@ export default defineBackground(() => {
     for (const key of recentInjections.keys()) {
       if (key.startsWith(`${tabId}:`)) recentInjections.delete(key);
     }
+    showingBlock.delete(tabId);
   }
 
   browser.webNavigation.onCommitted.addListener(async (details) => {
@@ -275,6 +285,7 @@ export default defineBackground(() => {
   // page would be a door to the rest of the site. Reloading makes it a real
   // navigation: the block then replaces a page that has not started playing.
   browser.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    if (showingBlock.has(details.tabId)) return;
     const to = destination(details);
     if (to && match(rules, to.hostname, to.url)) void browser.tabs.reload(details.tabId);
   });
