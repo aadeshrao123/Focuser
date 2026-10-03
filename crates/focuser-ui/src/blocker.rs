@@ -351,12 +351,27 @@ fn enforce_browser_extension(
         if !proc.is_killable() {
             continue;
         }
-        if let Some(info) = identify_browser(&proc.name) {
-            running
-                .entry(info.browser_type.clone())
-                .or_default()
-                .push(proc.pid);
+        let Some(info) = identify_browser(&proc.name) else {
+            continue;
+        };
+        // Chromium's renderer, GPU, zygote, and utility subprocesses exec the
+        // same binary as the browser itself, so on Linux they report the
+        // identical `/proc/[pid]/comm` name as the top-level process — there
+        // is no way to tell them apart by name. Killing them individually
+        // bypasses the browser's own shutdown path entirely and reads as a
+        // crash, not a close. Every subprocess carries `--type=...`; the
+        // top-level process never does. Firefox's equivalent is
+        // `-contentproc`: its children usually rename themselves ("Web
+        // Content", "forkserver"), but not reliably before we look.
+        let is_subprocess =
+            process::cmdline(proc.pid).is_some_and(|cmd| is_browser_subprocess(&cmd));
+        if is_subprocess {
+            continue;
         }
+        running
+            .entry(info.browser_type.clone())
+            .or_default()
+            .push(proc.pid);
     }
 
     // Generous 2-minute window: extensions use chrome.alarms, which fires
@@ -417,6 +432,13 @@ fn enforce_browser_extension(
     }
 
     grace_periods.retain(|browser, _| running.contains_key(browser));
+}
+
+/// Whether a browser process command line belongs to a child process
+/// (Chromium `--type=...`, Firefox `-contentproc`) rather than the browser
+/// itself.
+fn is_browser_subprocess(cmdline: &str) -> bool {
+    cmdline.contains("--type=") || cmdline.contains("-contentproc")
 }
 
 fn hosts_path() -> String {
@@ -495,6 +517,29 @@ fn flush_dns() {
 
 #[cfg(test)]
 mod tests {
+    use super::is_browser_subprocess;
+
+    #[test]
+    fn a_browser_main_process_is_not_a_subprocess() {
+        assert!(!is_browser_subprocess(
+            "/app/brave/brave --no-default-browser-check"
+        ));
+        assert!(!is_browser_subprocess("/usr/lib/firefox/firefox-bin"));
+    }
+
+    #[test]
+    fn chromium_and_firefox_children_are_subprocesses() {
+        assert!(is_browser_subprocess(
+            "/app/brave/brave --type=zygote --no-zygote-sandbox"
+        ));
+        assert!(is_browser_subprocess(
+            "/opt/google/chrome/chrome --type=renderer"
+        ));
+        assert!(is_browser_subprocess(
+            "/usr/lib/firefox/firefox-bin -contentproc -childID 3 tab"
+        ));
+    }
+
     use super::*;
     use focuser_common::process::Process;
 

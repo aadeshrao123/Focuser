@@ -121,7 +121,10 @@ pub static KNOWN_BROWSERS: &[BrowserInfo] = &[
     BrowserInfo {
         browser_type: BrowserType::Firefox,
         display_name: "Mozilla Firefox",
-        exe_names: &["firefox", "firefox-esr"],
+        // Distro packages start `/usr/lib/firefox/firefox`, a launcher that
+        // execs `firefox-bin` — so the long-lived main process reports
+        // `firefox-bin`, and matching only `firefox` never sees it.
+        exe_names: &["firefox", "firefox-bin", "firefox-esr"],
     },
     BrowserInfo {
         browser_type: BrowserType::Edge,
@@ -192,6 +195,13 @@ mod tests {
             let info = identify_browser("Chrome.EXE").unwrap();
             assert_eq!(info.browser_type, BrowserType::Chrome);
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_identify_browser_firefox_bin() {
+        let info = identify_browser("firefox-bin").unwrap();
+        assert_eq!(info.browser_type, BrowserType::Firefox);
     }
 
     #[test]
