@@ -179,6 +179,18 @@ fn main() {
             let icon_state = Arc::clone(&state_for_blocker);
             std::thread::spawn(move || warm_app_icons(&icon_state));
 
+            // `kill` / `pkill` send SIGTERM by default, which the OS would
+            // otherwise end the process on unconditionally — the tray's Quit
+            // item checks for an active lock, but a raw signal bypassed that
+            // check entirely. This routes SIGTERM/SIGINT through the same
+            // check. SIGKILL cannot be caught by any process; nothing here
+            // (or anywhere) changes that.
+            #[cfg(unix)]
+            {
+                let signal_state = Arc::clone(&state_for_blocker);
+                std::thread::spawn(move || run_signal_guard(signal_state));
+            }
+
             // System tray icon. Built in the saved language; the tray exists
             // before any window does, so it cannot ask the frontend.
             let tray_locale = state_for_blocker
@@ -443,6 +455,32 @@ fn quit_blocked_by(state: &Arc<AppState>) -> Option<String> {
         list.name,
         format_remaining(remaining)
     ))
+}
+
+/// SIGTERM/SIGINT ("kill", "pkill", Ctrl+C) receive the same lock check the
+/// tray's Quit item gets, instead of ending the process unconditionally the
+/// moment the signal arrives. SIGKILL cannot be intercepted by any process —
+/// this only ever narrows the gap, never closes it.
+#[cfg(unix)]
+fn run_signal_guard(state: Arc<AppState>) {
+    use signal_hook::consts::{SIGINT, SIGTERM};
+    use signal_hook::iterator::Signals;
+
+    let Ok(mut signals) = Signals::new([SIGTERM, SIGINT]) else {
+        warn!(
+            "Could not install a SIGTERM/SIGINT handler — a lock cannot stop `kill` from working"
+        );
+        return;
+    };
+
+    for sig in signals.forever() {
+        if let Some(reason) = quit_blocked_by(&state) {
+            warn!(%reason, signal = sig, "Refused to exit on signal — a lock is active");
+            continue;
+        }
+        let _ = blocker::remove_hosts_blocks();
+        std::process::exit(0);
+    }
 }
 
 /// Coarse, human phrasing. The exact second does not matter to someone being

@@ -1467,6 +1467,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "signal-hook",
  "specta",
  "specta-typescript",
  "tauri",
