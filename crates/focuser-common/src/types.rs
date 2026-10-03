@@ -243,6 +243,46 @@ pub enum WebsiteMatchType {
     EntireInternet,
 }
 
+impl WebsiteMatchType {
+    /// Collapse a pattern that only *looks* like a wildcard into what it
+    /// actually is.
+    ///
+    /// `*word*` and `Keyword("word")` match identically — both are a plain
+    /// substring test — so a `Wildcard` of exactly that shape is a keyword
+    /// someone typed with asterisks around it, not a real glob. And `Domain`
+    /// does exact hostname matching with no glob support at all, so a
+    /// `Domain` value containing a `*` (typed into the wrong field) never
+    /// matched anything — it belongs in `Wildcard`, or in `Keyword` if it's
+    /// the `*word*` shape, to actually be evaluated as a pattern.
+    ///
+    /// Skipped when fewer than 3 literal characters remain once the stars
+    /// are stripped: too little to guess intent from, and turning it into a
+    /// live pattern risks matching far more than was meant (`*r` would
+    /// become "any domain ending in r"). Left alone, it stays exactly as
+    /// inert as it already was.
+    pub fn simplify(&mut self) {
+        let was_domain = matches!(self, Self::Domain(_));
+        let pattern = match self {
+            Self::Wildcard(p) => p.clone(),
+            Self::Domain(d) if d.contains('*') => d.clone(),
+            _ => return,
+        };
+
+        if pattern.chars().filter(|&c| c != '*').count() < 3 {
+            return;
+        }
+
+        if let Some(inner) = pattern.strip_prefix('*').and_then(|s| s.strip_suffix('*'))
+            && !inner.is_empty()
+            && !inner.contains(['*', '?'])
+        {
+            *self = Self::Keyword(inner.to_string());
+        } else if was_domain {
+            *self = Self::Wildcard(pattern);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct WebsiteRule {
     pub id: EntityId,
@@ -669,5 +709,69 @@ mod lock_tests {
     fn a_random_text_lock_has_no_password() {
         let text_lock = Lock::RandomText { length: 10 };
         assert!(!text_lock.verify_password("anything"));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_star_word_star_wildcard_simplifies_to_a_keyword() {
+        let mut m = WebsiteMatchType::Wildcard("*casino*".into());
+        m.simplify();
+        assert_eq!(m, WebsiteMatchType::Keyword("casino".into()));
+    }
+
+    #[test]
+    fn a_subdomain_wildcard_keeps_its_real_glob_meaning() {
+        for pattern in ["*.reddit.com", "*free*games*", "*a*b*", "**", "*", "*?*"] {
+            let mut m = WebsiteMatchType::Wildcard(pattern.into());
+            m.simplify();
+            assert_eq!(
+                m,
+                WebsiteMatchType::Wildcard(pattern.into()),
+                "{pattern:?} should not have been reclassified"
+            );
+        }
+    }
+
+    #[test]
+    fn simplify_does_nothing_to_a_non_wildcard_match_type() {
+        let mut m = WebsiteMatchType::Domain("reddit.com".into());
+        m.simplify();
+        assert_eq!(m, WebsiteMatchType::Domain("reddit.com".into()));
+    }
+
+    #[test]
+    fn a_domain_typed_with_a_star_word_star_becomes_a_keyword() {
+        // Domain does exact hostname matching only, so this never matched
+        // anything — it was typed into the wrong field.
+        let mut m = WebsiteMatchType::Domain("*casino*".into());
+        m.simplify();
+        assert_eq!(m, WebsiteMatchType::Keyword("casino".into()));
+    }
+
+    #[test]
+    fn a_domain_typed_with_a_real_glob_moves_to_wildcard_unchanged() {
+        for pattern in ["casino*", "*free*games*", "*.example", "search.example.*"] {
+            let mut m = WebsiteMatchType::Domain(pattern.into());
+            m.simplify();
+            assert_eq!(m, WebsiteMatchType::Wildcard(pattern.into()), "{pattern:?}");
+        }
+    }
+
+    #[test]
+    fn too_little_is_left_after_stripping_stars_to_safely_promote() {
+        // "*r" would become "any domain ending in r" as a live Wildcard —
+        // worse than the inert Domain rule it started as. Leave it be.
+        for match_type in [
+            WebsiteMatchType::Domain("*r".into()),
+            WebsiteMatchType::Wildcard("*ai*".into()),
+        ] {
+            let mut m = match_type.clone();
+            m.simplify();
+            assert_eq!(m, match_type);
+        }
     }
 }

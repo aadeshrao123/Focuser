@@ -519,7 +519,7 @@ mod tests {
             // Recreate the previously implemented v6 shape with its usage
             // intact, but without the new occurrence-identity table.
             db.conn_lock().unwrap().execute_batch(
-                "DROP TABLE shared_allowance_occurrences; DELETE FROM schema_version WHERE version=7;"
+                "DROP TABLE shared_allowance_occurrences; DELETE FROM schema_version WHERE version>=7;"
             ).unwrap();
             l.id
         };

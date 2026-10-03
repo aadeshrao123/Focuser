@@ -1056,6 +1056,7 @@ fn normalize(match_type: &mut WebsiteMatchType) {
     if let WebsiteMatchType::Domain(d) = match_type {
         *d = canonical_host(d);
     }
+    match_type.simplify();
 }
 
 /// Reject mutations to a block list whose protection window is still open.
@@ -1321,6 +1322,50 @@ mod tests {
         assert!(matches!(
             &websites[0].match_type,
             WebsiteMatchType::Domain(d) if d == "pornhub.com"
+        ));
+    }
+
+    #[test]
+    fn a_star_word_star_wildcard_is_added_as_a_keyword() {
+        let ctx = ctx();
+        let list = create(&ctx, "Sites");
+
+        execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Wildcard("*casino*".into()),
+            },
+        )
+        .unwrap();
+
+        let stored = &lists(&ctx)[0].websites;
+        assert_eq!(stored.len(), 1);
+        assert!(matches!(
+            &stored[0].match_type,
+            WebsiteMatchType::Keyword(k) if k == "casino"
+        ));
+    }
+
+    #[test]
+    fn a_domain_typed_with_star_word_star_is_added_as_a_keyword() {
+        let ctx = ctx();
+        let list = create(&ctx, "Sites");
+
+        execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("*casino*".into()),
+            },
+        )
+        .unwrap();
+
+        let stored = &lists(&ctx)[0].websites;
+        assert_eq!(stored.len(), 1);
+        assert!(matches!(
+            &stored[0].match_type,
+            WebsiteMatchType::Keyword(k) if k == "casino"
         ));
     }
 
