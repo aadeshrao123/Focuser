@@ -111,6 +111,8 @@
   "browser_extension_connected": "Extension connectée",
   "browser_running_without": "Fonctionne sans l'extension",
   "browser_not_running": "Non lancé",
+  "browser_incognito_not_allowed": "Les fenêtres de navigation privée ne sont pas couvertes",
+  "browser_allow_incognito": "Autoriser en navigation privée",
   "config_confirm_delete": "Cliquez à nouveau pour tout supprimer",
   "update_desktop_only": "Application de bureau uniquement",
   "update_up_to_date": "À jour",

@@ -107,6 +107,8 @@
   "browser_extension_connected": "扩展已连接",
   "browser_running_without": "正在运行，但未启用扩展",
   "browser_not_running": "未运行",
+  "browser_incognito_not_allowed": "隐身窗口未被覆盖",
+  "browser_allow_incognito": "允许在隐身模式下运行",
   "config_confirm_delete": "再点一次以删除全部",
   "update_desktop_only": "仅限桌面应用",
   "update_up_to_date": "已是最新",

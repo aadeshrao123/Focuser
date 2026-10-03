@@ -60,6 +60,16 @@ welcome:
   setupBody2: Si l'application est fermée, l'icône de la barre d'outils affiche une marque rouge et rien n'est bloqué. C'est l'extension qui est honnête avec vous plutôt que de faire semblant de fonctionner.
   openApp: Ouvrir l'application Focuser
   getApp: Télécharger l'application de bureau
+
+  incognitoTitle: "Autorisez Focuser dans les fenêtres privées"
+  incognitoBody: "{browser} n'autorise pas les extensions dans les fenêtres privées sans votre accord : rien de ce que vous y ouvrez n'est encore bloqué. Tant qu'un blocage est actif, Focuser ferme {browser} jusqu'à ce que ce soit activé."
+  incognitoStepsChromium: "Ouvrez les paramètres de l'extension et activez « {setting} »."
+  incognitoStepsFirefox: "Ouvrez le menu, allez dans Modules complémentaires et thèmes, choisissez Focuser et réglez « Exécution dans les fenêtres de navigation privée » sur Autoriser."
+  incognitoSettingIncognito: "Autoriser en mode navigation privée"
+  incognitoSettingInPrivate: "Autoriser dans InPrivate"
+  incognitoSettingPrivate: "Autoriser en mode privé"
+  incognitoReloadNote: "Ce changement redémarre l'extension, cette page peut donc se fermer. C'est normal."
+  incognitoOpenSettings: "Ouvrir les paramètres de l'extension"
   whatsNewVersion: Nouveautés de la version {version}
   whatsNew: Nouveautés
   new1Title: Reconstruite de zéro

@@ -806,6 +806,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         Command::GetBrowserStatus => {
             let running = ctx.running_browsers();
             let connected = ctx.connected_browsers();
+            let safely_connected = ctx.safely_connected_browsers();
 
             let statuses = focuser_common::browser::KNOWN_BROWSERS
                 .iter()
@@ -814,6 +815,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                     BrowserStatus {
                         running: running.contains(&browser),
                         extension_connected: connected.contains(&browser),
+                        incognito_allowed: safely_connected.contains(&browser),
                         display_name: info.display_name.to_string(),
                         store_url: info.store_url().to_string(),
                         launch_name: info.launch_name().to_string(),

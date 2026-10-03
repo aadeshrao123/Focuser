@@ -11,9 +11,10 @@ import {
   Sparkles,
   Star,
   Timer,
+  TriangleAlert,
 } from "lucide-react";
-import type { ComponentType } from "react";
-import { showApp } from "@/lib/api";
+import { type ComponentType, useEffect, useState } from "react";
+import { type BrowserName, detectBrowser, isIncognitoAllowed, showApp } from "@/lib/api";
 
 const REPO = "https://github.com/aadeshrao123/Focuser";
 /** A page that renders nothing is worse than one with no version on it. */
@@ -112,6 +113,8 @@ export function Welcome() {
               : i18n.t("welcome.introInstalled")}
           </p>
         </header>
+
+        <IncognitoCard />
 
         <Card className="mt-12">
           <SectionTitle icon={Laptop}>{i18n.t("welcome.setupTitle")}</SectionTitle>
@@ -250,6 +253,94 @@ export function Welcome() {
       </main>
     </div>
   );
+}
+
+/**
+ * Browsers keep extensions out of private windows until the user lets them in,
+ * and none of them ask at install time except Firefox (as an unticked box). So
+ * a fresh install leaves private windows unblocked, and the app closes the
+ * browser for it. Say so here, while the user is already looking, rather than
+ * leaving them to find out from the close prompt.
+ */
+function IncognitoCard() {
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const check = () => void isIncognitoAllowed().then(setAllowed);
+    check();
+    // Chromium closes this tab when the setting changes (it reloads the
+    // extension), but Firefox may not, so re-check when the user comes back.
+    document.addEventListener("visibilitychange", check);
+    return () => document.removeEventListener("visibilitychange", check);
+  }, []);
+
+  if (allowed !== false) return null;
+
+  const browserName = detectBrowser();
+  const firefox = browserName === "Firefox";
+
+  return (
+    <section className="mt-12 rounded-[1.25rem] border border-warning/30 bg-warning/10 p-6 shadow-[var(--shadow-depth-md)] backdrop-blur-xl sm:p-7">
+      <h2 className="flex items-center gap-2.5 font-semibold text-foreground text-xl">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-warning/15 text-warning">
+          <TriangleAlert className="size-4" />
+        </span>
+        {i18n.t("welcome.incognitoTitle")}
+      </h2>
+      <p className="mt-3 text-muted-foreground leading-relaxed">
+        {i18n.t("welcome.incognitoBody", { browser: browserLabel(browserName) })}
+      </p>
+      <p className="mt-3 font-medium text-foreground leading-relaxed">
+        {firefox
+          ? i18n.t("welcome.incognitoStepsFirefox")
+          : i18n.t("welcome.incognitoStepsChromium", { setting: incognitoSetting(browserName) })}
+      </p>
+      <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+        {i18n.t("welcome.incognitoReloadNote")}
+      </p>
+
+      {/* Firefox refuses to open `about:addons` from an extension, so it gets
+          the written steps above and no button. */}
+      {!firefox && (
+        <div className="mt-6 flex flex-wrap gap-3">
+          <PrimaryButton onClick={() => void openExtensionSettings()}>
+            <Shield className="size-4" />
+            {i18n.t("welcome.incognitoOpenSettings")}
+          </PrimaryButton>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** "Other" reads badly in a sentence, and is nearly always a Chromium browser. */
+function browserLabel(name: BrowserName): string {
+  return name === "Other" ? "Chrome" : name;
+}
+
+/** Each Chromium browser names the toggle after its own private mode. */
+function incognitoSetting(name: BrowserName): string {
+  switch (name) {
+    case "Edge":
+      return i18n.t("welcome.incognitoSettingInPrivate");
+    case "Brave":
+      return i18n.t("welcome.incognitoSettingPrivate");
+    default:
+      return i18n.t("welcome.incognitoSettingIncognito");
+  }
+}
+
+/**
+ * `chrome://extensions` works in every Chromium browser — Edge, Brave and Opera
+ * redirect it to their own — and `?id=` lands on this extension's details page,
+ * where the toggle is.
+ */
+async function openExtensionSettings() {
+  try {
+    await browser.tabs.create({ url: `chrome://extensions/?id=${browser.runtime.id}` });
+  } catch {
+    // Nothing to fall back to; the written steps are still on the page.
+  }
 }
 
 function Ambient() {

@@ -111,6 +111,8 @@
   "browser_extension_connected": "Estensione collegata",
   "browser_running_without": "In funzione senza l'estensione",
   "browser_not_running": "Non in esecuzione",
+  "browser_incognito_not_allowed": "Le finestre in incognito non sono coperte",
+  "browser_allow_incognito": "Consenti in incognito",
   "config_confirm_delete": "Clicca di nuovo per cancellare tutto",
   "update_desktop_only": "Solo nell'app desktop",
   "update_up_to_date": "Tutto aggiornato",

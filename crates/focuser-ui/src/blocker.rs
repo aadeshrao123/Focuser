@@ -362,10 +362,17 @@ fn enforce_browser_extension(
     // Generous 2-minute window: extensions use chrome.alarms, which fires
     // every 30s once the service worker sleeps. Anything tighter would call a
     // healthy extension dead during a slow startup or a suspended worker.
-    let connected = crate::api::get_connected_browsers(120);
+    //
+    // "Safely connected" requires *both* a recent check-in *and* "Allow in
+    // Incognito" being granted. A browser that is merely connected but has
+    // not been granted incognito access is not actually covered: Chrome
+    // hides private windows from an extension without that permission, so a
+    // private window there has nothing blocking it at all. Treating that the
+    // same as "extension not installed" is deliberate — it is the same gap.
+    let safely_connected = crate::api::get_safely_connected_browsers(120);
 
     for (browser, pids) in &running {
-        if connected.contains(browser) {
+        if safely_connected.contains(browser) {
             grace_periods.remove(browser);
             continue;
         }
@@ -374,7 +381,7 @@ fn enforce_browser_extension(
             warn!(
                 browser = ?browser,
                 grace_secs = grace_duration.as_secs(),
-                "Browser running without Focuser extension — grace period started"
+                "Browser running without full Focuser coverage — grace period started"
             );
             grace_periods.insert(browser.clone(), now);
             continue;
@@ -385,20 +392,30 @@ fn enforce_browser_extension(
         }
 
         // Last look before closing anything, with a wider window still: the
-        // extension may have been installed mid-grace and be warming up.
-        if crate::api::get_connected_browsers(180).contains(browser) {
+        // extension may have been installed (or granted incognito) mid-grace
+        // and be warming up.
+        if crate::api::get_safely_connected_browsers(180).contains(browser) {
             info!(
                 browser = ?browser,
-                "Extension connected during grace period — cancelling termination"
+                "Extension fully connected during grace period — cancelling termination"
             );
             grace_periods.remove(browser);
             continue;
         }
 
+        // The extension may still be checking in — just without incognito
+        // access — which changes what the user needs to be told to fix.
+        let reason = if crate::api::get_connected_browsers(180).contains(browser) {
+            crate::api::ClosedReason::IncognitoNotAllowed
+        } else {
+            crate::api::ClosedReason::NotInstalled
+        };
+
         info!(
             browser = ?browser,
             pid_count = pids.len(),
-            "Grace period expired — terminating browser without extension"
+            reason = ?reason,
+            "Grace period expired — terminating browser without full extension coverage"
         );
         for &pid in pids {
             process::terminate(pid);
@@ -409,7 +426,7 @@ fn enforce_browser_extension(
             .find(|b| b.browser_type == *browser)
             .map(|b| b.display_name)
             .unwrap_or("your browser");
-        crate::api::set_killed_browser(name);
+        crate::api::set_killed_browser(name, reason);
         crate::api::SHOW_WINDOW_REQUESTED.store(true, std::sync::atomic::Ordering::Relaxed);
 
         // Reset so the grace period restarts if the browser is relaunched.

@@ -111,6 +111,8 @@
   "browser_extension_connected": "Extensão conectada",
   "browser_running_without": "Funcionando sem a extensão",
   "browser_not_running": "Não está em execução",
+  "browser_incognito_not_allowed": "As janelas anônimas não estão cobertas",
+  "browser_allow_incognito": "Permitir no modo anônimo",
   "config_confirm_delete": "Clique de novo para apagar tudo",
   "update_desktop_only": "Somente no aplicativo de desktop",
   "update_up_to_date": "Tudo atualizado",

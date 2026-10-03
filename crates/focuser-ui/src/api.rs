@@ -26,12 +26,61 @@ pub static SHOW_WINDOW_REQUESTED: AtomicBool = AtomicBool::new(false);
 /// Flag + browser name for showing "install extension" prompt.
 pub static EXTENSION_PROMPT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-/// Stores the name of the browser that was killed (for the prompt message).
-static KILLED_BROWSER_NAME: Mutex<Option<String>> = Mutex::new(None);
+/// Why a browser was closed, so the prompt tells the user the right fix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClosedReason {
+    /// No extension has ever checked in for this browser.
+    NotInstalled,
+    /// The extension is installed and checking in, but has not been granted
+    /// "Allow in Incognito" — so a private window has no coverage at all.
+    IncognitoNotAllowed,
+}
 
-/// Tracks last-seen time for each browser's extension.
-/// Updated when the extension sends an API request with the `X-Focuser-Browser` header.
-static CONNECTED_BROWSERS: Mutex<Option<HashMap<BrowserType, Instant>>> = Mutex::new(None);
+/// Stores the name and reason of the browser that was killed (for the prompt message).
+static KILLED_BROWSER: Mutex<Option<(String, ClosedReason)>> = Mutex::new(None);
+
+/// One extension's last-known state.
+#[derive(Debug, Clone, Copy)]
+struct BrowserHeartbeat {
+    last_seen: Instant,
+    /// Whether "Allow in Incognito" was on as of the last *explicit*
+    /// heartbeat. The frequent `X-Focuser-Browser` header on `/api/rules`
+    /// polls only refresh `last_seen` — they carry no incognito info — so
+    /// this field survives those and only changes when the extension
+    /// actually reports it.
+    ///
+    /// `None` until the extension reports it. Extensions older than this
+    /// field never do, and they stay trusted as before, so an app update
+    /// cannot close browsers whose store extension has not updated yet.
+    incognito_allowed: Option<bool>,
+}
+
+impl BrowserHeartbeat {
+    fn new() -> Self {
+        Self {
+            last_seen: Instant::now(),
+            incognito_allowed: None,
+        }
+    }
+
+    /// Note a check-in. `None` (a rules poll) keeps the last real answer.
+    fn record(&mut self, incognito_allowed: Option<bool>) {
+        self.last_seen = Instant::now();
+        if incognito_allowed.is_some() {
+            self.incognito_allowed = incognito_allowed;
+        }
+    }
+
+    /// Only an extension that said it cannot see private windows leaves a gap.
+    fn covers_private_windows(&self) -> bool {
+        self.incognito_allowed != Some(false)
+    }
+}
+
+/// Tracks last-seen time and incognito coverage for each browser's extension.
+/// Updated when the extension sends an API request with the `X-Focuser-Browser` header,
+/// or hits the dedicated `/api/heartbeat` endpoint.
+static CONNECTED_BROWSERS: Mutex<Option<HashMap<BrowserType, BrowserHeartbeat>>> = Mutex::new(None);
 
 /// Server-side dedup window for blocked reports.
 /// Prevents double-counting from:
@@ -62,7 +111,11 @@ fn should_record_blocked(tracking_key: &str) -> bool {
 }
 
 /// Record that a browser's extension was seen (called from API request handler).
-fn record_extension_heartbeat(browser_name: &str) {
+///
+/// `incognito_allowed` is `None` for the frequent header-based ping, which
+/// carries no such information — only the dedicated heartbeat endpoint
+/// reports it, and a bare rules poll must not erase the last real answer.
+fn record_extension_heartbeat(browser_name: &str, incognito_allowed: Option<bool>) {
     let name_lower = browser_name.to_lowercase();
     let browser_type = match name_lower.as_str() {
         "chrome" => BrowserType::Chrome,
@@ -75,12 +128,38 @@ fn record_extension_heartbeat(browser_name: &str) {
 
     let mut guard = CONNECTED_BROWSERS.lock().unwrap();
     let map = guard.get_or_insert_with(HashMap::new);
-    map.insert(browser_type, Instant::now());
+    map.entry(browser_type)
+        .or_insert_with(BrowserHeartbeat::new)
+        .record(incognito_allowed);
     debug!(browser = browser_name, "Extension heartbeat recorded");
 }
 
-/// Get the set of browsers whose extension was seen within the timeout.
+/// Get the set of browsers whose extension was seen within the timeout,
+/// regardless of incognito coverage.
+///
+/// Used for "is the extension doing the blocking, or do we need the hosts
+/// file" — the extension still enforces normal windows fine either way.
+/// For "is it safe to leave this browser running", see
+/// [`get_safely_connected_browsers`].
 pub fn get_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<BrowserType> {
+    connected_browsers_matching(timeout_secs, |_| true)
+}
+
+/// Get the set of browsers whose extension was seen within the timeout and
+/// has not reported that "Allow in Incognito" is off.
+///
+/// This is the set that matters for browser enforcement: a browser missing
+/// from here is one where a private window could be open with nothing
+/// blocking it, which is exactly what enforcement exists to catch. An
+/// extension too old to report is given the benefit of the doubt.
+pub fn get_safely_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<BrowserType> {
+    connected_browsers_matching(timeout_secs, BrowserHeartbeat::covers_private_windows)
+}
+
+fn connected_browsers_matching(
+    timeout_secs: u64,
+    predicate: impl Fn(&BrowserHeartbeat) -> bool,
+) -> std::collections::HashSet<BrowserType> {
     let cutoff = std::time::Duration::from_secs(timeout_secs);
     let now = Instant::now();
     let guard = CONNECTED_BROWSERS.lock().unwrap();
@@ -88,24 +167,24 @@ pub fn get_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<Br
     match guard.as_ref() {
         Some(map) => map
             .iter()
-            .filter(|(_, last_seen)| now.duration_since(**last_seen) < cutoff)
+            .filter(|(_, hb)| now.duration_since(hb.last_seen) < cutoff && predicate(hb))
             .map(|(bt, _)| bt.clone())
             .collect(),
         None => std::collections::HashSet::new(),
     }
 }
 
-/// Set the killed browser name for the prompt.
-pub fn set_killed_browser(name: &str) {
-    if let Ok(mut guard) = KILLED_BROWSER_NAME.lock() {
-        *guard = Some(name.to_string());
+/// Set the killed browser name and reason for the prompt.
+pub fn set_killed_browser(name: &str, reason: ClosedReason) {
+    if let Ok(mut guard) = KILLED_BROWSER.lock() {
+        *guard = Some((name.to_string(), reason));
     }
     EXTENSION_PROMPT_REQUESTED.store(true, Ordering::Relaxed);
 }
 
-/// Take the killed browser name (resets it).
-pub fn take_killed_browser() -> Option<String> {
-    if let Ok(mut guard) = KILLED_BROWSER_NAME.lock() {
+/// Take the killed browser name and reason (resets it).
+pub fn take_killed_browser() -> Option<(String, ClosedReason)> {
+    if let Ok(mut guard) = KILLED_BROWSER.lock() {
         guard.take()
     } else {
         None
@@ -180,9 +259,11 @@ fn handle_request(mut stream: std::net::TcpStream, state: &AppState) {
         }
     }
 
-    // Track connected browser extension
+    // Track connected browser extension. This header rides every /api/rules
+    // poll (every 2s) and carries no incognito info, so only the recency is
+    // updated here — see `record_extension_heartbeat`.
     if let Some(ref browser_name) = focuser_browser {
-        record_extension_heartbeat(browser_name);
+        record_extension_heartbeat(browser_name, None);
     }
 
     // Read body if present
@@ -249,15 +330,11 @@ fn route(method: &str, path: &str, body: &str, state: &AppState) -> (&'static st
         _ if path.starts_with("/api/blocked-count?") => api_blocked_count(path, state),
         _ if path.starts_with("/api/heartbeat?") => {
             // Dedicated heartbeat endpoint — browser identified via URL, not headers
-            let browser = path
-                .split("browser=")
-                .nth(1)
-                .unwrap_or("")
-                .split('&')
-                .next()
-                .unwrap_or("");
+            let query = path.split_once('?').map(|(_, q)| q).unwrap_or("");
+            let browser = query_param(query, "browser").unwrap_or("");
+            let incognito_allowed = query_param(query, "incognito_allowed").map(|v| v == "true");
             if !browser.is_empty() {
-                record_extension_heartbeat(browser);
+                record_extension_heartbeat(browser, incognito_allowed);
             }
             ("200 OK", r#"{"ok":true}"#.into())
         }
@@ -646,6 +723,18 @@ fn api_blocked_count(path: &str, state: &AppState) -> (&'static str, String) {
     let count = eng.db().get_blocked_count_today(&decoded).unwrap_or(0);
     let json = serde_json::json!({ "key": decoded, "count": count });
     ("200 OK", json.to_string())
+}
+
+/// Pull one `key=value` pair out of a query string, unescaped only in the
+/// sense of stopping at `&` — callers that need percent-decoding still do
+/// that themselves, matching every other query-parsing site in this file.
+fn query_param<'a>(query: &'a str, key: &str) -> Option<&'a str> {
+    for pair in query.split('&') {
+        if let Some(value) = pair.strip_prefix(key).and_then(|v| v.strip_prefix('=')) {
+            return Some(value);
+        }
+    }
+    None
 }
 
 fn percent_decode(s: &str) -> String {
@@ -1285,5 +1374,65 @@ mod tests {
         let reply = request(&addr, "GET", "/api/does-not-exist", None);
 
         assert!(reply.contains("not found"), "{reply}");
+    }
+
+    // ─── Private-window coverage ─────────────────────────────────────
+
+    #[test]
+    fn an_extension_too_old_to_report_still_counts_as_covering() {
+        let mut hb = super::BrowserHeartbeat::new();
+        hb.record(None);
+        assert!(hb.covers_private_windows());
+    }
+
+    #[test]
+    fn an_extension_without_private_window_access_leaves_a_gap() {
+        let mut hb = super::BrowserHeartbeat::new();
+        hb.record(Some(false));
+        assert!(!hb.covers_private_windows());
+    }
+
+    #[test]
+    fn a_rules_poll_does_not_forget_a_reported_gap() {
+        let mut hb = super::BrowserHeartbeat::new();
+        hb.record(Some(false));
+        hb.record(None);
+        assert!(!hb.covers_private_windows());
+
+        hb.record(Some(true));
+        assert!(hb.covers_private_windows());
+    }
+
+    // ─── query_param ────────────────────────────────────────────────
+    //
+    // Pure and side-effect-free, unlike the heartbeat-tracking functions
+    // above it — those touch a process-wide static, so a unit test poking at
+    // it would race every other test in this binary. This is the part of
+    // that machinery that can actually be tested in isolation.
+
+    #[test]
+    fn query_param_finds_a_value_among_several() {
+        assert_eq!(
+            super::query_param("browser=Chrome&incognito_allowed=true", "incognito_allowed"),
+            Some("true")
+        );
+        assert_eq!(
+            super::query_param("browser=Chrome&incognito_allowed=true", "browser"),
+            Some("Chrome")
+        );
+    }
+
+    #[test]
+    fn query_param_is_absent_for_a_missing_key() {
+        assert_eq!(
+            super::query_param("browser=Chrome", "incognito_allowed"),
+            None
+        );
+    }
+
+    #[test]
+    fn query_param_does_not_match_a_key_that_is_only_a_prefix() {
+        // "browser" must not match "browsers", nor grab an empty value off it.
+        assert_eq!(super::query_param("browsers=Chrome", "browser"), None);
     }
 }

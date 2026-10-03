@@ -3,6 +3,7 @@ import {
   clampIncrement,
   detectBrowser,
   fetchRules,
+  isIncognitoAllowed,
   POLL_INTERVAL_MS,
   reportBlocked,
   sendAllowanceTick,
@@ -123,6 +124,17 @@ export default defineBackground(() => {
     }
     if (connected !== wasConnected) updateBadge();
     else if (connected) updateBadge();
+  }
+
+  /**
+   * Tell the app we're alive, and whether we can actually see incognito
+   * windows. Checked fresh each time rather than cached once — toggling
+   * "Allow in Incognito" reloads the extension anyway, but the check is a
+   * cheap local call, not worth caching around a reload edge case.
+   */
+  async function heartbeat() {
+    const incognitoAllowed = await isIncognitoAllowed();
+    await sendHeartbeat(browserName, incognitoAllowed);
   }
 
   function updateBadge() {
@@ -350,7 +362,7 @@ export default defineBackground(() => {
   browser.alarms.create("focuser-tick", { periodInMinutes: 0.5 });
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== "focuser-tick") return;
-    void sendHeartbeat(browserName);
+    void heartbeat();
     void refreshRules();
     void tickAllowance("extension-alarm");
     void tickShared();
@@ -366,7 +378,7 @@ export default defineBackground(() => {
 
   void (async () => {
     await loadIndex();
-    await sendHeartbeat(browserName);
+    await heartbeat();
     await refreshRules();
     setInterval(() => void refreshRules(), POLL_INTERVAL_MS);
     void tickShared();

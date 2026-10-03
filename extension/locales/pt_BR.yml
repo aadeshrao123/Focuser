@@ -60,6 +60,16 @@ welcome:
   setupBody2: Se o aplicativo estiver fechado, o ícone da barra mostra uma marca vermelha e nada é bloqueado. Isso é a extensão sendo honesta com você em vez de fingir que funciona.
   openApp: Abrir o aplicativo Focuser
   getApp: Baixar o aplicativo de desktop
+
+  incognitoTitle: "Deixe o Focuser entrar nas janelas privadas"
+  incognitoBody: "O {browser} não deixa extensões entrarem em janelas privadas sem a sua permissão, então nada do que você abre nelas é bloqueado ainda. Enquanto um bloqueio estiver ativo, o Focuser fecha o {browser} até isso ser ativado."
+  incognitoStepsChromium: "Abra as configurações da extensão e ative \"{setting}\"."
+  incognitoStepsFirefox: "Abra o menu, vá em Extensões e temas, escolha o Focuser e mude \"Executar em janelas privativas\" para Permitir."
+  incognitoSettingIncognito: "Permitir no modo anônimo"
+  incognitoSettingInPrivate: "Permitir no InPrivate"
+  incognitoSettingPrivate: "Permitir no modo privado"
+  incognitoReloadNote: "A mudança reinicia a extensão, então esta página pode fechar. Isso é normal."
+  incognitoOpenSettings: "Abrir as configurações da extensão"
   whatsNewVersion: Novidades da versão {version}
   whatsNew: Novidades
   new1Title: Reconstruída do zero

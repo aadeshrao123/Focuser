@@ -107,6 +107,8 @@
   "browser_extension_connected": "拡張機能に接続済み",
   "browser_running_without": "拡張機能なしで動作中",
   "browser_not_running": "起動していません",
+  "browser_incognito_not_allowed": "シークレットウィンドウはカバーされていません",
+  "browser_allow_incognito": "シークレットモードで許可",
   "config_confirm_delete": "もう一度クリックするとすべて削除します",
   "update_desktop_only": "デスクトップアプリのみ",
   "update_up_to_date": "最新です",

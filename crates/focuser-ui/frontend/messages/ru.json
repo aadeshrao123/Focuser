@@ -113,6 +113,8 @@
   "browser_extension_connected": "Расширение подключено",
   "browser_running_without": "Работает без расширения",
   "browser_not_running": "Не запущен",
+  "browser_incognito_not_allowed": "Окна в режиме инкогнито не защищены",
+  "browser_allow_incognito": "Разрешить в режиме инкогнито",
   "config_confirm_delete": "Нажмите ещё раз, чтобы удалить всё",
   "update_desktop_only": "Только в настольном приложении",
   "update_up_to_date": "Обновлений нет",

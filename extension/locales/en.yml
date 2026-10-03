@@ -66,6 +66,16 @@ welcome:
   openApp: Open the Focuser app
   getApp: Get the desktop app
 
+  incognitoTitle: "Let Focuser into private windows"
+  incognitoBody: "{browser} keeps extensions out of private windows unless you let them in, so nothing you open in one is blocked yet. While a block is running, Focuser closes {browser} until this is turned on."
+  incognitoStepsChromium: "Open the extension settings and turn on \"{setting}\"."
+  incognitoStepsFirefox: "Open the menu, go to Add-ons and themes, select Focuser, and set \"Run in Private Windows\" to Allow."
+  incognitoSettingIncognito: "Allow in Incognito"
+  incognitoSettingInPrivate: "Allow in InPrivate"
+  incognitoSettingPrivate: "Allow in Private"
+  incognitoReloadNote: "Changing it restarts the extension, so this page may close. That is expected."
+  incognitoOpenSettings: "Open extension settings"
+
   versionBadge: Version {version}
   whatsNewVersion: What is new in {version}
   whatsNew: What is new

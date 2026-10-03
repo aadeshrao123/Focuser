@@ -60,6 +60,16 @@ welcome:
   setupBody2: Se l'app è chiusa, l'icona nella barra mostra un segno rosso e non viene bloccato nulla. È l'estensione che è onesta con te invece di fingere di funzionare.
   openApp: Apri l'app Focuser
   getApp: Scarica l'app desktop
+
+  incognitoTitle: "Consenti Focuser nelle finestre private"
+  incognitoBody: "{browser} tiene le estensioni fuori dalle finestre private finché non le autorizzi, quindi niente di ciò che apri lì viene ancora bloccato. Mentre un blocco è attivo, Focuser chiude {browser} finché non lo attivi."
+  incognitoStepsChromium: "Apri le impostazioni dell'estensione e attiva \"{setting}\"."
+  incognitoStepsFirefox: "Apri il menu, vai su Componenti aggiuntivi e temi, scegli Focuser e imposta \"Esegui in finestre anonime\" su Consenti."
+  incognitoSettingIncognito: "Consenti in modalità in incognito"
+  incognitoSettingInPrivate: "Consenti in InPrivate"
+  incognitoSettingPrivate: "Consenti in modalità privata"
+  incognitoReloadNote: "La modifica riavvia l'estensione, quindi questa pagina potrebbe chiudersi. È normale."
+  incognitoOpenSettings: "Apri le impostazioni dell'estensione"
   whatsNewVersion: Novità della versione {version}
   whatsNew: Novità
   new1Title: Ricostruita da zero

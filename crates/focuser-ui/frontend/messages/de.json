@@ -109,6 +109,8 @@
   "browser_extension_connected": "Erweiterung verbunden",
   "browser_running_without": "Läuft ohne die Erweiterung",
   "browser_not_running": "Läuft nicht",
+  "browser_incognito_not_allowed": "Inkognitofenster sind nicht abgedeckt",
+  "browser_allow_incognito": "Im Inkognitomodus zulassen",
   "config_confirm_delete": "Noch einmal klicken, um alles zu löschen",
   "update_desktop_only": "Nur in der Desktop-App",
   "update_up_to_date": "Aktuell",

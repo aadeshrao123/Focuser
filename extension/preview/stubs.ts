@@ -90,7 +90,12 @@ export function install() {
         },
         getUILanguage: () => locale,
       },
-      tabs: { query: async () => [{ url: "https://www.reddit.com/r/all" }] },
+      tabs: {
+        query: async () => [{ url: "https://www.reddit.com/r/all" }],
+        create: async () => ({}),
+      },
+      // Not allowed, so the welcome page shows its incognito card.
+      extension: { isAllowedIncognitoAccess: async () => false },
       runtime: {
         // Present so `@wxt-dev/browser` picks this object over `globalThis.chrome`.
         id: "focuser-preview",

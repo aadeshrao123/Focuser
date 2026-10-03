@@ -60,6 +60,16 @@ welcome:
   setupBody2: 如果应用已关闭，工具栏图标上会出现红色标记，此时不会拦截任何内容。这是扩展在如实告诉你，而不是假装还在工作。
   openApp: 打开 Focuser 应用
   getApp: 下载桌面应用
+
+  incognitoTitle: "允许 Focuser 在隐私窗口中运行"
+  incognitoBody: "除非你允许，{browser} 不会在隐私窗口中运行扩展，所以你在那里打开的内容目前不会被拦截。拦截生效期间，Focuser 会关闭 {browser}，直到你开启这项设置。"
+  incognitoStepsChromium: "打开扩展设置，开启“{setting}”。"
+  incognitoStepsFirefox: "打开菜单，进入“扩展和主题”，选择 Focuser，把“在隐私窗口中运行”设为“允许”。"
+  incognitoSettingIncognito: "在无痕模式下启用"
+  incognitoSettingInPrivate: "在 InPrivate 中允许"
+  incognitoSettingPrivate: "在隐私窗口中允许"
+  incognitoReloadNote: "更改后扩展会重新启动，所以这个页面可能会关闭。这是正常的。"
+  incognitoOpenSettings: "打开扩展设置"
   whatsNewVersion: '{version} 版本更新内容'
   whatsNew: 更新内容
   new1Title: 彻底重写

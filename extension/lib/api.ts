@@ -50,12 +50,38 @@ export async function fetchRules(browser: BrowserName): Promise<RuleSet | null> 
 /**
  * Tell the app we are alive, so it does not close the browser for running
  * without the extension.
+ *
+ * `incognitoAllowed` is whether this extension has been granted "Allow in
+ * Incognito" — without it, the app cannot tell a covered private window from
+ * an uncovered one, since Chrome hides incognito windows from an extension
+ * that lacks the permission entirely. The app treats "not allowed" the same
+ * as "not installed": it is a real gap, not a false alarm.
  */
-export async function sendHeartbeat(browser: BrowserName): Promise<void> {
+export async function sendHeartbeat(
+  browser: BrowserName,
+  incognitoAllowed: boolean,
+): Promise<void> {
   try {
-    await fetch(`${API_BASE}/api/heartbeat?browser=${encodeURIComponent(browser)}`);
+    await fetch(
+      `${API_BASE}/api/heartbeat?browser=${encodeURIComponent(browser)}&incognito_allowed=${incognitoAllowed}`,
+    );
   } catch {
     /* app closed */
+  }
+}
+
+/**
+ * Whether this extension can run in private/incognito windows.
+ *
+ * `false` on browsers without the API (nothing in our supported list lacks
+ * it, but a future one might) — the safe default, since "unknown" must not
+ * read as "covered".
+ */
+export async function isIncognitoAllowed(): Promise<boolean> {
+  try {
+    return await browser.extension.isAllowedIncognitoAccess();
+  } catch {
+    return false;
   }
 }
 

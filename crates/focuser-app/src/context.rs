@@ -41,6 +41,18 @@ pub trait SystemSync: Send + Sync {
         Vec::new()
     }
 
+    /// Browsers that have reported in *and* granted the extension "Allow in
+    /// Incognito" — a subset of [`Self::connected_browsers`].
+    ///
+    /// A browser can be connected without being in this set: the extension
+    /// is installed and checking in, but a private window in that browser
+    /// has nothing blocking it, because Chrome hides incognito windows from
+    /// an extension that lacks the permission. That gap is what this exists
+    /// to surface.
+    fn safely_connected_browsers(&self) -> Vec<String> {
+        Vec::new()
+    }
+
     /// Whether the OS hosts file can actually be written right now.
     ///
     /// Writing it needs administrator or root. When it fails there is no error
@@ -110,6 +122,10 @@ impl AppContext {
 
     pub fn connected_browsers(&self) -> Vec<String> {
         self.system.connected_browsers()
+    }
+
+    pub fn safely_connected_browsers(&self) -> Vec<String> {
+        self.system.safely_connected_browsers()
     }
 
     /// Domains currently exempt from blocking because an allowance still has

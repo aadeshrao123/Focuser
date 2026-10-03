@@ -60,6 +60,16 @@ welcome:
   setupBody2: 앱이 꺼져 있으면 도구 모음 아이콘에 빨간 표시가 뜨고 아무것도 차단되지 않습니다. 작동하는 척하지 않고 있는 그대로 알려 주는 것입니다.
   openApp: Focuser 앱 열기
   getApp: 데스크톱 앱 받기
+
+  incognitoTitle: "비공개 창에서도 Focuser 허용하기"
+  incognitoBody: "{browser}은(는) 허용하기 전까지 확장 프로그램을 비공개 창에서 실행하지 않습니다. 그래서 그곳에서 여는 페이지는 아직 차단되지 않습니다. 차단이 켜져 있는 동안에는 이 설정을 켤 때까지 Focuser가 {browser}을(를) 종료합니다."
+  incognitoStepsChromium: "확장 프로그램 설정을 열고 \"{setting}\"을(를) 켜 주세요."
+  incognitoStepsFirefox: "메뉴에서 부가 기능 및 테마로 가서 Focuser를 선택하고 \"사생활 보호 창에서 실행\"을 허용으로 바꿔 주세요."
+  incognitoSettingIncognito: "시크릿 모드에서 허용"
+  incognitoSettingInPrivate: "InPrivate에서 허용"
+  incognitoSettingPrivate: "비공개 창에서 허용"
+  incognitoReloadNote: "설정을 바꾸면 확장 프로그램이 다시 시작되므로 이 페이지가 닫힐 수 있습니다. 정상입니다."
+  incognitoOpenSettings: "확장 프로그램 설정 열기"
   whatsNewVersion: 버전 {version}의 새로운 점
   whatsNew: 새로운 점
   new1Title: 처음부터 다시 만들었습니다

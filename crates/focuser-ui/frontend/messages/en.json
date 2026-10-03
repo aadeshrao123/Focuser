@@ -176,6 +176,8 @@
   "browser_extension_connected": "Extension connected",
   "browser_running_without": "Running without the extension",
   "browser_not_running": "Not running",
+  "browser_incognito_not_allowed": "Incognito windows are not covered",
+  "browser_allow_incognito": "Allow in Incognito",
   "config_confirm_delete": "Click again to delete everything",
   "config_saved_to": "Saved to {path}",
   "config_downloaded": "Downloaded",

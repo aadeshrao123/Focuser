@@ -60,6 +60,16 @@ welcome:
   setupBody2: アプリが閉じているときはツールバーのアイコンに赤い印が付き、なにもブロックされません。動いているふりをせず、正直に伝えるためです。
   openApp: Focuser アプリを開く
   getApp: デスクトップアプリを入手
+
+  incognitoTitle: "プライベートウィンドウでも Focuser を有効にする"
+  incognitoBody: "{browser} は、許可しない限り拡張機能をプライベートウィンドウで動かしません。そのため、そこで開いたページはまだブロックされません。ブロック中は、これをオンにするまで Focuser が {browser} を終了します。"
+  incognitoStepsChromium: "拡張機能の設定を開き、「{setting}」をオンにしてください。"
+  incognitoStepsFirefox: "メニューから「アドオンとテーマ」を開き、Focuser を選んで「プライベートウィンドウで実行」を「許可する」にしてください。"
+  incognitoSettingIncognito: "シークレット モードでの実行を許可する"
+  incognitoSettingInPrivate: "InPrivate で許可"
+  incognitoSettingPrivate: "プライベートで許可"
+  incognitoReloadNote: "切り替えると拡張機能が再起動するため、このページが閉じることがあります。これは正常な動作です。"
+  incognitoOpenSettings: "拡張機能の設定を開く"
   whatsNewVersion: バージョン {version} の新機能
   whatsNew: 新着情報
   new1Title: 一から作り直しました

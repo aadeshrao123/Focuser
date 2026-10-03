@@ -57,6 +57,13 @@ impl focuser_app::SystemSync for HostsSync {
             .collect()
     }
 
+    fn safely_connected_browsers(&self) -> Vec<String> {
+        api::get_safely_connected_browsers(EXTENSION_SEEN_SECS)
+            .iter()
+            .map(|b| format!("{b:?}"))
+            .collect()
+    }
+
     fn hosts_writable(&self) -> bool {
         blocker::hosts_writable()
     }
@@ -255,8 +262,10 @@ fn main() {
                     if api::EXTENSION_PROMPT_REQUESTED
                         .swap(false, std::sync::atomic::Ordering::Relaxed)
                     {
-                        let browser_name =
-                            api::take_killed_browser().unwrap_or_else(|| "your browser".into());
+                        let (browser_name, reason) =
+                            api::take_killed_browser().unwrap_or_else(|| {
+                                ("your browser".into(), api::ClosedReason::NotInstalled)
+                            });
 
                         if let Some(window) = show_handle.get_webview_window("main") {
                             let _ = window.show();
@@ -264,7 +273,7 @@ fn main() {
 
                             // Inject themed in-app modal with retry
                             // The webview may not be ready immediately after show()
-                            let js = build_extension_modal_js(&browser_name, &show_state);
+                            let js = build_extension_modal_js(&browser_name, reason, &show_state);
                             let win = window.clone();
                             std::thread::spawn(move || {
                                 // Try multiple times with increasing delays
@@ -324,6 +333,19 @@ fn extension_store_url(browser_name: &str) -> (&'static str, &'static str) {
             "https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj",
             "chrome",
         ),
+    }
+}
+
+/// Where a browser's own UI lets someone grant an extension incognito access.
+///
+/// Every Chromium browser answers to `chrome://extensions/`, Edge and Opera
+/// included — their own `edge://`/`opera://` aliases exist too, but the
+/// Chrome one is guaranteed to resolve everywhere in the family, which one
+/// shared constant is not.
+fn extension_settings_url(browser_name: &str) -> &'static str {
+    match browser_name {
+        "Mozilla Firefox" => "about:addons",
+        _ => "chrome://extensions/",
     }
 }
 
@@ -469,14 +491,27 @@ fn format_remaining(secs: u64) -> String {
     }
 }
 
-fn build_extension_modal_js(browser_name: &str, state: &Arc<AppState>) -> String {
-    let (store_url, store_type) = extension_store_url(browser_name);
-    let browser_exe = browser_launch_cmd(browser_name);
-    let store_label = if store_type == "firefox" {
-        "Firefox Add-ons"
-    } else {
-        "Chrome Web Store"
+fn build_extension_modal_js(
+    browser_name: &str,
+    reason: api::ClosedReason,
+    state: &Arc<AppState>,
+) -> String {
+    // The two reasons need different destinations: "not installed" sends
+    // someone to the store, "incognito not allowed" sends them to the
+    // browser's own extension settings — installing again would do nothing.
+    let (action_url, action_target_label) = match reason {
+        api::ClosedReason::NotInstalled => {
+            let (store_url, store_type) = extension_store_url(browser_name);
+            let label = if store_type == "firefox" {
+                "Firefox Add-ons"
+            } else {
+                "Chrome Web Store"
+            };
+            (store_url, label)
+        }
+        api::ClosedReason::IncognitoNotAllowed => (extension_settings_url(browser_name), ""),
     };
+    let browser_exe = browser_launch_cmd(browser_name);
 
     let locale = state
         .engine
@@ -485,11 +520,24 @@ fn build_extension_modal_js(browser_name: &str, state: &Arc<AppState>) -> String
         .unwrap_or_else(|_| "en".to_string());
     let text = i18n::strings(&locale);
 
+    let (title, body, action_label) = match reason {
+        api::ClosedReason::NotInstalled => (
+            text.extension_title,
+            text.extension_body,
+            text.extension_install,
+        ),
+        api::ClosedReason::IncognitoNotAllowed => (
+            text.extension_incognito_title,
+            text.extension_incognito_body,
+            text.extension_incognito_action,
+        ),
+    };
+
     // Encoded as JSON so an apostrophe in a translation cannot close a JS
     // string, then substituted in the page rather than here.
-    let ext_title = serde_json::to_string(text.extension_title).unwrap_or_default();
-    let ext_body = serde_json::to_string(text.extension_body).unwrap_or_default();
-    let ext_install = serde_json::to_string(text.extension_install).unwrap_or_default();
+    let ext_title = serde_json::to_string(title).unwrap_or_default();
+    let ext_body = serde_json::to_string(body).unwrap_or_default();
+    let ext_install = serde_json::to_string(action_label).unwrap_or_default();
     let ext_dismiss = serde_json::to_string(text.extension_dismiss).unwrap_or_default();
 
     format!(
@@ -520,7 +568,7 @@ fn build_extension_modal_js(browser_name: &str, state: &Arc<AppState>) -> String
 
   var msg = document.createElement('p');
   msg.style.cssText = 'font-size:14px;line-height:1.6;color:#b0b0bc;margin-bottom:24px';
-  msg.textContent = {ext_body}.split('{{browser}}').join('{browser_name}').split('{{store}}').join('{store_label}');
+  msg.textContent = {ext_body}.split('{{browser}}').join('{browser_name}').split('{{store}}').join('{action_target_label}');
 
   var btnRow = document.createElement('div');
   btnRow.style.cssText = 'display:flex;gap:12px;flex-direction:column';
@@ -533,7 +581,7 @@ fn build_extension_modal_js(browser_name: &str, state: &Arc<AppState>) -> String
   installBtn.onmouseleave = function() {{ installBtn.style.background = '#8b5cf6'; installBtn.style.transform = 'translateY(0)'; }};
   installBtn.onclick = function() {{
     var cmd = '{browser_exe}';
-    var url = '{store_url}';
+    var url = '{action_url}';
     try {{
       window.__TAURI__.core.invoke('open_browser_url', {{ browser: cmd, url: url }})
         .catch(function(err) {{ console.error('Focuser: invoke failed:', err); }});
@@ -568,8 +616,8 @@ fn build_extension_modal_js(browser_name: &str, state: &Arc<AppState>) -> String
   installBtn.focus();
 }})();"##,
         browser_name = browser_name,
-        store_label = store_label,
-        store_url = store_url,
+        action_target_label = action_target_label,
+        action_url = action_url,
         browser_exe = browser_exe,
     )
 }

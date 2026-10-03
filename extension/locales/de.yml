@@ -60,6 +60,16 @@ welcome:
   setupBody2: Ist die App geschlossen, zeigt das Symbol in der Leiste eine rote Markierung und es wird nichts blockiert. Das ist die Erweiterung, die ehrlich zu dir ist, statt so zu tun, als würde sie arbeiten.
   openApp: Die Focuser-App öffnen
   getApp: Desktop-App herunterladen
+
+  incognitoTitle: "Focuser in privaten Fenstern zulassen"
+  incognitoBody: "{browser} lässt Erweiterungen nur in private Fenster, wenn du es erlaubst. Was du dort öffnest, wird also noch nicht gesperrt. Solange eine Sperre läuft, schließt Focuser {browser}, bis das eingeschaltet ist."
+  incognitoStepsChromium: "Öffne die Erweiterungseinstellungen und aktiviere „{setting}“."
+  incognitoStepsFirefox: "Öffne das Menü, gehe zu Add-ons und Themes, wähle Focuser und stelle „In privaten Fenstern ausführen“ auf Erlauben."
+  incognitoSettingIncognito: "Im Inkognitomodus zulassen"
+  incognitoSettingInPrivate: "In InPrivate zulassen"
+  incognitoSettingPrivate: "Im privaten Modus zulassen"
+  incognitoReloadNote: "Beim Umschalten startet die Erweiterung neu, daher kann sich diese Seite schließen. Das ist normal."
+  incognitoOpenSettings: "Erweiterungseinstellungen öffnen"
   whatsNewVersion: Neu in Version {version}
   whatsNew: Was ist neu
   new1Title: Von Grund auf neu gebaut

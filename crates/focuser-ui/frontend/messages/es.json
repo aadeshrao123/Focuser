@@ -103,6 +103,8 @@
   "browser_extension_connected": "Extensión conectada",
   "browser_running_without": "Funcionando sin la extensión",
   "browser_not_running": "No está en ejecución",
+  "browser_incognito_not_allowed": "Las ventanas de incógnito no están cubiertas",
+  "browser_allow_incognito": "Permitir en Incógnito",
   "config_confirm_delete": "Pulsa otra vez para borrarlo todo",
   "update_desktop_only": "Solo en la aplicación de escritorio",
   "update_up_to_date": "Todo actualizado",

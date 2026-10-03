@@ -107,6 +107,8 @@
   "browser_extension_connected": "확장 프로그램 연결됨",
   "browser_running_without": "확장 프로그램 없이 실행 중",
   "browser_not_running": "실행 중이 아님",
+  "browser_incognito_not_allowed": "시크릿 창이 보호되지 않습니다",
+  "browser_allow_incognito": "시크릿 모드에서 허용",
   "config_confirm_delete": "한 번 더 누르면 모두 삭제됩니다",
   "update_desktop_only": "데스크톱 앱에서만 가능",
   "update_up_to_date": "최신 상태",
