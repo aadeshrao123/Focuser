@@ -266,7 +266,7 @@ fn uninstall_attempts(
             return None;
         }
         let line = read_cmdline(pid);
-        if !line.as_deref().is_some_and(uninstall::targets_focuser) {
+        if !uninstall::is_uninstall_attempt(&key.1, line.as_deref()) {
             cleared.insert(key);
         }
         line
@@ -500,7 +500,13 @@ mod tests {
 
     #[test]
     fn a_harmless_shell_is_read_once_and_an_uninstall_every_time() {
-        let shell = if cfg!(windows) { "cmd.exe" } else { "bash" };
+        let (shell, removal) = if cfg!(windows) {
+            ("cmd.exe", r"cmd.exe /c rd /s /q %LOCALAPPDATA%\Focuser")
+        } else if cfg!(target_os = "macos") {
+            ("bash", "bash -c rm -rf /Applications/Focuser.app")
+        } else {
+            ("bash", "bash -c rm -f /usr/bin/focuser-ui")
+        };
         let procs = [7, 9].map(|pid| Process {
             pid,
             name: shell.into(),
@@ -509,7 +515,7 @@ mod tests {
         let mut reads = Vec::new();
         let mut read = |pid| {
             reads.push(pid);
-            Some(if pid == 9 { "uninstall focuser" } else { "dir" }.to_string())
+            Some(if pid == 9 { removal } else { "dir" }.to_string())
         };
 
         assert_eq!(uninstall_attempts(&procs, &mut cleared, &mut read), [9]);
@@ -520,5 +526,23 @@ mod tests {
         assert!(cleared.is_empty());
 
         assert_eq!(reads, [7, 9, 9, 9], "the harmless shell was read again");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_script_that_only_mentions_uninstalling_focuser_is_left_running() {
+        // Killed with exit 144 on 2026-10-03 while a list was locked.
+        let procs = [Process {
+            pid: 7,
+            name: "bash".into(),
+        }];
+        let line = "bash -c python3 - <<'EOF'\nimport sqlite3\n\
+                    db = sqlite3.connect('/home/u/.local/share/focuser/focuser.db')\n\
+                    db.execute('UPDATE block_lists SET prevent_uninstall = 0')\n\
+                    db.execute('DELETE FROM blocks')\nEOF";
+        let mut cleared = HashSet::new();
+        let found = uninstall_attempts(&procs, &mut cleared, |_| Some(line.to_string()));
+        assert!(found.is_empty());
+        assert!(cleared.contains(&(7, "bash".to_string())));
     }
 }
