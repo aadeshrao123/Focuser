@@ -129,7 +129,7 @@ export function UnlockMethodPicker({
               value={value.length}
               onCommit={(length) => onChange({ ...value, length })}
               min={6}
-              max={256}
+              max={5000}
               disabled={disabled}
               aria-label={m.lists_lock_random_text_length()}
             />

@@ -131,8 +131,9 @@ pub struct ProtectionInfo {
     pub prevent_uninstall: bool,
     pub prevent_service_stop: bool,
     pub prevent_modification: bool,
-    pub remaining_seconds: u64,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    /// `None` while the protection runs until unlocked.
+    pub remaining_seconds: Option<u64>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Overall service status.

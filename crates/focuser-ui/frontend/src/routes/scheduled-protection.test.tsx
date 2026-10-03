@@ -728,4 +728,30 @@ describe("the manual lock", () => {
       ),
     );
   });
+
+  it("can lock until unlocked, but only with a way to unlock", async () => {
+    show(<BlockLists />);
+    fireEvent.click(await screen.findByRole("button", { name: "Protect Weekly" }));
+    const dialog = within(screen.getByRole("dialog"));
+
+    fireEvent.click(dialog.getByRole("switch", { name: "Until I unlock it" }));
+    const lock = dialog.getByRole("button", { name: "Lock until unlocked" });
+    expect(lock).toBeDisabled();
+
+    fireEvent.click(dialog.getByRole("radio", { name: "Type random text" }));
+    expect(lock).toBeEnabled();
+    fireEvent.click(lock);
+
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cmd: "enable_protection",
+          args: expect.objectContaining({
+            duration_minutes: null,
+            lock: { kind: "random_text", length: 16 },
+          }),
+        }),
+      ),
+    );
+  });
 });

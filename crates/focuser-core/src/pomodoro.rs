@@ -435,7 +435,7 @@ mod tests {
             prevent_service_stop: false,
             prevent_modification: true,
             started_at: now,
-            expires_at: now + chrono::Duration::hours(1),
+            expires_at: Some(now + chrono::Duration::hours(1)),
         });
         list
     }

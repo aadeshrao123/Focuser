@@ -1024,7 +1024,7 @@ mod tests {
             prevent_service_stop: false,
             prevent_modification: true,
             started_at: now,
-            expires_at: now + chrono::Duration::hours(1),
+            expires_at: Some(now + chrono::Duration::hours(1)),
         });
         let state = ctx_with_extension(|db| db.create_block_list(&list).unwrap());
         let body =

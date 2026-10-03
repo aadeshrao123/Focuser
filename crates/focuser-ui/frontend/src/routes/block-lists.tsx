@@ -1,7 +1,12 @@
 import { ListChecks, Lock, Plus, Trash2, Unlock } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import type { BlockList, ProtectionInfo } from "@/bindings";
-import { effectiveLock, ProtectDialog, UnlockDialog } from "@/components/focus-lock-forms";
+import {
+  effectiveLock,
+  ProtectDialog,
+  protectionActive,
+  UnlockDialog,
+} from "@/components/focus-lock-forms";
 import { ListHoursOptions } from "@/components/list-hours-options";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,7 +112,9 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
               <p className="truncate font-medium text-foreground text-sm">{list.name}</p>
               {lock ? (
                 <Badge tone="warning" icon={<Lock aria-hidden />} outlined>
-                  {m.lists_badge_locked({ duration: formatDuration(lock.remaining_seconds) })}
+                  {lock.remaining_seconds === null
+                    ? m.lists_badge_locked_until_unlocked()
+                    : m.lists_badge_locked({ duration: formatDuration(lock.remaining_seconds) })}
                 </Badge>
               ) : (
                 <Badge tone={list.enabled ? "success" : "neutral"}>
@@ -135,9 +142,7 @@ function ListRow({ list, lock }: { list: BlockList; lock: ProtectionInfo | null 
               </span>
             </Tooltip>
 
-            {(!list.scheduled_protection ||
-              !lock ||
-              (list.protection && new Date(list.protection.expires_at).getTime() > Date.now())) && (
+            {(!list.scheduled_protection || !lock || protectionActive(list.protection)) && (
               <Tooltip
                 content={
                   lock === null

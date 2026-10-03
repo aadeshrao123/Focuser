@@ -169,7 +169,9 @@ pub enum Command {
     // ─── Protection ───────────────────────────────────────────────
     EnableProtection {
         list_id: EntityId,
-        duration_minutes: u32,
+        /// `None` locks until unlocked, with no timer. Refused without a
+        /// `lock`, since that would leave no way out at all.
+        duration_minutes: Option<u32>,
         prevent_uninstall: bool,
         prevent_service_stop: bool,
         prevent_modification: bool,
@@ -391,9 +393,11 @@ pub struct ProtectionInfo {
     pub prevent_modification: bool,
     /// Exported as a TS `number`; see the note on [`UsageStat`] — seconds can
     /// never approach the 2^53 precision ceiling.
-    #[specta(type = specta_typescript::Number)]
-    pub remaining_seconds: u64,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    ///
+    /// `None` while the protection runs until unlocked.
+    #[specta(type = Option<specta_typescript::Number>)]
+    pub remaining_seconds: Option<u64>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// The result of a successful [`Command`].

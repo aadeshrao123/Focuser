@@ -38,7 +38,7 @@ it("keeps the length inside what the lock accepts", () => {
   const length = screen.getByRole("spinbutton", { name: "Challenge length" });
 
   expect(length).toHaveAttribute("min", "6");
-  expect(length).toHaveAttribute("max", "256");
+  expect(length).toHaveAttribute("max", "5000");
   fireEvent.change(length, { target: { value: "48" } });
   fireEvent.blur(length);
 

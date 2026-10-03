@@ -285,7 +285,11 @@ export type Command =
 	days: number,
 } } | { cmd: "enable_protection"; args: {
 	list_id: string,
-	duration_minutes: number,
+	/**
+	 *  `None` locks until unlocked, with no timer. Refused without a
+	 *  `lock`, since that would leave no way out at all.
+	 */
+	duration_minutes: number | null,
 	prevent_uninstall: boolean,
 	prevent_service_stop: boolean,
 	prevent_modification: boolean,
@@ -592,7 +596,11 @@ export type Protection = {
 	prevent_service_stop: boolean,
 	prevent_modification: boolean,
 	started_at: string,
-	expires_at: string,
+	/**
+	 *  `None` means until unlocked: no timer, the list's lock is the only way
+	 *  out. Only ever set together with a lock, so there always is one.
+	 */
+	expires_at: string | null,
 };
 
 /**
@@ -609,9 +617,11 @@ export type ProtectionInfo = {
 	/**
 	 *  Exported as a TS `number`; see the note on [`UsageStat`] — seconds can
 	 *  never approach the 2^53 precision ceiling.
+	 * 
+	 *  `None` while the protection runs until unlocked.
 	 */
-	remaining_seconds: number,
-	expires_at: string,
+	remaining_seconds: number | null,
+	expires_at: string | null,
 };
 
 /**  Weekly recurring schedule. */

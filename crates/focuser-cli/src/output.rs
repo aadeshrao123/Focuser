@@ -87,13 +87,20 @@ pub fn print_human(result: &CommandResult) {
         }
         CommandResult::ProtectionStatus(infos) => {
             for i in infos {
-                println!(
-                    "{}  {:<24} {} remaining (until {})",
-                    i.block_list_id,
-                    truncate(&i.block_list_name, 24),
-                    format_duration(i.remaining_seconds),
-                    i.expires_at.to_rfc3339(),
-                );
+                match (i.remaining_seconds, i.expires_at) {
+                    (Some(remaining), Some(expires_at)) => println!(
+                        "{}  {:<24} {} remaining (until {})",
+                        i.block_list_id,
+                        truncate(&i.block_list_name, 24),
+                        format_duration(remaining),
+                        expires_at.to_rfc3339(),
+                    ),
+                    _ => println!(
+                        "{}  {:<24} until unlocked",
+                        i.block_list_id,
+                        truncate(&i.block_list_name, 24),
+                    ),
+                }
             }
         }
 

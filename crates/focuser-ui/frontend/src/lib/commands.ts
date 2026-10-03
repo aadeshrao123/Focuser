@@ -355,7 +355,8 @@ export const useConfigureScheduledProtection = () =>
 export const useEnableProtection = () =>
   useBlockListMutation<{
     listId: string;
-    minutes: number;
+    /** `null` locks until unlocked; it needs a `lock`. */
+    minutes: number | null;
     preventUninstall: boolean;
     preventServiceStop: boolean;
     preventModification: boolean;

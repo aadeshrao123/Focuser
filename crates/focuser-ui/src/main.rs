@@ -432,17 +432,16 @@ fn quit_blocked_by(state: &Arc<AppState>) -> Option<String> {
         .block_lists()
         .iter()
         .filter(|l| l.has_service_protection())
+        // A lock with no end outlasts any timer.
         .max_by_key(|l| {
             l.effective_protection()
-                .map_or(0, |p| p.remaining_seconds())
+                .map_or(0, |p| p.remaining_seconds().unwrap_or(u64::MAX))
         })?;
 
-    let remaining = list.effective_protection()?.remaining_seconds();
-    Some(format!(
-        "{} — {} left",
-        list.name,
-        format_remaining(remaining)
-    ))
+    Some(match list.effective_protection()?.remaining_seconds() {
+        Some(remaining) => format!("{} — {} left", list.name, format_remaining(remaining)),
+        None => format!("{} — locked until unlocked", list.name),
+    })
 }
 
 /// Coarse, human phrasing. The exact second does not matter to someone being
@@ -625,7 +624,7 @@ mod tests {
             prevent_service_stop,
             prevent_modification: false,
             started_at: now,
-            expires_at: now + chrono::Duration::minutes(minutes),
+            expires_at: Some(now + chrono::Duration::minutes(minutes)),
         });
         list
     }
@@ -651,7 +650,7 @@ mod tests {
                 .unwrap()
                 .contains("Scheduled")
         );
-        list.schedule_unlocked_until = Some(list.effective_protection().unwrap().expires_at);
+        list.schedule_unlocked_until = list.effective_protection().unwrap().expires_at;
         assert!(quit_blocked_by(&state_with(list)).is_none());
     }
 
@@ -674,6 +673,24 @@ mod tests {
         // Locking a list is a commitment about that list. Only the explicit
         // checkbox turns it into a commitment about the app staying up.
         assert!(quit_blocked_by(&state_with(locked(false, 45))).is_none());
+    }
+
+    #[test]
+    fn a_lock_with_no_end_holds_the_app_and_outranks_a_timer() {
+        let mut forever = locked(true, 0);
+        forever.name = "Full block".into();
+        forever.protection.as_mut().unwrap().expires_at = None;
+
+        let db = Database::open_in_memory().unwrap();
+        db.create_block_list(&locked(true, 45)).unwrap();
+        db.create_block_list(&forever).unwrap();
+        let state = Arc::new(AppState::new_headless(BlockEngine::new(db).unwrap()));
+
+        let reason = quit_blocked_by(&state).expect("a lock with no end holds the app open");
+        assert!(
+            reason.contains("Full block") && reason.contains("until unlocked"),
+            "{reason}"
+        );
     }
 
     #[test]

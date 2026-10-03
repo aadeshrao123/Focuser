@@ -1,6 +1,6 @@
 import { Lock, Unlock } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import type { BlockList } from "@/bindings";
+import type { BlockList, Protection } from "@/bindings";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Notice } from "@/components/ui/feedback";
@@ -21,10 +21,14 @@ import {
 import { formatDuration } from "@/lib/duration";
 import { m } from "@/paraglide/messages.js";
 
+/** Whether a protection is still running. One with no end runs until unlocked. */
+export function protectionActive(protection: Protection | null | undefined): boolean {
+  if (!protection) return false;
+  return protection.expires_at === null || new Date(protection.expires_at).getTime() > Date.now();
+}
+
 export function effectiveLock(list: BlockList) {
-  return list.protection && new Date(list.protection.expires_at).getTime() > Date.now()
-    ? list.lock
-    : (list.scheduled_protection?.lock ?? null);
+  return protectionActive(list.protection) ? list.lock : (list.scheduled_protection?.lock ?? null);
 }
 
 interface LockDialogProps {
@@ -66,12 +70,15 @@ export function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => v
   const id = useId();
 
   const [minutes, setMinutes] = useState(60);
+  const [untilUnlocked, setUntilUnlocked] = useState(false);
   const [uninstall, setUninstall] = useState(true);
   const [serviceStop, setServiceStop] = useState(true);
   const [modification, setModification] = useState(true);
   // A timed lock has always started with no way out. That is what "lock" meant
   // before there were unlock methods, so choosing one stays a deliberate step.
   const [method, setMethod] = useState(() => methodFromLock(null));
+  // With no timer the unlock method is the only way out, so one is required.
+  const ready = methodReady(method) && (!untilUnlocked || method.kind !== "none");
 
   return (
     <>
@@ -86,7 +93,18 @@ export function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => v
           min={1}
           max={10080}
           suffix="min"
+          disabled={untilUnlocked}
         />
+      </div>
+      <div className="mt-2">
+        <Guard
+          label={m.lists_lock_until_unlocked()}
+          checked={untilUnlocked}
+          onChange={setUntilUnlocked}
+        />
+        {untilUnlocked && (
+          <p className="mt-1 text-muted-foreground text-xs">{m.lists_lock_until_unlocked_hint()}</p>
+        )}
       </div>
 
       <div className="mt-3 flex flex-col gap-2">
@@ -107,12 +125,12 @@ export function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => v
         </Button>
         <Button
           size="sm"
-          disabled={protect.isPending || !methodReady(method)}
+          disabled={protect.isPending || !ready}
           onClick={() =>
             protect.mutate(
               {
                 listId: list.id,
-                minutes,
+                minutes: untilUnlocked ? null : minutes,
                 preventUninstall: uninstall,
                 preventServiceStop: serviceStop,
                 preventModification: modification,
@@ -124,7 +142,9 @@ export function ProtectForm({ list, onDone }: { list: BlockList; onDone: () => v
         >
           {protect.isPending
             ? m.lists_locking()
-            : m.lists_lock_action({ duration: formatDuration(minutes * 60) })}
+            : untilUnlocked
+              ? m.lists_lock_action_until_unlocked()
+              : m.lists_lock_action({ duration: formatDuration(minutes * 60) })}
         </Button>
       </div>
     </>
@@ -189,7 +209,7 @@ export function UnlockForm({ list, onDone }: { list: BlockList; onDone: () => vo
             {m.lists_unlock_random_text_instructions()}
           </p>
           {requestChallenge.data && (
-            <p className="mt-3 select-all break-all rounded-md border border-border bg-surface px-3 py-2 font-mono text-base text-foreground tracking-wide">
+            <p className="mt-3 max-h-60 select-all overflow-y-auto break-all rounded-md border border-border bg-surface px-3 py-2 font-mono text-base text-foreground tracking-wide">
               <span className="sr-only select-none">{requestChallenge.data}</span>
               <span aria-hidden="true">
                 {challengeCharacters.map((character, index) => (

@@ -543,7 +543,7 @@ mod tests {
             assert!(engine.is_block_list_protected(list.id));
             assert!(engine.has_service_protection());
             assert_eq!(engine.active_protection_info().len(), 1);
-            list.schedule_unlocked_until = Some(list.effective_protection().unwrap().expires_at);
+            list.schedule_unlocked_until = list.effective_protection().unwrap().expires_at;
             engine.db().update_block_list(&list).unwrap();
         }
         {

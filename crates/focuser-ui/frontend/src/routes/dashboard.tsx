@@ -28,8 +28,12 @@ export function Dashboard() {
   const rules = enabled.reduce((n, l) => n + l.websites.length + l.applications.length, 0);
   const blockedToday = (stats.data ?? []).reduce((n, s) => n + s.blocked_attempts, 0);
   const locked = protection.data ?? [];
+  // Locks with no end never unlock on their own, so they have no "soonest".
   const soonest = locked.reduce<number | null>(
-    (min, p) => (min === null || p.remaining_seconds < min ? p.remaining_seconds : min),
+    (min, p) =>
+      p.remaining_seconds !== null && (min === null || p.remaining_seconds < min)
+        ? p.remaining_seconds
+        : min,
     null,
   );
 
@@ -72,7 +76,9 @@ export function Dashboard() {
             hint={
               soonest !== null
                 ? m.dashboard_protected_unlocks({ duration: formatDuration(soonest) })
-                : m.dashboard_protected_none()
+                : locked.length > 0
+                  ? m.dashboard_protected_until_unlocked()
+                  : m.dashboard_protected_none()
             }
           />
         </StatGrid>
@@ -126,7 +132,9 @@ export function Dashboard() {
                       <p className="truncate font-medium text-foreground text-sm">{list.name}</p>
                       {lock && (
                         <Badge tone="warning" icon={<Lock aria-hidden />}>
-                          {formatDuration(lock.remaining_seconds)}
+                          {lock.remaining_seconds === null
+                            ? m.dashboard_protected_until_unlocked()
+                            : formatDuration(lock.remaining_seconds)}
                         </Badge>
                       )}
                       {list.schedule && <Badge tone="info">{m.dashboard_scheduled()}</Badge>}

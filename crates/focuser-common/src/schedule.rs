@@ -201,7 +201,7 @@ mod protection_tests {
         let mut list = list();
         list.scheduled_protection = Some(ScheduledProtection { lock: None });
         let window = list.scheduled_protection_at(at(21, 10)).unwrap();
-        list.schedule_unlocked_until = Some(window.expires_at);
+        list.schedule_unlocked_until = window.expires_at;
         for hour in 10..17 {
             list.name = format!("Edit {hour}");
             let json = serde_json::to_string(&list).unwrap();
@@ -289,8 +289,7 @@ mod protection_tests {
         let slot = &mut list.schedule.as_mut().unwrap().time_slots[0];
         slot.start = NaiveTime::from_hms_opt(22, 0, 0).unwrap();
         slot.end = NaiveTime::from_hms_opt(6, 0, 0).unwrap();
-        list.schedule_unlocked_until =
-            Some(list.scheduled_protection_at(at(21, 23)).unwrap().expires_at);
+        list.schedule_unlocked_until = list.scheduled_protection_at(at(21, 23)).unwrap().expires_at;
         assert!(list.scheduled_protection_at(at(22, 3)).is_none());
         assert!(list.scheduled_protection_at(at(22, 6)).is_none());
         assert!(list.scheduled_protection_at(at(28, 23)).is_some());
