@@ -12,6 +12,11 @@
 //! brought in line as far as permissions allow, and anything left over is
 //! retried at the next startup — which is exactly when the task has handed us
 //! the privileges to finish the job.
+//!
+//! On Linux the .deb ships a systemd user unit that also respawns Focuser if
+//! it is killed. When that unit is installed it *is* the login launcher: the
+//! toggle enables and disables it, and the plugin's XDG autostart entry is
+//! kept off, since with both, login launched Focuser twice.
 
 use std::sync::Arc;
 
@@ -75,15 +80,7 @@ pub fn set_autostart(
     }
 
     // HKCU, so this one always works.
-    let plugin = app.autolaunch();
-    let wrote = if enabled {
-        plugin.enable()
-    } else {
-        plugin.disable()
-    };
-    if let Err(e) = wrote {
-        warn!("autostart plugin refused: {e}");
-    }
+    set_plugin(&app, enabled);
 
     match imp::set_task(enabled) {
         TaskChange::Done | TaskChange::NoTask => Ok(()),
@@ -100,15 +97,21 @@ pub fn set_autostart(
 /// and can finally change it.
 pub fn reconcile(app: &AppHandle, db: &focuser_core::db::Database) {
     if db.get_setting(INITIALISED).ok().flatten().is_none() {
-        let _ = app.autolaunch().enable();
+        set_plugin(app, true);
         let _ = db.set_setting(INITIALISED, "1");
         return;
     }
 
     let Ok(Some(saved)) = db.get_setting(ENABLED) else {
+        // Never touched, so the default (on) stands. Still clear an XDG entry
+        // left over from before the systemd unit was installed.
+        if imp::replaces_plugin() {
+            set_plugin(app, true);
+        }
         return;
     };
     let want = saved == "1";
+    set_plugin(app, want);
     if want == imp::task_enabled() {
         return;
     }
@@ -122,6 +125,20 @@ pub fn reconcile(app: &AppHandle, db: &focuser_core::db::Database) {
     }
 }
 
+/// Write or remove the plugin's own registration, unless a platform launcher
+/// replaces it, in which case it is always removed.
+fn set_plugin(app: &AppHandle, enabled: bool) {
+    let plugin = app.autolaunch();
+    let wrote = if enabled && !imp::replaces_plugin() {
+        plugin.enable()
+    } else {
+        plugin.disable()
+    };
+    if let Err(e) = wrote {
+        warn!("autostart plugin refused: {e}");
+    }
+}
+
 #[cfg(windows)]
 mod imp {
     use super::TaskChange;
@@ -131,6 +148,12 @@ mod imp {
 
     const TASK: &str = "Focuser";
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    /// The Run entry and the task both fire; the single-instance handler
+    /// ignores whichever login launch comes second.
+    pub fn replaces_plugin() -> bool {
+        false
+    }
 
     fn schtasks(args: &[&str]) -> Option<std::process::Output> {
         Command::new("schtasks")
@@ -179,12 +202,65 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+mod imp {
+    use super::TaskChange;
+    use std::path::Path;
+    use std::process::Command;
+    use tracing::warn;
+
+    /// Where the .deb puts the unit. Tied to the packaging in tauri.conf.json.
+    const SYSTEMD_UNIT: &str = "/usr/lib/systemd/user/focuser.service";
+    const UNIT: &str = "focuser.service";
+
+    fn has_unit() -> bool {
+        Path::new(SYSTEMD_UNIT).exists()
+    }
+
+    pub fn replaces_plugin() -> bool {
+        has_unit()
+    }
+
+    pub fn task_enabled() -> bool {
+        has_unit()
+            && Command::new("systemctl")
+                .args(["--user", "is-enabled", "--quiet", UNIT])
+                .status()
+                .is_ok_and(|s| s.success())
+    }
+
+    pub fn set_task(enabled: bool) -> TaskChange {
+        if !has_unit() {
+            return TaskChange::NoTask;
+        }
+        // Enable or disable only: stopping it here would quit the app that is
+        // asking. A user unit needs no admin, so this cannot be refused for
+        // permissions; any failure is logged and retried at the next start.
+        let verb = if enabled { "enable" } else { "disable" };
+        match Command::new("systemctl")
+            .args(["--user", verb, UNIT])
+            .output()
+        {
+            Ok(out) if out.status.success() => {}
+            Ok(out) => warn!(
+                "could not {verb} {UNIT}: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ),
+            Err(e) => warn!("systemctl failed to run: {e}"),
+        }
+        TaskChange::Done
+    }
+}
+
+#[cfg(target_os = "macos")]
 mod imp {
     use super::TaskChange;
 
-    // macOS uses a LaunchAgent and Linux an autostart .desktop entry, both
-    // written by the plugin, so there is no second mechanism to keep in step.
+    // The plugin's LaunchAgent is the only launcher, so there is no second
+    // mechanism to keep in step.
+    pub fn replaces_plugin() -> bool {
+        false
+    }
     pub fn task_enabled() -> bool {
         false
     }

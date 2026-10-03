@@ -65,8 +65,13 @@
         "depends": [
           "libwebkit2gtk-4.1-0",
           "libappindicator3-1",
-          "libasound2t64 | libasound2"
-        ]
+          "libasound2t64 | libasound2",
+          "libcap2-bin"
+        ],
+        "files": {
+          "/usr/lib/systemd/user/focuser.service": "linux/focuser.service"
+        },
+        "postInstallScript": "linux/postinst.sh"
       },
       "appimage": {
         "bundleMediaFramework": false
