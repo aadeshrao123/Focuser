@@ -224,6 +224,27 @@ cd crates/focuser-ui && npx --yes @tauri-apps/cli@2 build
 this is a few seconds instead of the several minutes it takes to compile. `cargo tauri
 build` works too if you already have it installed.
 
+### CLI password locks
+
+Use the CLI in a terminal to enter passwords without displaying them or putting
+them in shell history or process arguments:
+
+```bash
+cargo run -p focuser-cli -- list ls                 # find the list ID
+cargo run -p focuser-cli -- protect enable <ID> --password
+# Enter the password twice to confirm it.
+cargo run -p focuser-cli -- protect unlock <ID>
+# Enter the password once to unlock.
+```
+
+An empty password or mismatched confirmation leaves protection unchanged.
+Prompts go to the terminal, so `--json` still produces only the command result
+on stdout. Prompting requires interactive stdin; redirected input fails with an
+error. Explicit `--password <PASSWORD>` and `protect unlock <ID> <PASSWORD>`
+remain supported, but expose the password in shell history and process arguments.
+Omitting `--password` when enabling protection still creates a timer-only lock
+unless `--random-text-length` is specified.
+
 ### Developing the UI without rebuilding the app
 
 The frontend can run in an ordinary browser against the **real** Rust command core, which makes it reachable by normal web tooling instead of only by clicking around a desktop window:

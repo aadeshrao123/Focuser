@@ -557,6 +557,61 @@ fn wipe_and_import_are_refused_while_a_list_is_locked() {
 // ─── Diagnostics ────────────────────────────────────────────────────
 
 #[test]
+fn explicit_password_arguments_still_enable_and_unlock_protection() {
+    let cli = Cli::new();
+    let id = cli.make_list("Password protected");
+    let password = "compatibility-test-secret";
+    cli.ok(&["protect", "enable", &id, "--password", password]);
+
+    let wrong = cli.raw(&["protect", "unlock", &id, "wrong-secret"]);
+    assert!(!wrong.status.success());
+    assert!(!String::from_utf8_lossy(&wrong.stderr).contains("wrong-secret"));
+    assert_eq!(cli.fail(&["list", "disable", &id]).0, 5);
+
+    cli.ok(&["protect", "unlock", &id, password]);
+    cli.ok(&["list", "disable", &id]);
+}
+
+#[test]
+fn password_prompt_without_a_terminal_does_not_enable_protection() {
+    let cli = Cli::new();
+    let id = cli.make_list("Interactive only");
+    let (code, error) = cli.fail(&["protect", "enable", &id, "--password"]);
+    assert_eq!(code, 1);
+    assert!(error.contains("interactive terminal"), "got: {error}");
+    cli.ok(&["list", "disable", &id]);
+}
+
+#[test]
+fn unlock_prompt_without_a_terminal_preserves_protection_and_json_stdout() {
+    let cli = Cli::new();
+    let id = cli.make_list("Still protected");
+    cli.ok(&["protect", "enable", &id, "--password", "test-secret"]);
+    let out = cli.raw(&["--json", "protect", "unlock", &id]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("interactive terminal"));
+    assert_eq!(cli.fail(&["list", "disable", &id]).0, 5);
+}
+
+#[test]
+fn prompted_password_conflicts_with_random_text() {
+    let cli = Cli::new();
+    let id = cli.make_list("One unlock method");
+    let (code, error) = cli.fail(&[
+        "protect",
+        "enable",
+        &id,
+        "--password",
+        "--random-text-length",
+        "20",
+    ]);
+    assert_eq!(code, 2);
+    assert!(error.contains("cannot be used with"), "got: {error}");
+    cli.ok(&["list", "disable", &id]);
+}
+
+#[test]
 fn check_reports_whether_a_domain_is_blocked() {
     let cli = Cli::new();
     let id = cli.make_list("Social");

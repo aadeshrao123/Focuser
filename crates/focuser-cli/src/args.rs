@@ -291,10 +291,11 @@ pub enum ProtectCmd {
         /// Permit editing this block list while protection is active.
         #[arg(long)]
         allow_modification: bool,
-        /// Require this password (via `protect unlock`) to end the window
-        /// early.
-        #[arg(long, conflicts_with = "random_text_length")]
-        password: Option<String>,
+        /// Require a password to end the window early. Omit the value to
+        /// enter and confirm it without echo. An explicit value is visible
+        /// in shell history and process arguments.
+        #[arg(long, num_args = 0..=1, value_name = "PASSWORD", conflicts_with = "random_text_length")]
+        password: Option<Option<String>>,
         /// Require retyping a random string of this many characters to end
         /// the window early. The string is only shown in the app.
         #[arg(long, conflicts_with = "password")]
@@ -304,7 +305,12 @@ pub enum ProtectCmd {
     Status,
     /// End a protection window early with its password. Random-text locks
     /// are unlocked in the app, where the text is shown.
-    Unlock { id: EntityId, response: String },
+    Unlock {
+        id: EntityId,
+        /// Omit to enter the password without echo. An explicit value is
+        /// visible in shell history and process arguments.
+        response: Option<String>,
+    },
 }
 
 // ─── Settings ───────────────────────────────────────────────────────
@@ -556,7 +562,12 @@ impl TopLevel {
                     prevent_service_stop: !allow_service_stop,
                     prevent_modification: !allow_modification,
                     lock: match (password, random_text_length) {
-                        (Some(password), _) => Some(LockSetup::Password { password }),
+                        (Some(password), _) => Some(LockSetup::Password {
+                            password: match password {
+                                Some(value) => value,
+                                None => crate::password::create()?,
+                            },
+                        }),
                         (None, Some(length)) => Some(LockSetup::RandomText { length }),
                         (None, None) => None,
                     },
@@ -564,7 +575,10 @@ impl TopLevel {
                 ProtectCmd::Status => Command::GetProtectionStatus,
                 ProtectCmd::Unlock { id, response } => Command::UnlockProtection {
                     list_id: id,
-                    response,
+                    response: match response {
+                        Some(value) => value,
+                        None => crate::password::unlock()?,
+                    },
                 },
             },
 

@@ -26,6 +26,7 @@
 
 mod args;
 mod output;
+mod password;
 mod slot;
 
 use std::path::PathBuf;
