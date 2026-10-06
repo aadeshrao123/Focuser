@@ -111,7 +111,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             let key = website_key(&created);
             let mut out = created.clone();
 
-            mutate_list(ctx, &mut engine, list_id, |list| {
+            add_to_list(ctx, &mut engine, list_id, |list| {
                 // Adding the same site twice should not make two rules.
                 match list.websites.iter().find(|r| website_key(r) == key) {
                     Some(existing) => out = existing.clone(),
@@ -135,7 +135,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             kind,
         } => {
             let mut added = 0u32;
-            mutate_list(ctx, &mut engine, list_id, |list| {
+            add_to_list(ctx, &mut engine, list_id, |list| {
                 for raw in &values {
                     let value = raw.trim().to_lowercase();
                     // Blank lines and `#` comments come from pasted host files
@@ -180,7 +180,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 enabled: true,
             };
             let out = created.clone();
-            mutate_list(ctx, &mut engine, list_id, |list| {
+            add_to_list(ctx, &mut engine, list_id, |list| {
                 list.applications.push(created);
                 Ok(())
             })?;
@@ -972,7 +972,21 @@ fn mutate_list(
     edit: impl FnOnce(&mut BlockList) -> CommandOutcome<()>,
 ) -> CommandOutcome<()> {
     ensure_unprotected(engine, list_id)?;
+    add_to_list(ctx, engine, list_id, edit)
+}
 
+/// [`mutate_list`] without the protection check, for new block rules only.
+///
+/// A lock exists so a list cannot be loosened before it ends. A new rule only
+/// blocks more, so a locked list still takes one. Anything that could open a
+/// site or an app again (removals, exceptions, the schedule, turning the list
+/// off) goes through [`mutate_list`].
+fn add_to_list(
+    ctx: &AppContext,
+    engine: &mut BlockEngine,
+    list_id: EntityId,
+    edit: impl FnOnce(&mut BlockList) -> CommandOutcome<()>,
+) -> CommandOutcome<()> {
     let mut list = engine.db().get_block_list(list_id)?;
     edit(&mut list)?;
     list.reconcile_schedule_bypass();
@@ -1694,7 +1708,7 @@ mod tests {
     }
 
     #[test]
-    fn protection_blocks_modification_and_disabling_but_not_enabling() {
+    fn protection_blocks_modification_and_disabling_but_not_enabling_or_adding() {
         let ctx = ctx();
         let list = create(&ctx, "Committed");
         protect(&ctx, list.id).unwrap();
@@ -1710,25 +1724,23 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.code(), "protected");
 
-        // So would deleting it, or editing its rules.
+        // So would deleting it.
         assert_eq!(
             execute(&ctx, Command::DeleteBlockList { id: list.id })
                 .unwrap_err()
                 .code(),
             "protected"
         );
-        assert_eq!(
-            execute(
-                &ctx,
-                Command::AddWebsiteRule {
-                    list_id: list.id,
-                    rule: WebsiteMatchType::Domain("x.com".into()),
-                },
-            )
-            .unwrap_err()
-            .code(),
-            "protected"
-        );
+
+        // A new rule only blocks more, so it goes through.
+        execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("x.com".into()),
+            },
+        )
+        .unwrap();
 
         // Re-enabling is harmless and must stay allowed.
         execute(
@@ -1739,6 +1751,73 @@ mod tests {
             },
         )
         .unwrap();
+    }
+
+    #[test]
+    fn a_locked_list_takes_new_rules_but_never_loses_one_or_gains_an_exception() {
+        let ctx = ctx();
+        let list = create(&ctx, "Committed");
+        protect(&ctx, list.id).unwrap();
+
+        let CommandResult::WebsiteRule(site) = execute(
+            &ctx,
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("example.com".into()),
+            },
+        )
+        .unwrap() else {
+            panic!("expected a website rule back");
+        };
+        let CommandResult::AppRule(app) = execute(
+            &ctx,
+            Command::AddAppRule {
+                list_id: list.id,
+                rule: AppMatchType::ExecutableName("game".into()),
+            },
+        )
+        .unwrap() else {
+            panic!("expected an app rule back");
+        };
+        let CommandResult::Count(imported) = execute(
+            &ctx,
+            Command::BulkImportWebsites {
+                list_id: list.id,
+                values: vec!["one.example".into(), "two.example".into()],
+                kind: WebsiteRuleKind::Domain,
+            },
+        )
+        .unwrap() else {
+            panic!("expected a count back");
+        };
+        assert_eq!(imported, 2);
+
+        // Taking a rule out again, or allowing part of the list, would loosen it.
+        for cmd in [
+            Command::RemoveWebsiteRule {
+                list_id: list.id,
+                rule_id: site.id,
+            },
+            Command::RemoveAppRule {
+                list_id: list.id,
+                rule_id: app.id,
+            },
+            Command::AddException {
+                list_id: list.id,
+                exception: ExceptionType::Domain("example.com".into()),
+            },
+        ] {
+            assert_eq!(execute(&ctx, cmd).unwrap_err().code(), "protected");
+        }
+
+        let stored = &lists(&ctx)[0];
+        assert_eq!(stored.websites.len(), 3);
+        assert_eq!(stored.applications.len(), 1);
+        assert!(stored.exceptions.is_empty());
+        assert!(
+            stored.is_modification_protected(),
+            "adding must not end the lock"
+        );
     }
 
     #[test]
@@ -2435,10 +2514,7 @@ mod tests {
         }
         let commands = || {
             vec![
-            Command::AddWebsiteRule { list_id: list.id, rule: WebsiteMatchType::Domain("another.com".into()) },
             Command::RemoveWebsiteRule { list_id: list.id, rule_id: site.id },
-            Command::BulkImportWebsites { list_id: list.id, values: vec!["other.com".into()], kind: WebsiteRuleKind::Domain },
-            Command::AddAppRule { list_id: list.id, rule: AppMatchType::ExecutableName("other-game".into()) },
             Command::RemoveAppRule { list_id: list.id, rule_id: app.id },
             Command::AddException { list_id: list.id, exception: ExceptionType::Domain("example.com".into()) },
             Command::RemoveException { list_id: list.id, exception_id: exception.id },
@@ -2556,6 +2632,25 @@ mod tests {
         for cmd in commands() {
             assert_eq!(execute(&ctx, cmd).unwrap_err().code(), "protected");
         }
+        // Additions only tighten the list, so the lock lets them through.
+        for cmd in [
+            Command::AddWebsiteRule {
+                list_id: list.id,
+                rule: WebsiteMatchType::Domain("another.com".into()),
+            },
+            Command::BulkImportWebsites {
+                list_id: list.id,
+                values: vec!["other.com".into()],
+                kind: WebsiteRuleKind::Domain,
+            },
+            Command::AddAppRule {
+                list_id: list.id,
+                rule: AppMatchType::ExecutableName("other-game".into()),
+            },
+        ] {
+            execute(&ctx, cmd).unwrap();
+        }
+        assert_eq!(state(), ScheduledLockState::Locked);
         execute(&ctx, Command::ListBlockLists).unwrap();
         execute(&ctx, Command::GetScheduledProtectionStatus).unwrap();
     }

@@ -542,16 +542,11 @@ fn api_add_site(body: &str, state: &AppState) -> (&'static str, String) {
     };
 
     let mut eng = state.engine.lock().unwrap();
+    // No lock check: a new site only blocks more, so a locked list takes one.
     let mut list = match eng.db().get_block_list(uuid) {
         Ok(l) => l,
         Err(e) => return ("404 Not Found", format!(r#"{{"error":"{}"}}"#, e)),
     };
-    if list.is_modification_protected() {
-        return (
-            "403 Forbidden",
-            serde_json::json!({"error": "protected"}).to_string(),
-        );
-    }
 
     use focuser_common::types::WebsiteRule;
     let rule = match rule_type {
@@ -1027,7 +1022,6 @@ mod tests {
         let body = serde_json::json!({"list_id": list.id, "domain":"example.com", "enabled":false})
             .to_string();
         let attempt = || {
-            assert_eq!(super::api_add_site(&body, &state).0, "403 Forbidden");
             assert_eq!(super::api_remove_site(&body, &state).0, "403 Forbidden");
             assert_eq!(super::api_toggle_list(&body, &state).0, "403 Forbidden");
         };
@@ -1211,12 +1205,15 @@ mod tests {
         // switched a locked list off.
         assert_eq!(super::api_toggle_list(&body, &state).0, "403 Forbidden");
         assert_eq!(super::api_remove_site(&body, &state).0, "403 Forbidden");
-        assert_eq!(super::api_add_site(&body, &state).0, "403 Forbidden");
+
+        // Adding a site only blocks more, so the popup can still do it.
+        let add = serde_json::json!({"list_id": list.id, "domain": "x.example"}).to_string();
+        assert_eq!(super::api_add_site(&add, &state).0, "200 OK");
 
         let engine = state.engine.lock().unwrap();
         let stored = engine.db().get_block_list(list.id).unwrap();
         assert!(stored.enabled, "the locked list was switched off");
-        assert_eq!(stored.websites.len(), 1);
+        assert_eq!(stored.websites.len(), 2, "youtube.com was removed");
     }
 
     // A hosts file cannot express these, so this endpoint is the only way they
