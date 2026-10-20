@@ -1,0 +1,32 @@
+[Unit]
+Description=Focuser — website and application blocker
+# Started by the graphical session rather than default.target, so the display
+# is already in the user environment when it runs. Started any earlier, the
+# window fails to open and the restarts below are used up before login ends.
+# PartOf stops it again when the session ends.
+After=graphical-session.target
+PartOf=graphical-session.target
+# Give up after 5 restarts within 60s rather than spinning forever on a
+# genuinely broken install (e.g. a corrupt database crashing on every
+# launch). A rate-limit belongs to the unit's activation, not the service
+# itself, which is why this lives here and not below.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+ExecStart=/usr/bin/focuser-ui --autostart
+# Tells the app it is already supervised. On desktops without
+# graphical-session.target the login launch starts this unit and exits.
+Environment=FOCUSER_SUPERVISED=1
+# on-failure, not always: a clean quit exits 0, which is not a failure and
+# must not be resurrected — only a crash or a kill (including SIGKILL,
+# which no process can catch) counts. A stop from systemd itself, at logout
+# or shutdown, is never restarted.
+Restart=on-failure
+RestartSec=2
+# While a lock is on the app ignores SIGTERM, so without this every logout
+# and shutdown would wait the default 90 seconds before systemd sends SIGKILL.
+TimeoutStopSec=5
+
+[Install]
+WantedBy=graphical-session.target
