@@ -92,6 +92,9 @@ fn main() {
 
     info!("Focuser starting");
 
+    #[cfg(target_os = "linux")]
+    work_around_nvidia_webkit();
+
     #[cfg(windows)]
     {
         if is_elevated() {
@@ -685,6 +688,23 @@ fn build_extension_modal_js(prompt: &api::BrowserPrompt, state: &Arc<AppState>) 
         action_url = action_url,
         browser_exe = browser_exe,
     )
+}
+
+/// WebKitGTK's DMA-BUF renderer crashes the window on NVIDIA's proprietary
+/// driver: on Wayland the app dies seconds after start with "Error 71
+/// (Protocol error) dispatching to Wayland display", and on X11 the window
+/// can stay blank. Turning the renderer off costs nothing visible here.
+/// A value the user already set is left alone, so `=0` opts back in.
+#[cfg(target_os = "linux")]
+fn work_around_nvidia_webkit() {
+    const VAR: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
+    if std::env::var_os(VAR).is_some() || !std::path::Path::new("/proc/driver/nvidia").exists() {
+        return;
+    }
+    info!("NVIDIA driver found, disabling WebKit's DMA-BUF renderer");
+    // SAFETY: called from main before Tauri, WebKit or any other thread
+    // starts, so nothing can be reading the environment concurrently.
+    unsafe { std::env::set_var(VAR, "1") };
 }
 
 #[cfg(windows)]
