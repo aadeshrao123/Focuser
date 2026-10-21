@@ -214,7 +214,11 @@ fn main() {
 
             let quit_state = Arc::clone(&state_for_blocker);
 
-            let _tray = TrayIconBuilder::new()
+            // A fixed id, so the StatusNotifierItem id ("tray-icon tray app
+            // focuser") is the same every launch. The default is derived from
+            // the PID, and bars that remember a pinned icon by that id (the
+            // Omarchy shell) forget the pin on every restart.
+            let _tray = TrayIconBuilder::with_id("focuser")
                 .icon(icon)
                 .tooltip("Focuser — Blocking active")
                 .menu(&menu)
