@@ -149,9 +149,14 @@ export function RuleTable({
                 key={row.id}
                 data-testid="rule-row"
                 className={[
-                  "glass group flex items-center gap-3 rounded-xl border border-border px-3.5 py-2.5",
-                  "transition-[border-color,background-color,transform] duration-150",
-                  "hover:-translate-y-px hover:border-border-strong hover:bg-elevated/50",
+                  // Solid, not `glass`: a list can run to hundreds of rows, and
+                  // a backdrop blur on each one made scrolling crawl in WebKit.
+                  "group flex items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-2.5",
+                  "transition-[border-color,background-color] duration-150",
+                  "hover:border-border-strong hover:bg-elevated/50",
+                  // Rows off screen are skipped for layout and paint. The size
+                  // is one row's height, so the scrollbar stays honest.
+                  "[contain-intrinsic-size:auto_58px] [content-visibility:auto]",
                 ].join(" ")}
               >
                 <TargetIcon
