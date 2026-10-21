@@ -180,6 +180,8 @@
   "settings_spare_automation": "保留自动化浏览器",
   "settings_spare_automation_description": "由 Playwright、Selenium 或 Puppeteer 启动的浏览器。其中不会拦截任何内容。",
   "settings_locked_on": "锁定期间无法开启。",
+  "settings_guard_extensions_page": "锁定期间关闭扩展程序页面",
+  "settings_guard_extensions_page_description": "列表锁定期间，浏览器的扩展程序页面会被关闭，因此无法在那里停用 Focuser。",
   "settings_seconds_suffix": "秒",
   "settings_section_extension": "扩展",
   "settings_extension_description": "Focuser 扩展的安装位置。",

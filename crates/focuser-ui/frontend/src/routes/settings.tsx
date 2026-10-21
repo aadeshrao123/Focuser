@@ -40,6 +40,7 @@ export function Settings() {
   const enforceBrowsers = useBooleanSetting(SETTING_KEYS.blockUnsupportedBrowsers, true);
   const gracePeriod = useNumberSetting(SETTING_KEYS.extensionGracePeriod, 60);
   const spareAutomation = useBooleanSetting(SETTING_KEYS.spareAutomationBrowsers, false);
+  const guardExtensions = useBooleanSetting(SETTING_KEYS.guardExtensionsPage, true);
   const phaseSound = useBooleanSetting(SETTING_KEYS.phaseSound, false);
   const soundVolume = useNumberSetting(SETTING_KEYS.phaseSoundVolume, 70);
   const language = useLanguage();
@@ -51,6 +52,8 @@ export function Settings() {
   const browsersLocked = editLocked && enforceBrowsers.value;
   // A lock forbids turning this on. Turning it off is always fine.
   const spareLocked = editLocked && !spareAutomation.value;
+  // A lock forbids turning this off. Turning it on is always fine.
+  const guardLocked = editLocked && guardExtensions.value;
 
   const retention = useStatsRetention();
   const setRetention = useSetStatsRetention();
@@ -149,6 +152,20 @@ export function Settings() {
                 spareLocked
               }
               aria-label={m.settings_spare_automation()}
+            />
+          }
+        />
+        <SettingRow
+          label={m.settings_guard_extensions_page()}
+          description={
+            guardLocked ? m.settings_locked() : m.settings_guard_extensions_page_description()
+          }
+          control={
+            <Switch
+              checked={guardExtensions.value}
+              onCheckedChange={guardExtensions.set}
+              disabled={guardExtensions.isPending || guardExtensions.isSaving || guardLocked}
+              aria-label={m.settings_guard_extensions_page()}
             />
           }
         />
@@ -283,6 +300,7 @@ export function Settings() {
           enforceBrowsers.error ??
           gracePeriod.error ??
           spareAutomation.error ??
+          guardExtensions.error ??
           phaseSound.error ??
           soundVolume.error ??
           setRetention.error ??

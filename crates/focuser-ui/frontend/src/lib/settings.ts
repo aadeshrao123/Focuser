@@ -13,6 +13,7 @@ export const SETTING_KEYS = {
   blockUnsupportedBrowsers: "block_unsupported_browsers",
   extensionGracePeriod: "extension_grace_period",
   spareAutomationBrowsers: "spare_automation_browsers",
+  guardExtensionsPage: "guard_extensions_page",
   language: "language",
   phaseSound: "pomodoro_sound",
   phaseSoundVolume: "pomodoro_sound_volume",

@@ -184,6 +184,8 @@
   "settings_spare_automation": "Deixar abertos os navegadores automatizados",
   "settings_spare_automation_description": "Navegadores abertos pelo Playwright, Selenium ou Puppeteer. Nada é bloqueado neles.",
   "settings_locked_on": "Não pode ser ativado enquanto houver um bloqueio ativo.",
+  "settings_guard_extensions_page": "Fechar a página de extensões durante um bloqueio",
+  "settings_guard_extensions_page_description": "Enquanto uma lista estiver bloqueada, a página de extensões do navegador é fechada, para que o Focuser não possa ser desativado ali.",
   "settings_seconds_suffix": "segundos",
   "settings_section_extension": "Extensão",
   "settings_extension_description": "Onde a extensão do Focuser está instalada.",

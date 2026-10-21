@@ -264,6 +264,8 @@
   "settings_spare_automation": "Leave automation browsers open",
   "settings_spare_automation_description": "Browsers started by Playwright, Selenium or Puppeteer. Nothing is blocked in them.",
   "settings_locked_on": "Can't be turned on while a lock is running.",
+  "settings_guard_extensions_page": "Keep the extensions page shut during a lock",
+  "settings_guard_extensions_page_description": "While a list is locked, the browser's extensions page is closed, so Focuser can't be switched off there.",
   "settings_seconds_suffix": "seconds",
   "settings_section_extension": "Extension",
   "settings_extension_description": "Where the Focuser extension is installed.",

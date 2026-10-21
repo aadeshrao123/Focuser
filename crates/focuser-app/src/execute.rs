@@ -932,6 +932,9 @@ pub const SETTING_GRACE_PERIOD: &str = "extension_grace_period";
 pub const DEFAULT_GRACE_PERIOD_SECS: u64 = 60;
 /// Leave browsers a test tool started open (#45). Off unless asked for.
 pub const SETTING_SPARE_AUTOMATION: &str = "spare_automation_browsers";
+/// Keep the browser's extensions page shut while a list is locked. On unless
+/// turned off.
+pub const SETTING_GUARD_EXTENSIONS_PAGE: &str = "guard_extensions_page";
 
 /// Turning browser closing off, or giving browsers longer, is refused during a
 /// lock (#18). Tightening either one is always fine.
@@ -940,6 +943,8 @@ fn loosens_enforcement(engine: &BlockEngine, key: &str, value: &str) -> CommandO
         SETTING_CLOSE_BROWSERS => value != "true",
         // An automation browser left open has no blocking at all.
         SETTING_SPARE_AUTOMATION => value == "true",
+        // With the page open, the extension can be switched off mid-lock.
+        SETTING_GUARD_EXTENSIONS_PAGE => value != "true",
         SETTING_GRACE_PERIOD => {
             let current = engine
                 .db()
@@ -3494,6 +3499,7 @@ mod tests {
             (SETTING_GRACE_PERIOD, "3600"),
             // #45: an automation browser left open has no blocking at all.
             (SETTING_SPARE_AUTOMATION, "true"),
+            (SETTING_GUARD_EXTENSIONS_PAGE, "false"),
         ] {
             assert!(
                 matches!(set(&ctx, key, value), Err(CommandError::Protected)),
@@ -3508,6 +3514,7 @@ mod tests {
         set(&ctx, SETTING_CLOSE_BROWSERS, "true").unwrap();
         set(&ctx, SETTING_GRACE_PERIOD, "10").unwrap();
         set(&ctx, SETTING_SPARE_AUTOMATION, "false").unwrap();
+        set(&ctx, SETTING_GUARD_EXTENSIONS_PAGE, "true").unwrap();
         set(&ctx, "language", "de").unwrap();
     }
 

@@ -180,6 +180,8 @@
   "settings_spare_automation": "自動化ブラウザーは閉じない",
   "settings_spare_automation_description": "Playwright、Selenium、Puppeteer が起動したブラウザー。その中では何もブロックされません。",
   "settings_locked_on": "ロック中はオンにできません。",
+  "settings_guard_extensions_page": "ロック中は拡張機能ページを閉じる",
+  "settings_guard_extensions_page_description": "リストがロックされている間、ブラウザの拡張機能ページを閉じ、そこで Focuser を無効にできないようにします。",
   "settings_seconds_suffix": "秒",
   "settings_section_extension": "拡張機能",
   "settings_extension_description": "Focuser 拡張機能がインストールされている場所です。",

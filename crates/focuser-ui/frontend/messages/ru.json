@@ -186,6 +186,8 @@
   "settings_spare_automation": "Не закрывать автоматизированные браузеры",
   "settings_spare_automation_description": "Браузеры, запущенные Playwright, Selenium или Puppeteer. В них ничего не блокируется.",
   "settings_locked_on": "Нельзя включить, пока действует блокировка.",
+  "settings_guard_extensions_page": "Закрывать страницу расширений во время блокировки",
+  "settings_guard_extensions_page_description": "Пока список заблокирован, страница расширений браузера закрывается, чтобы там нельзя было отключить Focuser.",
   "settings_seconds_suffix": "секунд",
   "settings_section_extension": "Расширение",
   "settings_extension_description": "Где установлено расширение Focuser.",

@@ -180,6 +180,8 @@
   "settings_spare_automation": "자동화 브라우저는 열어 두기",
   "settings_spare_automation_description": "Playwright, Selenium, Puppeteer가 실행한 브라우저입니다. 그 안에서는 아무것도 차단되지 않습니다.",
   "settings_locked_on": "잠금이 걸려 있는 동안에는 켤 수 없습니다.",
+  "settings_guard_extensions_page": "잠금 중에는 확장 프로그램 페이지 닫기",
+  "settings_guard_extensions_page_description": "목록이 잠겨 있는 동안 브라우저의 확장 프로그램 페이지를 닫아 그곳에서 Focuser를 끌 수 없게 합니다.",
   "settings_seconds_suffix": "초",
   "settings_section_extension": "확장 프로그램",
   "settings_extension_description": "Focuser 확장 프로그램이 설치된 위치입니다.",

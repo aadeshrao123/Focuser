@@ -502,10 +502,13 @@ fn api_lists(state: &AppState) -> (&'static str, String) {
 fn api_rules(state: &AppState) -> (&'static str, String) {
     let eng = state.engine.lock().unwrap();
     let allowance_exceptions = state.allowance_exempt_domains(&eng);
-    let rules = eng.compile_extension_rules_with_allowances(
+    let mut rules = eng.compile_extension_rules_with_allowances(
         &allowance_exceptions,
         &spent_domains(state, &eng),
     );
+    // `locked` only tells the extension to keep the extensions page shut, so
+    // with that turned off it is never sent.
+    rules.locked &= guards_extensions_page(eng.db());
 
     let mut domain_categories: HashMap<String, String> = HashMap::new();
     for list in eng.block_lists().iter().filter(|l| l.enabled) {
@@ -526,6 +529,11 @@ fn api_rules(state: &AppState) -> (&'static str, String) {
     }
 
     ("200 OK", response.to_string())
+}
+
+fn guards_extensions_page(db: &focuser_core::db::Database) -> bool {
+    db.get_setting_or_default(focuser_app::execute::SETTING_GUARD_EXTENSIONS_PAGE, "true")
+        .map_or(true, |v| v != "false")
 }
 
 fn normalize_category(list_name: &str) -> String {
@@ -1735,5 +1743,16 @@ mod tests {
     fn query_param_does_not_match_a_key_that_is_only_a_prefix() {
         // "browser" must not match "browsers", nor grab an empty value off it.
         assert_eq!(super::query_param("browsers=Chrome", "browser"), None);
+    }
+
+    /// Turned off, the extension never hears of a lock, so it leaves the
+    /// browser's extensions page alone.
+    #[test]
+    fn guarding_the_extensions_page_follows_its_setting() {
+        let db = focuser_core::db::Database::open_in_memory().unwrap();
+        assert!(super::guards_extensions_page(&db));
+        db.set_setting(focuser_app::execute::SETTING_GUARD_EXTENSIONS_PAGE, "false")
+            .unwrap();
+        assert!(!super::guards_extensions_page(&db));
     }
 }

@@ -182,6 +182,8 @@
   "settings_spare_automation": "Automatisierte Browser offen lassen",
   "settings_spare_automation_description": "Browser, die Playwright, Selenium oder Puppeteer startet. In ihnen wird nichts blockiert.",
   "settings_locked_on": "Lässt sich nicht einschalten, solange eine Sperre läuft.",
+  "settings_guard_extensions_page": "Erweiterungsseite während einer Sperre schließen",
+  "settings_guard_extensions_page_description": "Solange eine Liste gesperrt ist, wird die Erweiterungsseite des Browsers geschlossen, damit Focuser dort nicht ausgeschaltet werden kann.",
   "settings_seconds_suffix": "Sekunden",
   "settings_section_extension": "Erweiterung",
   "settings_extension_description": "Wo die Focuser-Erweiterung installiert ist.",
