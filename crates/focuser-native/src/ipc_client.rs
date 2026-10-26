@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use focuser_common::ipc::{IpcRequest, IpcResponse};
+#[cfg(unix)]
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 /// Send a request to the Focuser service and return the response.
@@ -20,21 +21,13 @@ pub async fn send(request: IpcRequest) -> Result<IpcResponse> {
 
 #[cfg(windows)]
 async fn send_tcp(request: IpcRequest) -> Result<IpcResponse> {
-    let stream = tokio::net::TcpStream::connect("127.0.0.1:17549")
-        .await
-        .map_err(|_| anyhow::anyhow!("Cannot connect to Focuser service. Is it running?"))?;
-
-    let (reader, mut writer) = stream.into_split();
-
-    let req_json = serde_json::to_string(&request)?;
-    writer.write_all(format!("{req_json}\n").as_bytes()).await?;
-
-    let mut buf_reader = BufReader::new(reader);
-    let mut line = String::new();
-    buf_reader.read_line(&mut line).await?;
-
-    let response: IpcResponse = serde_json::from_str(line.trim())?;
-    Ok(response)
+    match focuser_ipc::Client::default()
+        .request(focuser_ipc::RequestBody::Native(Box::new(request)))
+        .await?
+    {
+        focuser_ipc::ReplyBody::Native(response) => Ok(*response),
+        _ => anyhow::bail!("Unexpected authority response"),
+    }
 }
 
 #[cfg(unix)]

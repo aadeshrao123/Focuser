@@ -1,0 +1,51 @@
+; REVIEW TEMPLATE ONLY. No installable INF is generated or shipped yet.
+; Category, allocated altitude, native roots and signing must be validated on
+; the acceptance machine. Never substitute arbitrary values for production.
+[Version]
+Signature="$WINDOWS NT$"
+Class=@CLASS_NAME@
+ClassGuid=@CLASS_GUID@
+Provider=%Provider%
+DriverVer=@DRIVER_DATE@,@DRIVER_VERSION@
+CatalogFile=FocuserGuard.cat
+PnpLockdown=1
+
+[DestinationDirs]
+DriverCopy=13
+
+[DefaultInstall.NTamd64]
+CopyFiles=DriverCopy
+
+[DefaultInstall.NTamd64.Services]
+AddService=FocuserGuard,,GuardService
+
+[DriverCopy]
+FocuserGuard.sys
+
+[GuardService]
+DisplayName=%ServiceName%
+ServiceBinary=%13%\FocuserGuard.sys
+ServiceType=2
+StartType=0
+ErrorControl=1
+LoadOrderGroup=@LOAD_ORDER_GROUP@
+Dependencies=FltMgr
+AddReg=GuardParameters
+
+[GuardParameters]
+HKR,"Parameters\Instances","DefaultInstance",0x00000000,"FocuserGuard Instance"
+HKR,"Parameters\Instances\FocuserGuard Instance","Altitude",0x00000000,"@ALLOCATED_ALTITUDE@"
+HKR,"Parameters\Instances\FocuserGuard Instance","Flags",0x00010001,0
+; Parameters\Installation is the exact existing 16-byte UUID in RFC4122/network
+; byte order, REG_BINARY (not the mixed-endian Guid.ToByteArray representation).
+; Parameters\InstallRoot, AuthorityRoot, TasksRoot must be canonical native
+; NT volume paths, REG_SZ; provisioning is intentionally not implemented here.
+
+[SourceDisksNames]
+1=%DiskName%,,,
+[SourceDisksFiles]
+FocuserGuard.sys=1
+[Strings]
+Provider="Focuser"
+ServiceName="Focuser experimental file protection"
+DiskName="Focuser Guard"

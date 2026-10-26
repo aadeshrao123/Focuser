@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { isTauri } from "@/lib/native";
-import { useInstallUpdate, useUpdate } from "@/lib/updates";
+import { useAuthorityUpdate, useCancelAuthorityUpdate, useInstallUpdate, useUpdate } from "@/lib/updates";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -10,9 +10,31 @@ import { m } from "@/paraglide/messages.js";
 export function UpdateCheck() {
   const update = useUpdate();
   const install = useInstallUpdate();
+  const authority = useAuthorityUpdate();
+  const cancel = useCancelAuthorityUpdate();
 
   if (!isTauri()) {
     return <span className="text-faint-foreground text-sm">{m.update_desktop_only()}</span>;
+  }
+  if (authority.data && authority.data.phase !== "legacy") {
+    const status = authority.data;
+    const canStage = status.phase === "available";
+    const canActivate = status.phase === "staged" || status.phase === "deferred";
+    const frozen = ["authorized", "replacing", "validating", "rolling_back", "rollback_validating"].includes(status.phase);
+    const failure = authority.error ?? install.error ?? cancel.error ?? update.error;
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <span role="status" className="text-sm">
+          {m.update_authority_state({ phase: status.phase, reason: status.code })}
+        </span>
+        {status.total > 0 && <progress aria-label={m.update_download_progress()} value={status.downloaded} max={status.total} />}
+        {failure && <span role="alert" className="text-destructive text-sm">{String(failure)}</span>}
+        {(canStage || canActivate) && <Button size="sm" disabled={install.isPending} onClick={() => install.mutate()}>{canStage ? m.update_stage() : m.update_activate()}</Button>}
+        {!status.transaction && <Button size="sm" variant="outline" onClick={() => update.refetch()} disabled={update.isFetching}>{m.update_check()}</Button>}
+        {status.transaction && (status.can_cancel ?? !frozen) && !["complete", "rolled_back", "cancelled"].includes(status.phase) && <Button size="sm" variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{m.update_cancel_stage()}</Button>}
+        {["complete", "rolled_back", "cancelled"].includes(status.phase) && <Button size="sm" variant="outline" onClick={() => update.refetch()} disabled={update.isFetching}>{m.update_check()}</Button>}
+      </div>
+    );
   }
 
   const available = update.data?.available === true;

@@ -46,6 +46,24 @@ export interface UpdateCheck {
   body?: string;
 }
 
+export interface AuthorityUpdate {
+  can_cancel?: boolean;
+  available: boolean;
+  version?: string;
+  transaction?: string;
+  phase: string;
+  code: string;
+  message: string;
+  downloaded: number;
+  total: number;
+}
+export function authorityUpdateStatus(): Promise<AuthorityUpdate> {
+  return invoke("update_status");
+}
+export function cancelAuthorityUpdate(): Promise<void> {
+  return invoke("cancel_update");
+}
+
 export function checkForUpdate(): Promise<UpdateCheck> {
   return invoke<UpdateCheck>("check_for_update");
 }

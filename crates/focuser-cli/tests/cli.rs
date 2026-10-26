@@ -27,6 +27,7 @@ impl Cli {
 
     fn raw(&self, args: &[&str]) -> Output {
         Command::new(env!("CARGO_BIN_EXE_focuser-cli"))
+            .arg("--dev")
             .arg("--db")
             .arg(&self.db)
             .args(args)
@@ -446,6 +447,7 @@ fn runs_against_a_database_that_does_not_exist_yet() {
     std::fs::create_dir_all(db.parent().unwrap()).unwrap();
 
     let out = Command::new(env!("CARGO_BIN_EXE_focuser-cli"))
+        .arg("--dev")
         .arg("--db")
         .arg(&db)
         .args(["list", "ls"])
@@ -673,4 +675,19 @@ fn browsers_lists_every_known_browser() {
 fn version_matches_the_binary() {
     let cli = Cli::new();
     assert_eq!(cli.ok(&["version"]), env!("CARGO_PKG_VERSION"));
+}
+
+#[test]
+fn a_database_flag_without_development_opt_in_never_creates_storage() {
+    let directory = TempDir::new().unwrap();
+    let db = directory.path().join("must-not-exist.db");
+    let output = Command::new(env!("CARGO_BIN_EXE_focuser-cli"))
+        .arg("--db")
+        .arg(&db)
+        .args(["list", "ls"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(!db.exists());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--dev"));
 }

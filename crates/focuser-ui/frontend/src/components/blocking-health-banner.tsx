@@ -1,23 +1,20 @@
 import { ShieldAlert } from "lucide-react";
-import { useBlockingHealth } from "@/lib/commands";
+import { useAuthoritySession, useBlockingHealth } from "@/lib/commands";
 import { m } from "@/paraglide/messages.js";
 
-/**
- * Warns when block lists are on but nothing can actually enforce them.
- *
- * Focuser blocks two ways: the browser extension, or the OS hosts file. The
- * hosts file needs administrator or root, and the write failure is invisible —
- * rules look armed and sites keep loading. Without this, the app quietly lies.
- *
- * Deliberately silent unless *both* routes are unavailable and there is
- * something to block. A warning that shows when everything is fine gets
- * ignored when it isn't.
- */
 export function BlockingHealthBanner() {
   const health = useBlockingHealth();
+  const session = useAuthoritySession();
+  const disconnected = health.isError || session.isError;
+  const degraded = session.data === "missing";
 
-  if (!health.data?.active_lists) return null;
-  if (health.data.extension_connected || health.data.hosts_writable) return null;
+  if (!disconnected && !degraded && !health.data?.active_lists) return null;
+  if (
+    !disconnected &&
+    !degraded &&
+    (health.data?.extension_connected || health.data?.hosts_writable)
+  )
+    return null;
 
   return (
     <div
@@ -26,8 +23,20 @@ export function BlockingHealthBanner() {
     >
       <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
       <div className="min-w-0 text-sm">
-        <p className="font-medium text-foreground">{m.health_title()}</p>
-        <p className="mt-0.5 text-muted-foreground">{m.health_body()}</p>
+        <p className="font-medium text-foreground">
+          {disconnected
+            ? m.authority_disconnected_title()
+            : degraded
+              ? m.authority_degraded_title()
+              : m.health_title()}
+        </p>
+        <p className="mt-0.5 text-muted-foreground">
+          {disconnected
+            ? m.authority_disconnected_body()
+            : degraded
+              ? m.authority_degraded_body()
+              : m.health_body()}
+        </p>
       </div>
     </div>
   );

@@ -244,6 +244,15 @@ const shareSwitch = (name: string) =>
   page(name).getByRole("switch", { name: "Shared allowance: Weekly" });
 const sent = (name: Command["cmd"]) => send.mock.calls.filter(([c]) => c.cmd === name);
 
+async function unlockButton(name: string) {
+  // Wait for query data with a cheap text lookup before walking the schedule's
+  // 168-cell accessibility tree. Repeated role scans can starve query delivery
+  // on Windows; retain the role/name assertion once the control is rendered.
+  await page(name).findByText("Unlock for editing");
+  return page(name).getByRole("button", { name: "Unlock for editing" });
+}
+
+
 // ─── The card ───────────────────────────────────────────────────────
 
 describe("a list card", () => {
@@ -439,7 +448,7 @@ describe.each(["lists", "schedule"])("a locked list on %s", (name) => {
 
   it("cannot be switched off, has no settings to change, and offers to unlock", async () => {
     show();
-    await page(name).findByRole("button", { name: "Unlock for editing" });
+    await unlockButton(name);
 
     expect(lockSwitch(name)).toBeDisabled();
     expect(page(name).queryByRole("button", { name: "Change unlock method" })).toBeNull();
@@ -448,7 +457,7 @@ describe.each(["lists", "schedule"])("a locked list on %s", (name) => {
 
   it("unlocks from a pop-up by typing the text, and locks again with one click", async () => {
     show();
-    fireEvent.click(await page(name).findByRole("button", { name: "Unlock for editing" }));
+    fireEvent.click(await unlockButton(name));
 
     const dialog = within(screen.getByRole("dialog", { name: "Unlock Weekly early" }));
     await dialog.findByText("abcdef");
@@ -464,7 +473,7 @@ describe.each(["lists", "schedule"])("a locked list on %s", (name) => {
 
     fireEvent.click(page(name).getByRole("button", { name: "Lock again now" }));
 
-    await page(name).findByRole("button", { name: "Unlock for editing" });
+    await unlockButton(name);
     expect(send).toHaveBeenCalledWith({
       cmd: "relock_scheduled_protection",
       args: { list_id: "list-1" },

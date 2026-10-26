@@ -1,5 +1,4 @@
-//! Background blocking loop — syncs hosts file, kills blocked processes,
-//! and enforces browser extension installation.
+//! Hosts/process blocking and a separate, faster browser-extension guard.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -20,13 +19,11 @@ const HOSTS_BEGIN: &str = "# ──── BEGIN FOCUSER BLOCK ────";
 const HOSTS_END: &str = "# ──── END FOCUSER BLOCK ────";
 
 /// Runs the blocking loop in a background thread.
-/// Every 3 seconds: re-sync hosts file, check for blocked processes,
-/// and enforce browser extension installation.
+/// Every 3 seconds: re-sync hosts file and check for blocked processes.
+/// Browser coverage is checked independently by `run_browser_guard`.
 pub fn run_blocking_loop(state: Arc<AppState>) {
     info!("Background blocker started");
 
-    // Browser enforcement state
-    let mut grace_periods: HashMap<BrowserType, Grace> = HashMap::new();
     let mut was_using_hosts = true;
     let mut cleared_processes = HashSet::new();
 
@@ -75,7 +72,6 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 
         // Refresh engine cache (every ~3s)
         let mut watch_uninstalls = false;
-        let mut enforce_browsers = None;
         if let Ok(mut eng) = state.engine.lock() {
             let _ = eng.refresh();
 
@@ -125,23 +121,12 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
 
             // Uninstall protection. Only while a lock actually asks for it.
             watch_uninstalls = eng.has_uninstall_protection();
-
-            // Browser extension enforcement. Settings are read on every heavy
-            // tick so a change in the UI applies without restarting the app.
-            let (grace_duration, enforce_enabled) = enforcement_settings(eng.db());
-            if enforce_enabled {
-                let has_active_blocks = eng.block_lists().iter().any(|l| l.is_effectively_active());
-                enforce_browsers = Some((has_active_blocks, grace_duration));
-            }
         }
 
         // After the engine lock is released, never inside it. Every command
         // from the window and every request from the extension waits for that
         // lock, and reading command lines is the one step here whose cost
         // depends on what else the machine is running.
-        if let Some((has_active_blocks, grace_duration)) = enforce_browsers {
-            enforce_browser_extension(has_active_blocks, grace_duration, &mut grace_periods);
-        }
         if watch_uninstalls {
             block_uninstall_attempts(&mut cleared_processes);
         }
@@ -330,123 +315,299 @@ fn kill_allowance_blocked_apps(
     }
 }
 
-/// Enforce browser extension installation.
-///
-/// If active blocks exist and a browser is running without the Focuser extension
-/// connected, start a grace period. After the grace period expires, kill the browser.
-///
-/// "Connected" means the extension polled `/api/rules` recently — that HTTP
-/// call is the only signal we get, so a browser is judged by whether its
-/// extension has been in touch, not by asking the browser anything.
-fn enforce_browser_extension(
-    has_active_blocks: bool,
-    grace_duration: Duration,
-    grace_periods: &mut HashMap<BrowserType, Grace>,
-) {
-    if !has_active_blocks {
-        grace_periods.clear();
-        return;
-    }
-
-    let now = Instant::now();
-
-    let running = browser_main_processes(&process::list(), process::cmdline);
-
-    // Generous 2-minute window: extensions use chrome.alarms, which fires
-    // every 30s once the service worker sleeps. Anything tighter would call a
-    // healthy extension dead during a slow startup or a suspended worker.
-    //
-    // "Safely connected" requires *both* a recent check-in *and* "Allow in
-    // Incognito" being granted. A browser that is merely connected but has
-    // not been granted incognito access is not actually covered: Chrome
-    // hides private windows from an extension without that permission, so a
-    // private window there has nothing blocking it at all. Treating that the
-    // same as "extension not installed" is deliberate — it is the same gap.
-    let safely_connected = crate::api::get_safely_connected_browsers(120);
-
-    for (browser, pids) in &running {
-        if safely_connected.contains(browser) {
-            grace_periods.remove(browser);
+/// Check browser-owned state twice a second, independently of the heavy loop.
+/// Heartbeats remain the fallback for unreadable/unsupported profiles; a sleepy
+/// MV3 worker alone must not be mistaken for an uninstall.
+pub fn run_browser_guard(state: Arc<AppState>) {
+    let mut guard = BrowserGuard::new();
+    loop {
+        // A failed policy restore cancels quitting. Stay alive so enforcement
+        // resumes in that case instead of silently losing the guard thread.
+        if crate::browser_recovery::is_stopping() {
+            thread::sleep(Duration::from_millis(500));
             continue;
         }
-
-        let grace = grace_periods.entry(browser.clone()).or_insert_with(|| {
-            warn!(
-                browser = ?browser,
-                grace_secs = grace_duration.as_secs(),
-                "Browser running without full Focuser coverage — grace period started"
-            );
-            Grace {
-                started: now,
-                warned: false,
-            }
+        let settings = state.engine.lock().ok().map(|engine| {
+            let (grace, enabled) = enforcement_settings(engine.db());
+            (
+                enabled
+                    && engine
+                        .block_lists()
+                        .iter()
+                        .any(|l| l.is_effectively_active()),
+                grace,
+            )
         });
-        let waited = now.duration_since(grace.started);
+        if let Some((active, grace)) = settings {
+            guard.enforce(active, grace);
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+}
 
-        // The extension may still be checking in — just without incognito
-        // access — which changes what the user needs to be told to fix.
-        let reason = || {
-            if crate::api::get_connected_browsers(180).contains(browser) {
+struct BrowserGuard {
+    monitor: focuser_common::extension_watch::ProfileMonitor,
+    profiles: HashMap<BrowserType, Vec<focuser_common::extension_watch::BrowserProfile>>,
+    grace_periods: HashMap<BrowserType, Grace>,
+    recovery: HashSet<BrowserType>,
+    needs_restart: HashSet<BrowserType>,
+    last_failure: HashMap<BrowserType, Instant>,
+}
+
+impl BrowserGuard {
+    fn new() -> Self {
+        let recovery: HashSet<_> = crate::browser_recovery::pending().into_iter().collect();
+        // Journals survive a crash/restart, heartbeats do not. Require a new
+        // check-in before releasing any previously installed restriction.
+        for browser in &recovery {
+            crate::api::forget_browser(browser);
+        }
+        Self {
+            monitor: Default::default(),
+            profiles: HashMap::new(),
+            grace_periods: HashMap::new(),
+            needs_restart: recovery.clone(),
+            recovery,
+            last_failure: HashMap::new(),
+        }
+    }
+
+    fn enforce(&mut self, active: bool, grace_duration: Duration) {
+        if crate::browser_recovery::is_stopping() {
+            return;
+        }
+        use focuser_common::extension_watch::Coverage;
+        let running = browser_main_processes(&process::list(), process::cmdline);
+        if !active {
+            // Restore policies when the schedule ends or enforcement is
+            // disabled, even if the user has already closed the browser.
+            for browser in crate::browser_recovery::pending() {
+                if let Some(profile) = crate::browser_recovery::saved_profile(&browser) {
+                    self.profiles
+                        .entry(browser.clone())
+                        .or_insert_with(|| vec![profile]);
+                }
+                if let Err(error) = crate::browser_recovery::restore(&browser) {
+                    warn!(%error, ?browser, "Could not restore browser policies");
+                    continue;
+                }
+                self.recovery.remove(&browser);
+                self.needs_restart.remove(&browser);
+                if let Some(pids) = running.get(&browser) {
+                    self.restart(&browser, pids, "about:blank");
+                }
+            }
+            self.grace_periods.clear();
+            self.profiles.clear();
+            return;
+        }
+        let safely_connected = crate::api::get_safely_connected_browsers(120);
+        let connected = crate::api::get_connected_browsers(120);
+        let recovery_ready = crate::api::get_recovery_ready_browsers();
+        for (browser, pids) in &running {
+            let commands: Vec<_> = pids
+                .iter()
+                .filter_map(|pid| process::cmdline(*pid))
+                .collect();
+            let discovered = self.monitor.profiles(browser, &commands);
+            let watched = self.profiles.entry(browser.clone()).or_default();
+            for profile in discovered {
+                if !watched.contains(&profile) {
+                    watched.push(profile);
+                }
+            }
+            if let Some(saved) = crate::browser_recovery::saved_profile(browser)
+                && !watched.contains(&saved)
+            {
+                watched.push(saved);
+            }
+            if self.needs_restart.contains(browser) {
+                if let Err(error) = crate::browser_recovery::install(browser, watched.first()) {
+                    for &pid in pids {
+                        process::terminate(pid);
+                    }
+                    warn!(?browser, %error, "Could not reapply interrupted browser recovery");
+                    continue;
+                }
+                self.needs_restart.remove(browser);
+                let store = focuser_common::browser::KNOWN_BROWSERS
+                    .iter()
+                    .find(|b| b.browser_type == *browser)
+                    .map(|b| b.store_url())
+                    .unwrap_or("");
+                if !self.restart(browser, pids, store) {
+                    self.needs_restart.insert(browser.clone());
+                }
+                continue;
+            }
+            let missing_index = watched.iter().position(|profile| {
+                self.monitor
+                    .coverage(profile, *browser == BrowserType::Firefox)
+                    == Coverage::Missing
+            });
+            let missing = missing_index.is_some();
+            // Install into the profile that lost the extension, not whichever
+            // profile happens to sort first (which might already be covered).
+            if let Some(index) = missing_index {
+                watched.swap(0, index);
+            }
+            let recovering = self.recovery.contains(browser);
+            if recovering {
+                if !missing && recovery_ready.contains(browser) {
+                    if let Err(error) = crate::browser_recovery::restore(browser) {
+                        warn!(%error, ?browser, "Could not leave installation-only recovery");
+                        continue;
+                    }
+                    self.recovery.remove(browser);
+                    self.grace_periods.remove(browser);
+                    self.restart(browser, pids, "about:blank");
+                    info!(?browser, "Extension reconnected; normal browsing restored");
+                }
+                continue;
+            }
+            if !missing && safely_connected.contains(browser) {
+                self.grace_periods.remove(browser);
+                continue;
+            }
+            let name = focuser_common::browser::KNOWN_BROWSERS
+                .iter()
+                .find(|b| b.browser_type == *browser)
+                .map(|b| b.display_name)
+                .unwrap_or("your browser");
+            let reason = if !missing && connected.contains(browser) {
                 crate::api::ClosedReason::IncognitoNotAllowed
             } else {
                 crate::api::ClosedReason::NotInstalled
+            };
+            let grace = self.grace_periods.entry(browser.clone()).or_insert(Grace {
+                started: Instant::now(),
+                warned: false,
+            });
+            let waited = grace.started.elapsed();
+            match enforcement_step(missing, waited, grace_duration, grace.warned) {
+                GraceStep::Wait => continue,
+                GraceStep::Warn => {
+                    grace.warned = true;
+                    crate::api::prompt_about_browser(crate::api::BrowserPrompt {
+                        browser: name.into(),
+                        reason,
+                        closing_in_secs: Some(grace_duration.saturating_sub(waited).as_secs()),
+                    });
+                    continue;
+                }
+                GraceStep::Close => {}
             }
-        };
-        let name = focuser_common::browser::KNOWN_BROWSERS
-            .iter()
-            .find(|b| b.browser_type == *browser)
-            .map(|b| b.display_name)
-            .unwrap_or("your browser");
-
-        match grace_step(waited, grace_duration, grace.warned) {
-            GraceStep::Wait => continue,
-            GraceStep::Warn => {
-                grace.warned = true;
-                crate::api::prompt_about_browser(crate::api::BrowserPrompt {
-                    browser: name.to_string(),
-                    reason: reason(),
-                    closing_in_secs: Some(grace_duration.saturating_sub(waited).as_secs()),
-                });
-                continue;
+            let profile = watched.first().cloned();
+            // Never reopen an unrestricted browser if installing the policy
+            // failed (for example on an unsupported/enterprise-managed browser).
+            match crate::browser_recovery::install(browser, profile.as_ref()) {
+                Ok(()) => {
+                    self.recovery.insert(browser.clone());
+                    let store = focuser_common::browser::KNOWN_BROWSERS
+                        .iter()
+                        .find(|b| b.browser_type == *browser)
+                        .map(|b| b.store_url())
+                        .unwrap_or("");
+                    let destination = if reason == crate::api::ClosedReason::IncognitoNotAllowed {
+                        crate::extension_settings_url(name)
+                    } else {
+                        store
+                    };
+                    if !self.restart(browser, pids, destination) {
+                        self.needs_restart.insert(browser.clone());
+                    }
+                    info!(
+                        ?browser,
+                        "Extension missing; browser restricted to installation"
+                    );
+                }
+                Err(error) => {
+                    if crate::browser_recovery::is_stopping() {
+                        return;
+                    }
+                    if crate::browser_recovery::pending().contains(browser) {
+                        self.recovery.insert(browser.clone());
+                        self.needs_restart.insert(browser.clone());
+                    }
+                    for &pid in pids {
+                        process::terminate(pid);
+                    }
+                    crate::api::forget_browser(browser);
+                    if self
+                        .last_failure
+                        .get(browser)
+                        .is_none_or(|at| at.elapsed() >= Duration::from_secs(30))
+                    {
+                        warn!(?browser, %error, "Recovery unavailable; uncovered browser kept closed");
+                        crate::api::prompt_about_browser(crate::api::BrowserPrompt {
+                            browser: name.into(),
+                            reason,
+                            closing_in_secs: None,
+                        });
+                        self.last_failure.insert(browser.clone(), Instant::now());
+                    }
+                }
             }
-            GraceStep::Close => {}
         }
+        self.grace_periods
+            .retain(|browser, _| running.contains_key(browser));
+        self.profiles
+            .retain(|browser, _| running.contains_key(browser) || self.recovery.contains(browser));
+    }
 
-        // Last look before closing anything, with a wider window still: the
-        // extension may have been installed (or granted incognito) mid-grace
-        // and be warming up.
-        if crate::api::get_safely_connected_browsers(180).contains(browser) {
-            info!(
-                browser = ?browser,
-                "Extension fully connected during grace period — cancelling termination"
-            );
-            grace_periods.remove(browser);
-            continue;
+    fn restart(&self, browser: &BrowserType, pids: &[u32], url: &str) -> bool {
+        if crate::browser_recovery::is_stopping() {
+            return false;
         }
-
-        let reason = reason();
-        info!(
-            browser = ?browser,
-            pid_count = pids.len(),
-            reason = ?reason,
-            "Grace period expired — terminating browser without full extension coverage"
-        );
         for &pid in pids {
             process::terminate(pid);
         }
-
-        crate::api::prompt_about_browser(crate::api::BrowserPrompt {
-            browser: name.to_string(),
-            reason,
-            closing_in_secs: None,
-        });
-        crate::api::SHOW_WINDOW_REQUESTED.store(true, std::sync::atomic::Ordering::Relaxed);
-
-        // Reset so the grace period restarts if the browser is relaunched.
-        grace_periods.remove(browser);
+        // A launch while the old main process still owns the profile would
+        // forward to that process, leaving its old policy cache in force.
+        for _ in 0..20 {
+            if process::list().iter().all(|p| !pids.contains(&p.pid)) {
+                crate::api::forget_browser(browser);
+                let profile = self
+                    .profiles
+                    .get(browser)
+                    .and_then(|p| p.first())
+                    .cloned()
+                    .or_else(|| crate::browser_recovery::saved_profile(browser));
+                let args = profile
+                    .map(|p| p.launch_args(*browser == BrowserType::Firefox))
+                    .unwrap_or_default();
+                if let Some(info) = focuser_common::browser::KNOWN_BROWSERS
+                    .iter()
+                    .find(|b| b.browser_type == *browser)
+                    && let Err(error) =
+                        crate::native::launch_browser(info.launch_name(), url, &args)
+                {
+                    warn!(%error, ?browser, "Could not reopen browser");
+                    return false;
+                }
+                return true;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        warn!(
+            ?browser,
+            "Browser did not exit; refused an unrestricted relaunch"
+        );
+        false
     }
+}
 
-    grace_periods.retain(|browser, _| running.contains_key(browser));
+fn enforcement_step(
+    confirmed_missing: bool,
+    waited: Duration,
+    grace: Duration,
+    warned: bool,
+) -> GraceStep {
+    if confirmed_missing {
+        GraceStep::Close
+    } else {
+        grace_step(waited, grace, warned)
+    }
 }
 
 /// How long a browser has been running without cover, and whether the user
@@ -659,6 +820,18 @@ mod tests {
     fn a_grace_period_shorter_than_the_settle_time_closes_with_no_warning() {
         assert_eq!(grace_step(secs(3), secs(5), false), GraceStep::Wait);
         assert_eq!(grace_step(secs(6), secs(5), false), GraceStep::Close);
+    }
+
+    #[test]
+    fn confirmed_removal_bypasses_even_a_long_grace_period() {
+        assert_eq!(
+            enforcement_step(true, secs(0), secs(3600), false),
+            GraceStep::Close
+        );
+        assert_eq!(
+            enforcement_step(false, secs(0), secs(3600), false),
+            GraceStep::Wait
+        );
     }
 
     #[test]

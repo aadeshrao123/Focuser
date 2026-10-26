@@ -167,15 +167,19 @@ impl Database {
         let mut stmt = conn
             .prepare("SELECT data FROM block_lists ORDER BY created_at")
             .map_err(|e| FocuserError::Database(e.to_string()))?;
-        let lists = stmt
+        let rows = stmt
             .query_map([], |row| {
                 let json: String = row.get(0)?;
                 Ok(json)
             })
-            .map_err(|e| FocuserError::Database(e.to_string()))?
-            .filter_map(|r| r.ok())
-            .filter_map(|json| serde_json::from_str::<BlockList>(&json).ok())
-            .collect();
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
+        // A corrupt protected row must not disappear from the authority's
+        // policy snapshot and accidentally authorize weakening or file cleanup.
+        let mut lists = Vec::new();
+        for row in rows {
+            let json = row.map_err(|e| FocuserError::Database(e.to_string()))?;
+            lists.push(serde_json::from_str::<BlockList>(&json)?);
+        }
         Ok(lists)
     }
 
@@ -452,7 +456,7 @@ impl Database {
             .conn
             .lock()
             .map_err(|e| FocuserError::Database(e.to_string()))?;
-        conn.execute("DELETE FROM settings", [])
+        conn.execute("DELETE FROM settings WHERE key NOT GLOB '_authority.*'", [])
             .map_err(|e| FocuserError::Database(e.to_string()))?;
         Ok(())
     }
@@ -477,12 +481,13 @@ impl Database {
             .conn
             .lock()
             .map_err(|e| FocuserError::Database(e.to_string()))?;
+        conn.execute("DELETE FROM settings WHERE key NOT GLOB '_authority.*'", [])
+            .map_err(|e| FocuserError::Database(e.to_string()))?;
         for table in [
             "statistics",
             "blocked_events",
             "active_blocks",
             "block_lists",
-            "settings",
             "unlock_challenges",
             "shared_allowance_usage",
             "shared_allowance_occurrences",
@@ -516,6 +521,28 @@ mod tests {
     use super::*;
     use focuser_common::types::BlockList;
 
+    #[test]
+    fn user_data_resets_preserve_authority_identity_and_maintenance_journal() {
+        let db = Database::open_in_memory().unwrap();
+        db.set_setting("_authority.installation", "installation")
+            .unwrap();
+        db.set_setting("_authority.maintenance", "transaction")
+            .unwrap();
+        db.set_setting("theme", "dark").unwrap();
+        db.clear_settings().unwrap();
+        assert_eq!(db.get_setting("theme").unwrap(), None);
+        db.delete_all_data().unwrap();
+        assert_eq!(
+            db.get_setting("_authority.installation")
+                .unwrap()
+                .as_deref(),
+            Some("installation")
+        );
+        assert_eq!(
+            db.get_setting("_authority.maintenance").unwrap().as_deref(),
+            Some("transaction")
+        );
+    }
     #[test]
     fn scheduled_protection_and_bypass_survive_reopening_database() {
         use chrono::Datelike;

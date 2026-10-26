@@ -443,8 +443,22 @@ export function usePomodoroStatus() {
  * Polled rather than fetched once: the extension can connect or drop, and the
  * user can relaunch as administrator, without reloading the app.
  */
+export function useAuthoritySession() {
+  return useQuery({
+    queryKey: queryKeys.setting("_authority.session_agent"),
+    queryFn: async () =>
+      expect(
+        await run({ cmd: "get_setting", args: { key: "_authority.session_agent", default: null } }),
+        "setting",
+      ).data,
+    refetchInterval: 5000,
+    retry: false,
+  });
+}
+
 export function useBlockingHealth() {
   return useQuery({
+    retry: false,
     queryKey: ["blocking-health"] as const,
     queryFn: async () => expect(await run({ cmd: "get_blocking_health" }), "blocking_health").data,
     refetchInterval: 5000,

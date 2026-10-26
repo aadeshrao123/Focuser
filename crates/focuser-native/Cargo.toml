@@ -6,6 +6,7 @@ license.workspace = true
 description = "Native Messaging host for Focuser browser extension"
 
 [dependencies]
+focuser-ipc.workspace = true
 focuser-common = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

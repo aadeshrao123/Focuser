@@ -112,6 +112,22 @@ impl AllowanceTracker {
     /// Handle one tick. Attributes the tick to any matching allowance,
     /// increments usage, and updates the blocked set when exhausted.
     pub fn ingest_tick(&self, db: &Database, tick: &AllowanceTick) -> Result<()> {
+        self.ingest_filtered_tick(db, tick, None)
+    }
+
+    /// The authority measures loose app budgets from its own process list and
+    /// strict budgets from its authenticated session observer. Keep those two
+    /// streams disjoint so a focused loose allowance is not charged twice.
+    pub fn ingest_app_tick(&self, db: &Database, tick: &AllowanceTick, strict: bool) -> Result<()> {
+        self.ingest_filtered_tick(db, tick, Some(strict))
+    }
+
+    fn ingest_filtered_tick(
+        &self,
+        db: &Database,
+        tick: &AllowanceTick,
+        strict: Option<bool>,
+    ) -> Result<()> {
         if db.ingest_shared_at(tick, Local::now())? || tick.shared_only {
             return Ok(());
         }
@@ -129,6 +145,9 @@ impl AllowanceTracker {
 
         let matches = find_matching_allowances(db, tick)?;
         for a in matches {
+            if strict.is_some_and(|expected| a.strict_mode != expected) {
+                continue;
+            }
             if !a.enabled {
                 continue;
             }

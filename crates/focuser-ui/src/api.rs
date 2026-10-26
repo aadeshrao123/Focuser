@@ -111,6 +111,13 @@ impl BrowserHeartbeat {
             .values()
             .any(|(at, allowed)| !allowed && at.elapsed() < within)
     }
+
+    fn ready_for_recovery_exit(&self, within: std::time::Duration) -> bool {
+        self.private_windows
+            .values()
+            .any(|(at, allowed)| *allowed && at.elapsed() < within)
+            && self.covers_private_windows(within)
+    }
 }
 
 /// `true` or `false` and nothing else. Unknown is not "no": a stray value must
@@ -191,6 +198,16 @@ pub fn get_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<Br
     connected_browsers_matching(timeout_secs, |_, _| true)
 }
 
+/// A confirmed removal invalidates even a recent heartbeat. Recovery must
+/// receive a new check-in after the uncovered browser has been stopped.
+pub fn forget_browser(browser: &BrowserType) {
+    if let Ok(mut guard) = CONNECTED_BROWSERS.lock()
+        && let Some(map) = guard.as_mut()
+    {
+        map.remove(browser);
+    }
+}
+
 /// Get the set of browsers whose extension was seen within the timeout and
 /// has not reported that "Allow in Incognito" is off.
 ///
@@ -200,6 +217,12 @@ pub fn get_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<Br
 /// extension too old to report is given the benefit of the doubt.
 pub fn get_safely_connected_browsers(timeout_secs: u64) -> std::collections::HashSet<BrowserType> {
     connected_browsers_matching(timeout_secs, BrowserHeartbeat::covers_private_windows)
+}
+
+/// Recovery must see the extension's real heartbeat, including private-window
+/// coverage. Its first rules poll alone is too early to release restrictions.
+pub fn get_recovery_ready_browsers() -> std::collections::HashSet<BrowserType> {
+    connected_browsers_matching(120, BrowserHeartbeat::ready_for_recovery_exit)
 }
 
 fn connected_browsers_matching(
@@ -1487,6 +1510,19 @@ mod tests {
         hb.record(Some(("a", false)));
         hb.record(None);
         assert!(!hb.covers_private_windows(WINDOW));
+    }
+
+    #[test]
+    fn recovery_waits_for_a_fresh_heartbeat_with_private_window_coverage() {
+        let mut hb = super::BrowserHeartbeat::new();
+        hb.record(None);
+        assert!(!hb.ready_for_recovery_exit(WINDOW));
+        hb.record(Some(("work", false)));
+        assert!(!hb.ready_for_recovery_exit(WINDOW));
+        hb.record(Some(("work", true)));
+        assert!(hb.ready_for_recovery_exit(WINDOW));
+        hb.record(Some(("home", false)));
+        assert!(!hb.ready_for_recovery_exit(WINDOW));
     }
 
     /// Two profiles of one browser report in turn. With one slot per browser

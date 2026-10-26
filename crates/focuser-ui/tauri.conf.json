@@ -48,12 +48,12 @@
     "longDescription": "Focuser is a free, open-source website and application blocker that helps you stay focused by blocking distracting websites and apps.",
     "windows": {
       "nsis": {
-        "installMode": "both",
+        "installMode": "perMachine",
         "startMenuFolder": "Focuser",
         "installerIcon": "icons/icon.ico",
         "headerImage": null,
         "sidebarImage": null,
-        "installerHooks": "nsis/installer-hooks.nsi"
+        "template": "nsis/installer.nsi"
       },
       "wix": null
     },

@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Focuser サービスに未接続",
+  "authority_disconnected_body": "サービスを利用できません。変更は保存できません。代替のブロックエンジンは起動されていません。",
+  "authority_degraded_title": "デスクトップの保護が制限されています",
+  "authority_degraded_body": "セッションエージェントがありません。サービスは実行ファイルとパスのルール、スケジュール、コミットメントの適用を継続します。ウィンドウタイトル、前面での使用状況、通知にはエージェントが必要です。",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "ダッシュボード",
   "nav_block_lists": "ブロックリスト",
@@ -477,5 +481,10 @@
   "shared_allowance_left": "残り {remaining} 分",
   "shared_allowance_used_up": "使い切りました",
   "schedule_needs_gap_title": "このスケジュールには空き時間が必要です",
-  "schedule_needs_gap_body": "{name} はスケジュール中にロックされるか、共有時間枠があります。どちらも週に空き時間が必要です。空き時間を作るか、先にそれらをオフにしてください。"
+  "schedule_needs_gap_body": "{name} はスケジュール中にロックされるか、共有時間枠があります。どちらも週に空き時間が必要です。空き時間を作るか、先にそれらをオフにしてください。",
+  "update_authority_state": "更新：{phase}（{reason}）",
+  "update_download_progress": "更新のダウンロード状況",
+  "update_stage": "ダウンロードして検証",
+  "update_activate": "許可されたときに適用",
+  "update_cancel_stage": "準備済みの更新をキャンセル"
 }

@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Нет подключения к службе Focuser",
+  "authority_disconnected_body": "Служба недоступна. Изменения не могут быть сохранены. Резервный механизм блокировки не запущен.",
+  "authority_degraded_title": "Защита рабочего стола ограничена",
+  "authority_degraded_body": "Агент сеанса отсутствует. Служба продолжает применять правила программ и путей, расписания и обязательства. Для заголовков окон, учёта активного приложения и уведомлений нужен агент.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "Обзор",
   "nav_block_lists": "Списки блокировки",
@@ -501,5 +505,10 @@
   "shared_allowance_left": "Осталось {remaining} мин",
   "shared_allowance_used_up": "Израсходовано",
   "schedule_needs_gap_title": "Этому расписанию нужен перерыв",
-  "schedule_needs_gap_body": "{name} блокируется по расписанию или имеет общий лимит времени. Обоим нужен перерыв в неделе. Оставьте перерыв или сначала отключите их."
+  "schedule_needs_gap_body": "{name} блокируется по расписанию или имеет общий лимит времени. Обоим нужен перерыв в неделе. Оставьте перерыв или сначала отключите их.",
+  "update_authority_state": "Обновление: {phase} ({reason})",
+  "update_download_progress": "Ход загрузки обновления",
+  "update_stage": "Скачать и проверить",
+  "update_activate": "Активировать, когда разрешено",
+  "update_cancel_stage": "Отменить подготовленное обновление"
 }

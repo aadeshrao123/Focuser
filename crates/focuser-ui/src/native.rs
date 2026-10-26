@@ -6,6 +6,7 @@
 //! of which belongs in a portable command core. Each one is deliberately thin:
 //! it moves bytes or paths around and makes no product decisions.
 
+#[cfg(not(windows))]
 use tauri_plugin_updater::UpdaterExt;
 
 /// Pick an executable to block. Returns the name an `ExecutableName` rule
@@ -82,50 +83,13 @@ pub fn save_configuration(app: tauri::AppHandle, json: String) -> Result<Option<
 }
 
 /// Browser processes currently running, used by `SystemSync::running_browsers`.
-#[cfg(windows)]
-pub fn detect_running_browsers() -> std::collections::HashSet<focuser_common::extension::BrowserType>
-{
-    use std::collections::HashSet;
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Diagnostics::ToolHelp::*;
-
-    let mut found = HashSet::new();
-    unsafe {
-        let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
-            Ok(h) => h,
-            Err(_) => return found,
-        };
-        let mut entry = PROCESSENTRY32 {
-            dwSize: std::mem::size_of::<PROCESSENTRY32>() as u32,
-            ..Default::default()
-        };
-        if Process32First(snapshot, &mut entry).is_ok() {
-            loop {
-                let name: String = entry
-                    .szExeFile
-                    .iter()
-                    .take_while(|&&c| c != 0)
-                    .map(|&c| c as u8 as char)
-                    .collect();
-                if let Some(info) = focuser_common::browser::identify_browser(&name) {
-                    found.insert(info.browser_type.clone());
-                }
-                if Process32Next(snapshot, &mut entry).is_err() {
-                    break;
-                }
-            }
-        }
-        let _ = CloseHandle(snapshot);
-    }
-    found
-}
-
 #[cfg(not(windows))]
 pub fn detect_running_browsers() -> std::collections::HashSet<focuser_common::extension::BrowserType>
 {
     std::collections::HashSet::new()
 }
 
+#[cfg(not(windows))]
 #[tauri::command]
 pub async fn check_for_update(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
@@ -140,28 +104,38 @@ pub async fn check_for_update(app: tauri::AppHandle) -> Result<serde_json::Value
     }
 }
 
+#[cfg(not(windows))]
 #[tauri::command]
 pub async fn do_update(app: tauri::AppHandle) -> Result<(), String> {
-    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
-    let update = updater
-        .check()
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or("No update available")?;
-    update
-        .download_and_install(|_, _| {}, || {})
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+        let update = updater
+            .check()
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or("No update available")?;
+        update
+            .download_and_install(|_, _| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
 }
 
 /// Launch a specific browser at a URL — used to send someone to the extension
 /// store page in the browser that actually needs it.
 #[tauri::command]
 pub fn open_browser_url(browser: String, url: String) -> Result<(), String> {
-    let exe_path = resolve_browser_exe(&browser);
+    launch_browser(&browser, &url, &[])
+}
+
+/// Also used by installation-only recovery to reopen the affected profile.
+pub(crate) fn launch_browser(browser: &str, url: &str, args: &[String]) -> Result<(), String> {
+    let exe_path = resolve_browser_exe(browser);
     std::process::Command::new(&exe_path)
-        .arg(&url)
+        .args(args)
+        .arg(url)
         .spawn()
         .map_err(|e| format!("Failed to open {browser} at {exe_path}: {e}"))?;
     Ok(())
@@ -281,4 +255,99 @@ fn find_exe_in_user_dirs(exe_name: &str) -> Option<String> {
 #[cfg(not(windows))]
 fn resolve_browser_exe(browser: &str) -> String {
     browser.to_string()
+}
+
+#[cfg(windows)]
+async fn authority_update(
+    state: &crate::AppState,
+    request: focuser_ipc::UpdateRequest,
+) -> Result<focuser_ipc::UpdateStatus, String> {
+    let client = state.client.clone();
+    match tokio::task::spawn_blocking(move || {
+        client.request_blocking(focuser_ipc::RequestBody::Update(request))
+    })
+    .await
+    .map_err(|_| "internal: Desktop update request worker failed".to_string())?
+    .map_err(|e| e.to_string())?
+    {
+        focuser_ipc::ReplyBody::Update(s) => Ok(s),
+        _ => Err("protocol: Unexpected update reply".into()),
+    }
+}
+#[cfg(windows)]
+#[tauri::command]
+pub async fn check_for_update(
+    state: tauri::State<'_, std::sync::Arc<crate::AppState>>,
+) -> Result<serde_json::Value, String> {
+    let status = authority_update(&state, focuser_ipc::UpdateRequest::Status {}).await?;
+    let status = if status.transaction.is_none()
+        || matches!(
+            status.phase.as_str(),
+            "complete" | "rolled_back" | "cancelled"
+        ) {
+        authority_update(&state, focuser_ipc::UpdateRequest::Check {}).await?
+    } else {
+        status
+    };
+    serde_json::to_value(status).map_err(|e| e.to_string())
+}
+#[cfg(windows)]
+#[tauri::command]
+pub async fn do_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, std::sync::Arc<crate::AppState>>,
+) -> Result<(), String> {
+    use focuser_ipc::UpdateRequest;
+    let status = authority_update(&state, UpdateRequest::Status {}).await?;
+    let result = match status.phase.as_str() {
+        "available" => authority_update(&state, UpdateRequest::Stage {}).await?,
+        "staged" | "deferred" => {
+            authority_update(
+                &state,
+                UpdateRequest::Activate {
+                    transaction: status.transaction.ok_or("update_missing")?,
+                },
+            )
+            .await?
+        }
+        _ => return Err("update_busy: Check service update status".into()),
+    };
+    // Close only this interface normally. The SYSTEM broker owns the transaction.
+    if result.phase == "authorized" {
+        app.exit(0);
+    }
+    Ok(())
+}
+#[cfg(windows)]
+#[tauri::command]
+pub async fn update_status(
+    state: tauri::State<'_, std::sync::Arc<crate::AppState>>,
+) -> Result<serde_json::Value, String> {
+    serde_json::to_value(authority_update(&state, focuser_ipc::UpdateRequest::Status {}).await?)
+        .map_err(|e| e.to_string())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn update_status() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({"phase":"legacy","code":"legacy"}))
+}
+#[cfg(windows)]
+#[tauri::command]
+pub async fn cancel_update(
+    state: tauri::State<'_, std::sync::Arc<crate::AppState>>,
+) -> Result<(), String> {
+    let status = authority_update(&state, focuser_ipc::UpdateRequest::Status {}).await?;
+    authority_update(
+        &state,
+        focuser_ipc::UpdateRequest::Cancel {
+            transaction: status.transaction.ok_or("update_missing")?,
+        },
+    )
+    .await?;
+    Ok(())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn cancel_update() -> Result<(), String> {
+    Err("unsupported".into())
 }

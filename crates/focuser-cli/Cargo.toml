@@ -6,6 +6,7 @@ license.workspace = true
 description = "Command-line interface for Focuser"
 
 [dependencies]
+focuser-ipc.workspace = true
 focuser-app = { workspace = true }
 focuser-common = { workspace = true }
 focuser-core = { workspace = true }

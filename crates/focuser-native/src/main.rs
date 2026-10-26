@@ -87,6 +87,27 @@ async fn main() -> Result<()> {
 
 /// Run the Native Messaging host loop.
 async fn run_native_host() -> Result<()> {
+    // stdin may remain idle indefinitely. Observe authenticated maintenance on
+    // a separate thread so this process releases its own image for replacement.
+    #[cfg(windows)]
+    std::thread::Builder::new()
+        .name("focuser-update-observer".into())
+        .spawn(|| {
+            loop {
+                if focuser_ipc::Client::default().removal_shutdown_requested() {
+                    std::process::exit(0);
+                }
+                if let Ok(focuser_ipc::ReplyBody::Update(status)) = focuser_ipc::Client::default()
+                    .request_blocking(focuser_ipc::RequestBody::Update(
+                        focuser_ipc::UpdateRequest::Status {},
+                    ))
+                    && status.shutdown_clients()
+                {
+                    std::process::exit(0);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        })?;
     info!("Focuser native messaging host started");
 
     // Send Connected event to service
@@ -111,9 +132,15 @@ async fn run_native_host() -> Result<()> {
         debug!(msg_type = ?msg.msg_type, "Received native message");
 
         let response = match msg.msg_type {
-            NativeMessageType::Ping => NativeMessage {
-                msg_type: NativeMessageType::Pong,
-                payload: serde_json::Value::Null,
+            NativeMessageType::Ping => match ipc_client::send(IpcRequest::Ping).await {
+                Ok(_) => NativeMessage {
+                    msg_type: NativeMessageType::Pong,
+                    payload: serde_json::Value::Null,
+                },
+                Err(error) => NativeMessage {
+                    msg_type: NativeMessageType::Error,
+                    payload: serde_json::json!({"error":error.to_string()}),
+                },
             },
             NativeMessageType::Event => {
                 // Deserialize the event payload

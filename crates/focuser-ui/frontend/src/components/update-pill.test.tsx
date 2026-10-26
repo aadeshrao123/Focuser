@@ -3,8 +3,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UpdatePill } from "./update-pill";
 
-const useUpdate = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/updates", () => ({ useUpdate }));
+const { useUpdate, useAuthorityUpdate } = vi.hoisted(() => ({ useUpdate: vi.fn(), useAuthorityUpdate: vi.fn() }));
+vi.mock("@/lib/updates", () => ({ useUpdate, useAuthorityUpdate }));
 
 function show() {
   render(
@@ -16,7 +16,22 @@ function show() {
 }
 
 describe("UpdatePill", () => {
-  beforeEach(() => useUpdate.mockReset());
+  beforeEach(() => {
+    useUpdate.mockReset();
+    useAuthorityUpdate.mockReturnValue({ data: { phase: "legacy" } });
+  });
+
+  it("reflects the service result after the asynchronous check completes", () => {
+    useUpdate.mockReturnValue({ data: { available: false, phase: "checking" } });
+    useAuthorityUpdate.mockReturnValue({ data: { available: true, phase: "available", version: "0.11.0" } });
+    expect(show()).toHaveTextContent("0.11.0");
+  });
+
+  it("clears a stale badge when the service no longer offers an update", () => {
+    useUpdate.mockReturnValue({ data: { available: true, version: "0.11.0" } });
+    useAuthorityUpdate.mockReturnValue({ data: { available: false, phase: "complete" } });
+    expect(show()).toBeNull();
+  });
 
   it("says nothing when the app is current", () => {
     useUpdate.mockReturnValue({ data: { available: false } });

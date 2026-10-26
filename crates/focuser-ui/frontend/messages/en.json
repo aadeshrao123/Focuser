@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Focuser authority disconnected",
+  "authority_disconnected_body": "The service is unavailable. Changes cannot be saved. No replacement blocking engine has been started.",
+  "authority_degraded_title": "Desktop coverage is degraded",
+  "authority_degraded_body": "The session agent is missing. The service continues enforcing executable and path rules, schedules and commitments. Window titles, foreground usage and desktop feedback need the session agent.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "Dashboard",
   "nav_block_lists": "Block Lists",
@@ -485,5 +489,10 @@
   "shared_allowance_left": "{remaining} min left",
   "shared_allowance_used_up": "Used up",
   "schedule_needs_gap_title": "This schedule needs a gap",
-  "schedule_needs_gap_body": "{name} locks during its schedule or has a shared allowance. Both need a gap in the week. Leave a gap, or turn those off first."
+  "schedule_needs_gap_body": "{name} locks during its schedule or has a shared allowance. Both need a gap in the week. Leave a gap, or turn those off first.",
+  "update_authority_state": "Update: {phase} ({reason})",
+  "update_download_progress": "Update download progress",
+  "update_stage": "Download and verify",
+  "update_activate": "Activate when permitted",
+  "update_cancel_stage": "Cancel staged update"
 }

@@ -5,7 +5,9 @@
 
 use std::sync::Arc;
 
+#[cfg(not(windows))]
 use focuser_common::pomodoro::PomodoroPhase;
+#[cfg(any(not(windows), test))]
 use focuser_core::db::Database;
 use rodio::buffer::SamplesBuffer;
 use rodio::{Decoder, DeviceSinkBuilder, Player, Source};
@@ -14,6 +16,7 @@ use tracing::warn;
 
 use crate::AppState;
 
+#[cfg(not(windows))]
 pub const ENABLED: &str = "pomodoro_sound";
 pub const VOLUME: &str = "pomodoro_sound_volume";
 /// Empty or absent means the built-in chime.
@@ -23,6 +26,7 @@ const DEFAULT_VOLUME: u8 = 70;
 type Sound = Box<dyn Source + Send>;
 
 /// Called by the blocking loop when a phase runs out, not when one is skipped.
+#[cfg(not(windows))]
 pub fn phase_changed(db: &Database, to: PomodoroPhase) {
     if db.get_setting(ENABLED).ok().flatten().as_deref() != Some("true") {
         return;
@@ -37,9 +41,37 @@ pub fn phase_changed(db: &Database, to: PomodoroPhase) {
 /// The Play button in Settings. Errors come back so a bad file says so.
 #[tauri::command]
 pub fn preview_sound(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    #[cfg(not(windows))]
     let (file, volume) = {
         let engine = state.engine.lock().map_err(|_| "engine lock poisoned")?;
         settings(engine.db())
+    };
+    #[cfg(windows)]
+    let (file, volume) = {
+        use focuser_app::{Command, CommandResult};
+        let read = |key: &str| -> Result<Option<String>, String> {
+            match crate::dispatch(
+                &state,
+                Command::GetSetting {
+                    key: key.into(),
+                    default: None,
+                },
+            )
+            .map_err(|e| e.message)?
+            {
+                CommandResult::Setting(value) => Ok(value),
+                _ => Err("Unexpected settings reply".into()),
+            }
+        };
+        (
+            read(FILE)?.filter(|s| !s.is_empty()),
+            f32::from(
+                read(VOLUME)?
+                    .and_then(|v| v.parse::<u8>().ok())
+                    .unwrap_or(DEFAULT_VOLUME)
+                    .min(100),
+            ) / 100.0,
+        )
     };
     play(load(file.as_deref(), true)?, volume);
     Ok(())
@@ -59,6 +91,7 @@ pub fn pick_sound_file(app: tauri::AppHandle) -> Result<Option<String>, String> 
         .map(|picked| picked.to_string()))
 }
 
+#[cfg(any(not(windows), test))]
 fn settings(db: &Database) -> (Option<String>, f32) {
     let file = db
         .get_setting(FILE)

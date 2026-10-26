@@ -124,10 +124,10 @@ It speaks ten languages: English, Español, Français, Deutsch, Português, Ital
 - **Smart focus interaction** - Pomodoro and allowances are aware of each other. During a work phase, allowance back doors close — no sneaking off to YouTube even if you have minutes left. Hit pause and your allowances kick back in. Resume and they suspend again.
 - **Weekly schedule** - Paint the hours a list is active on a 7×24 grid, or click a day or hour heading to fill a whole row or column. Block social media during work hours, allow it evenings and weekends. Or go 24/7 and be done with it.
 - **Browser extension** - Available on [Chrome Web Store](https://chromewebstore.google.com/detail/jpnhbpbcmagoonmaleppldmcnaibkbmj) and [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/focuser-website-blocker/). Also works on Edge, Brave, and Opera. Shows a clean "Site Blocked" page instead of a connection error.
-- **Browser enforcement** - If a browser is running without the extension installed, Focuser will close it and show you an install prompt with a direct link to the store page. No more loopholes.
+- **Browser enforcement** - The independent Windows session agent checks browser profile state every 500 ms. Confirmed extension removal or disabling bypasses the heartbeat timeout and startup grace period. On Windows, Chrome, Edge, Brave and Firefox restart at the extension store with temporary policies restricting browsing to installation/download endpoints until the extension reconnects with private-window access enabled. Existing URL policies are saved and restored when coverage returns or enforcement ends. Unsupported or machine-managed browsers stay closed if installation-only recovery cannot be enforced. Browser disk writes can delay when a removal becomes observable; unreadable profiles still use heartbeat detection.
 - **Instant enforcement** - Block a site in the app, it's blocked in your browser within 2 seconds. Unblock it, same deal. No restart required.
 - **Statistics** - See what you tried to access, how many times it was blocked, and track it across days. The numbers are sometimes humbling.
-- **Runs elevated on Windows without a UAC prompt** - The installer registers a logon task with highest privileges, so the copy that starts with your computer can write the hosts file. Launched by hand from the Start menu it runs unelevated, and the Dashboard says so rather than failing quietly.
+- **Independent Windows authority** - The per-machine installer provisions a LocalSystem service for enforcement and private storage, plus an unprivileged owner-session agent at logon. Closing the interface leaves the service running. Installation and removal require elevation; protected removal decisions belong to the service.
 - **System tray** - Runs in the background after you close the window. Double-click the tray icon to bring it back. Closing the app doesn't stop the blocking.
 - **Import/Export** - Export your entire config (block lists, rules, schedules, exceptions) to a file. Import it on another machine. Move between computers without starting over.
 - **Ten languages** - English, Spanish, French, German, Portuguese, Italian, Russian, Chinese, Japanese and Korean, across the whole app and the whole extension — window, tray menu, block page, popup and welcome page. The app follows a setting; the extension follows your browser, because `browser.i18n` has no way to change locale while running. Plurals go through `Intl.PluralRules`, so Russian gets one/few/many and Japanese gets the single form it actually uses.
@@ -150,7 +150,7 @@ That principle has teeth in places you might not expect. Application icons are r
 
 | Platform | Status |
 |----------|--------|
-| Windows 10/11 | Tested and working |
+| Windows 10/11 | Automated checks pass; service/installer acceptance pending |
 | macOS | Builds and passes CI, needs real-world testing |
 | Linux | Builds and passes CI, needs real-world testing |
 
@@ -343,3 +343,25 @@ Do whatever you want with this code. Fork it, modify it, sell it, use it to bloc
 ---
 
 *If Focuser helped you get something done instead of scrolling Twitter for the 47th time today, consider starring the repo. It's free and it makes us unreasonably happy.*
+
+### Windows service authority and provisioning
+
+Windows production UI/CLI now require the standalone `FocuserAuthority` Windows
+service and independent `focuser-session-agent`. The service owns policy and
+ProgramData SQLite; closing Tauri leaves enforcement running. There is no local
+production database fallback. The Windows package is per-machine NSIS only.
+Setup detects the desktop user automatically and offers conservative same-build
+repair. Browser enforcement requires active website rules or quotas; after
+release, confirmed browser restoration allows idle removal without a live agent.
+See [Windows setup, repair and release packaging](docs/windows-release-candidate.md).
+Provisioning and service-authorized removal are implemented. Phase 3 adds signed,
+service-owned staging, replacement and compatible binary recovery; production
+signing credentials and Windows installation/reboot acceptance remain outstanding.
+Unsigned development updates and direct legacy-installer replacement are refused.
+See [architecture and safe development](docs/service-authority.md),
+[provisioning/removal and administrator recovery](docs/service-phase2.md),
+[authenticated updates](docs/service-phase3.md), and
+[remaining Windows acceptance checks](docs/service-phase3-acceptance.md).
+The phase-3 implementation does not install or activate persistent enforcement on
+this development machine.
+CLI scratch commands now require `--dev --db <path>`; production uses the service.

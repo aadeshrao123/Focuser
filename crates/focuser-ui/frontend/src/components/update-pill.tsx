@@ -1,6 +1,6 @@
 import { ArrowUpCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useUpdate } from "@/lib/updates";
+import { useAuthorityUpdate, useUpdate } from "@/lib/updates";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -9,7 +9,9 @@ import { m } from "@/paraglide/messages.js";
  */
 export function UpdatePill() {
   const update = useUpdate();
-  if (!update.data?.available) return null;
+  const authority = useAuthorityUpdate();
+  const available = authority.data && authority.data.phase !== "legacy" ? authority.data : update.data;
+  if (!available?.available) return null;
 
   return (
     <Link
@@ -19,9 +21,9 @@ export function UpdatePill() {
       <ArrowUpCircle aria-hidden className="size-4 shrink-0 text-primary" />
       <div className="min-w-0">
         <p className="truncate font-medium text-foreground text-xs">{m.update_available()}</p>
-        {update.data.version && (
+        {available.version && (
           <p className="truncate text-faint-foreground text-[0.7rem]">
-            {m.update_version_ready({ version: update.data.version })}
+            {m.update_version_ready({ version: available.version })}
           </p>
         )}
       </div>

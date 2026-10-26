@@ -1,0 +1,19 @@
+{
+  "bundle": {
+    "targets": [
+      "nsis"
+    ],
+    "createUpdaterArtifacts": false,
+    "externalBin": [
+      "binaries/focuser-cli",
+      "binaries/focuser-native",
+      "binaries/focuser-service",
+      "binaries/focuser-session-agent"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "skip"
+      }
+    }
+  }
+}

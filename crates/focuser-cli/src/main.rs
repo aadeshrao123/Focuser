@@ -1,39 +1,18 @@
-//! Focuser CLI.
-//!
-//! A thin shim over `focuser_app::execute` — the same function the Tauri GUI and
-//! the dev server call. Every state-changing operation the app can perform is
-//! therefore reachable from a script, and cannot drift from the GUI, because
-//! there is only one implementation.
-//!
-//! Two properties make this usable as a test harness:
-//!
-//! - `--db <path>` runs against a scratch database, so exercising commands never
-//!   touches real block lists.
-//! - Failures exit non-zero, with a distinct code per failure kind
-//!   (2 validation, 4 not found, 5 protected, 6 unsupported, 1 internal). The
-//!   previous CLI returned `Ok(())` on every path, so no script could detect a
-//!   failure at all.
-//!
-//! ```bash
-//! focuser --db /tmp/test.db list create "Social"
-//! focuser --db /tmp/test.db --json list ls
-//! ```
-//!
-//! This replaces an IPC-based CLI that talked to a standalone service over TCP
-//! 17549 — a port the app's extension API already owns, for a service nothing
-//! ever launched. Those commands could not work in a shipped install. Going
-//! straight to the database removes the moving part entirely.
+//! Focuser CLI: production Windows commands use the service authority.
+//! `--dev --db <scratch>` is an explicit, non-enforcing test harness.
 
 mod args;
 mod output;
 mod password;
 mod slot;
 
+#[cfg(not(windows))]
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
 use clap::Parser;
+#[cfg(not(windows))]
 use directories::ProjectDirs;
 use focuser_app::{AppContext, CommandError, execute};
 use focuser_core::{BlockEngine, Database};
@@ -53,6 +32,17 @@ fn main() -> ExitCode {
             eprintln!("error: {e:#}");
             ExitCode::from(EXIT_STARTUP_FAILURE)
         }
+        Err(Failure::Remote(e)) => {
+            eprintln!("{}: {}", e.code, e.message);
+            ExitCode::from(match e.code.as_str() {
+                "validation" => 2,
+                "block_list_not_found" | "rule_not_found" | "allowance_not_found" => 4,
+                "wrong_unlock_response" => 3,
+                "protected" => 5,
+                "unsupported" => 6,
+                _ => 1,
+            })
+        }
         Err(Failure::Command(e)) => {
             // Machine-readable code first, then the human explanation.
             eprintln!("{}: {e}", e.code());
@@ -64,6 +54,7 @@ fn main() -> ExitCode {
 enum Failure {
     Startup(anyhow::Error),
     Command(CommandError),
+    Remote(focuser_app::CommandErrorPayload),
 }
 
 impl From<anyhow::Error> for Failure {
@@ -73,23 +64,81 @@ impl From<anyhow::Error> for Failure {
 }
 
 fn run(cli: Cli) -> Result<(), Failure> {
+    if let args::TopLevel::ServiceUpdate {
+        action,
+        transaction,
+    } = &cli.command
+    {
+        if cli.dev {
+            return Err(Failure::Startup(anyhow::anyhow!(
+                "Development clients cannot activate production updates"
+            )));
+        }
+        use focuser_ipc::{ReplyBody, RequestBody, UpdateRequest as R};
+        let id = || {
+            transaction
+                .clone()
+                .ok_or_else(|| Failure::Startup(anyhow::anyhow!("--transaction is required")))
+        };
+        let request = match action {
+            args::UpdateAction::Status => R::Status {},
+            args::UpdateAction::Check => R::Check {},
+            args::UpdateAction::Stage => R::Stage {},
+            args::UpdateAction::Activate => R::Activate { transaction: id()? },
+            args::UpdateAction::Cancel => R::Cancel { transaction: id()? },
+        };
+        let reply = focuser_ipc::Client::default()
+            .request_blocking(RequestBody::Update(request))
+            .map_err(|e| Failure::Remote(e.payload()))?;
+        if let ReplyBody::Update(status) = reply {
+            println!(
+                "{}",
+                serde_json::to_string(&status).map_err(|e| Failure::Startup(e.into()))?
+            );
+            return Ok(());
+        }
+        return Err(Failure::Startup(anyhow::anyhow!("Unexpected update reply")));
+    }
     let command = cli.command.into_command().map_err(Failure::from)?;
 
-    let db_path = match cli.db {
-        Some(path) => path,
-        None => default_db_path().map_err(Failure::from)?,
+    let result = if cli.dev {
+        if let Some(name) = cli.dev_pipe {
+            let client = focuser_ipc::Client {
+                endpoint: focuser_ipc::Endpoint::Development {
+                    name,
+                    server_pid: cli.dev_server_pid.ok_or_else(|| {
+                        Failure::Startup(anyhow::anyhow!("--dev-server-pid is required"))
+                    })?,
+                },
+            };
+            client.command(command).map_err(Failure::Remote)?
+        } else {
+            let path = cli.db.ok_or_else(|| {
+                Failure::Startup(anyhow::anyhow!("--dev requires --db or --dev-pipe"))
+            })?;
+            let db_path = focuser_ipc::paths::ensure_development_database(&path)
+                .map_err(|e| Failure::Startup(e.into()))?;
+            let db = Database::open(&db_path).map_err(|e| Failure::Startup(e.into()))?;
+            let engine = BlockEngine::new(db).map_err(|e| Failure::Startup(e.into()))?;
+            let ctx = Arc::new(AppContext::new_headless(engine));
+            execute(&ctx, command).map_err(Failure::Command)?
+        }
+    } else {
+        #[cfg(windows)]
+        {
+            focuser_ipc::Client::default()
+                .command(command)
+                .map_err(Failure::Remote)?
+        }
+        #[cfg(not(windows))]
+        {
+            let db = Database::open(default_db_path().map_err(Failure::from)?)
+                .map_err(|e| Failure::Startup(e.into()))?;
+            let engine = BlockEngine::new(db).map_err(|e| Failure::Startup(e.into()))?;
+            execute(&Arc::new(AppContext::new_headless(engine)), command)
+                .map_err(Failure::Command)?
+        }
     };
-
-    let db = Database::open(&db_path)
-        .map_err(|e| Failure::Startup(anyhow::anyhow!("cannot open {}: {e}", db_path.display())))?;
-    let engine = BlockEngine::new(db)
-        .map_err(|e| Failure::Startup(anyhow::anyhow!("cannot initialise engine: {e}")))?;
-
-    // Headless: the CLI does not rewrite the hosts file as a side effect of
-    // every command. `focuser blocks apply` is the explicit way to do that.
-    let ctx = Arc::new(AppContext::new_headless(engine));
-
-    let result = execute(&ctx, command).map_err(Failure::Command)?;
 
     if cli.json {
         output::print_json(&result).map_err(Failure::from)?;
@@ -101,6 +150,7 @@ fn run(cli: Cli) -> Result<(), Failure> {
 }
 
 /// The database the desktop app uses.
+#[cfg(not(windows))]
 fn default_db_path() -> anyhow::Result<PathBuf> {
     let dirs = ProjectDirs::from("com", "focuser", "Focuser")
         .ok_or_else(|| anyhow::anyhow!("could not determine the Focuser data directory"))?;

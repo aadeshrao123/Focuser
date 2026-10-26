@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Servicio de Focuser desconectado",
+  "authority_disconnected_body": "El servicio no está disponible. No se pueden guardar cambios. No se ha iniciado un motor de bloqueo alternativo.",
+  "authority_degraded_title": "Cobertura del escritorio limitada",
+  "authority_degraded_body": "Falta el agente de sesión. El servicio sigue aplicando reglas de ejecutables y rutas, horarios y compromisos. Los títulos de ventanas, el uso en primer plano y los avisos requieren el agente.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "Panel",
   "nav_block_lists": "Listas de bloqueo",
@@ -493,5 +497,10 @@
   "shared_allowance_left": "Quedan {remaining} min",
   "shared_allowance_used_up": "Agotado",
   "schedule_needs_gap_title": "Este horario necesita un hueco",
-  "schedule_needs_gap_body": "{name} se bloquea durante su horario o tiene tiempo compartido. Ambos necesitan un hueco en la semana. Deja un hueco o desactívalos primero."
+  "schedule_needs_gap_body": "{name} se bloquea durante su horario o tiene tiempo compartido. Ambos necesitan un hueco en la semana. Deja un hueco o desactívalos primero.",
+  "update_authority_state": "Actualización: {phase} ({reason})",
+  "update_download_progress": "Progreso de descarga de la actualización",
+  "update_stage": "Descargar y verificar",
+  "update_activate": "Activar cuando se permita",
+  "update_cancel_stage": "Cancelar actualización preparada"
 }

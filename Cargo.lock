@@ -1373,6 +1373,7 @@ dependencies = [
  "focuser-app",
  "focuser-common",
  "focuser-core",
+ "focuser-ipc",
  "rpassword",
  "serde",
  "serde_json",
@@ -1433,9 +1434,25 @@ dependencies = [
  "focuser-app",
  "focuser-common",
  "focuser-core",
+ "focuser-ipc",
  "serde_json",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "focuser-ipc"
+version = "0.10.0"
+dependencies = [
+ "directories",
+ "focuser-app",
+ "focuser-common",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "windows 0.58.0",
 ]
 
 [[package]]
@@ -1446,11 +1463,66 @@ dependencies = [
  "clap",
  "directories",
  "focuser-common",
+ "focuser-ipc",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "focuser-service"
+version = "0.10.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "chrono",
+ "clap",
+ "directories",
+ "focuser-app",
+ "focuser-common",
+ "focuser-core",
+ "focuser-ipc",
+ "minisign-verify",
+ "reqwest",
+ "roxmltree",
+ "rusqlite",
+ "rustls",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "windows 0.58.0",
+ "windows-service",
+ "winreg 0.55.0",
+]
+
+[[package]]
+name = "focuser-session-agent"
+version = "0.10.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "directories",
+ "focuser-app",
+ "focuser-common",
+ "focuser-ipc",
+ "rodio",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "windows 0.58.0",
+ "winreg 0.55.0",
 ]
 
 [[package]]
@@ -1463,6 +1535,7 @@ dependencies = [
  "focuser-app",
  "focuser-common",
  "focuser-core",
+ "focuser-ipc",
  "objc2-app-kit",
  "objc2-core-graphics",
  "rodio",
@@ -1484,6 +1557,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "windows 0.58.0",
+ "winreg 0.55.0",
  "x11rb",
 ]
 
@@ -1566,6 +1640,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
 dependencies = [
  "futures-core",
+ "futures-sink",
 ]
 
 [[package]]
@@ -3866,6 +3941,7 @@ checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "http",
@@ -6306,6 +6382,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "widestring"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72069c3113ab32ab29e5584db3c6ec55d416895e60715417b5b883a357c3e471"
+
+[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6502,6 +6584,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f42bd332cc6c8eac5af113fc0c1fd6a8fd2aa08a0119358686e5160d0586c6"
 dependencies = [
  "windows-link 0.1.3",
+]
+
+[[package]]
+name = "windows-service"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "857224b3b211c6f3616921f081ee54721ee3ad2ace2fac6a6337e032f7b4dcf2"
+dependencies = [
+ "bitflags 2.11.0",
+ "widestring",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

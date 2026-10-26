@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Focuser 서비스 연결 끊김",
+  "authority_disconnected_body": "서비스를 사용할 수 없습니다. 변경 사항을 저장할 수 없습니다. 대체 차단 엔진은 시작되지 않았습니다.",
+  "authority_degraded_title": "데스크톱 보호가 제한됨",
+  "authority_degraded_body": "세션 에이전트가 없습니다. 서비스는 실행 파일 및 경로 규칙, 일정과 약속을 계속 적용합니다. 창 제목, 포그라운드 사용량과 알림에는 에이전트가 필요합니다.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "대시보드",
   "nav_block_lists": "차단 목록",
@@ -477,5 +481,10 @@
   "shared_allowance_left": "{remaining}분 남음",
   "shared_allowance_used_up": "모두 사용함",
   "schedule_needs_gap_title": "이 일정에는 빈 시간이 필요합니다",
-  "schedule_needs_gap_body": "{name}은(는) 일정 중에 잠기거나 공유 허용 시간이 있습니다. 둘 다 주중에 빈 시간이 필요합니다. 빈 시간을 두거나 먼저 그 기능을 끄세요."
+  "schedule_needs_gap_body": "{name}은(는) 일정 중에 잠기거나 공유 허용 시간이 있습니다. 둘 다 주중에 빈 시간이 필요합니다. 빈 시간을 두거나 먼저 그 기능을 끄세요.",
+  "update_authority_state": "업데이트: {phase} ({reason})",
+  "update_download_progress": "업데이트 다운로드 진행률",
+  "update_stage": "다운로드 및 검증",
+  "update_activate": "허용될 때 적용",
+  "update_cancel_stage": "준비된 업데이트 취소"
 }

@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Service Focuser déconnecté",
+  "authority_disconnected_body": "Le service est indisponible. Les modifications ne peuvent pas être enregistrées. Aucun moteur de blocage de remplacement n’a été démarré.",
+  "authority_degraded_title": "Protection du bureau limitée",
+  "authority_degraded_body": "L’agent de session est absent. Le service continue d’appliquer les règles de programmes et de chemins, les horaires et les engagements. Les titres de fenêtres, l’activité au premier plan et les alertes nécessitent l’agent.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "Tableau de bord",
   "nav_block_lists": "Listes de blocage",
@@ -493,5 +497,10 @@
   "shared_allowance_left": "{remaining} min restantes",
   "shared_allowance_used_up": "Épuisé",
   "schedule_needs_gap_title": "Cet horaire a besoin d'une pause",
-  "schedule_needs_gap_body": "{name} se verrouille pendant son horaire ou a un temps partagé. Les deux ont besoin d'une pause dans la semaine. Laissez une pause, ou désactivez-les d'abord."
+  "schedule_needs_gap_body": "{name} se verrouille pendant son horaire ou a un temps partagé. Les deux ont besoin d'une pause dans la semaine. Laissez une pause, ou désactivez-les d'abord.",
+  "update_authority_state": "Mise à jour : {phase} ({reason})",
+  "update_download_progress": "Progression du téléchargement",
+  "update_stage": "Télécharger et vérifier",
+  "update_activate": "Activer lorsque cela est autorisé",
+  "update_cancel_stage": "Annuler la mise à jour préparée"
 }

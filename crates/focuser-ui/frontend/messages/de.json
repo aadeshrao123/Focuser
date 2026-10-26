@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Focuser-Dienst nicht verbunden",
+  "authority_disconnected_body": "Der Dienst ist nicht verfügbar. Änderungen können nicht gespeichert werden. Es wurde keine Ersatz-Blockierengine gestartet.",
+  "authority_degraded_title": "Desktop-Schutz eingeschränkt",
+  "authority_degraded_body": "Der Sitzungsagent fehlt. Der Dienst setzt Programm- und Pfadregeln, Zeitpläne und Verpflichtungen weiter durch. Fenstertitel, Vordergrundnutzung und Desktop-Hinweise benötigen den Sitzungsagenten.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "Übersicht",
   "nav_block_lists": "Sperrlisten",
@@ -485,5 +489,10 @@
   "shared_allowance_left": "Noch {remaining} Min.",
   "shared_allowance_used_up": "Aufgebraucht",
   "schedule_needs_gap_title": "Dieser Zeitplan braucht eine Lücke",
-  "schedule_needs_gap_body": "{name} wird während des Zeitplans gesperrt oder hat ein gemeinsames Zeitbudget. Beides braucht eine Lücke in der Woche. Lücke lassen oder beides zuerst ausschalten."
+  "schedule_needs_gap_body": "{name} wird während des Zeitplans gesperrt oder hat ein gemeinsames Zeitbudget. Beides braucht eine Lücke in der Woche. Lücke lassen oder beides zuerst ausschalten.",
+  "update_authority_state": "Update: {phase} ({reason})",
+  "update_download_progress": "Fortschritt des Update-Downloads",
+  "update_stage": "Herunterladen und prüfen",
+  "update_activate": "Aktivieren, wenn zulässig",
+  "update_cancel_stage": "Vorbereitetes Update abbrechen"
 }

@@ -168,15 +168,22 @@ impl BlockList {
         self.manual_protection_at(Utc::now())
     }
 
-    fn manual_protection_at(&self, now: DateTime<Utc>) -> Option<&Protection> {
+    pub fn manual_protection_at(&self, now: DateTime<Utc>) -> Option<&Protection> {
         self.protection
             .as_ref()
             .filter(|p| p.is_active_at(now) && (p.expires_at.is_some() || self.lock.is_some()))
     }
 
     pub fn effective_protection(&self) -> Option<Protection> {
-        let manual = self.manual_protection().cloned();
-        let scheduled = self.scheduled_protection_at(chrono::Local::now());
+        self.effective_protection_at(chrono::Local::now())
+    }
+
+    pub fn effective_protection_at<T: chrono::TimeZone>(
+        &self,
+        now: DateTime<T>,
+    ) -> Option<Protection> {
+        let manual = self.manual_protection_at(now.with_timezone(&Utc)).cloned();
+        let scheduled = self.scheduled_protection_at(now);
         match (manual, scheduled) {
             (Some(mut p), Some(s)) => {
                 p.prevent_modification |= s.prevent_modification;
@@ -211,10 +218,10 @@ impl BlockList {
     }
 
     pub fn has_uninstall_protection(&self) -> bool {
-        self.enabled
-            && self
-                .effective_protection()
-                .is_some_and(|p| p.prevent_uninstall)
+        // A temporary disabled/paused blocking state cannot release a manual
+        // uninstall commitment. Scheduled protection keeps its occurrence rules.
+        self.effective_protection()
+            .is_some_and(|p| p.prevent_uninstall)
     }
 
     pub fn has_service_protection(&self) -> bool {

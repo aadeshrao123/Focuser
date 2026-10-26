@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Servizio Focuser disconnesso",
+  "authority_disconnected_body": "Il servizio non è disponibile. Le modifiche non possono essere salvate. Non è stato avviato un motore di blocco sostitutivo.",
+  "authority_degraded_title": "Protezione del desktop limitata",
+  "authority_degraded_body": "Manca l’agente di sessione. Il servizio continua ad applicare regole per eseguibili e percorsi, orari e impegni. Titoli delle finestre, attività in primo piano e avvisi richiedono l’agente.",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "Pannello",
   "nav_block_lists": "Liste di blocco",
@@ -493,5 +497,10 @@
   "shared_allowance_left": "{remaining} min rimasti",
   "shared_allowance_used_up": "Esaurito",
   "schedule_needs_gap_title": "Questo orario ha bisogno di una pausa",
-  "schedule_needs_gap_body": "{name} si blocca durante il suo orario o ha un tempo condiviso. Entrambi richiedono una pausa nella settimana. Lascia una pausa oppure disattivali prima."
+  "schedule_needs_gap_body": "{name} si blocca durante il suo orario o ha un tempo condiviso. Entrambi richiedono una pausa nella settimana. Lascia una pausa oppure disattivali prima.",
+  "update_authority_state": "Aggiornamento: {phase} ({reason})",
+  "update_download_progress": "Avanzamento del download",
+  "update_stage": "Scarica e verifica",
+  "update_activate": "Attiva quando consentito",
+  "update_cancel_stage": "Annulla aggiornamento preparato"
 }

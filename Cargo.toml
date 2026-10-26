@@ -8,6 +8,9 @@ members = [
     "crates/focuser-cli",
     "crates/focuser-native",
     "crates/focuser-ui",
+    "crates/focuser-ipc",
+    "crates/focuser-service",
+    "crates/focuser-session-agent",
 ]
 
 [workspace.package]
@@ -27,7 +30,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 thiserror = "2"
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
-rusqlite = { version = "0.32", features = ["bundled", "serde_json"] }
+rusqlite = { version = "0.32", features = ["bundled", "serde_json", "backup"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 directories = "6"
 clap = { version = "4", features = ["derive"] }
@@ -50,3 +53,4 @@ tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 focuser-common = { path = "crates/focuser-common" }
 focuser-core = { path = "crates/focuser-core" }
 focuser-app = { path = "crates/focuser-app" }
+focuser-ipc = { path = "crates/focuser-ipc" }

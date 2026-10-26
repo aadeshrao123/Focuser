@@ -65,11 +65,17 @@ fn main() {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     let cli = Cli::parse();
 
+    assert_ne!(
+        cli.port, 17549,
+        "Development must not bind the production browser endpoint"
+    );
     let db = if cli.memory {
         info!("using in-memory database (state resets on exit)");
         Database::open_in_memory().expect("failed to open in-memory database")
     } else {
         let path = cli.db.unwrap_or_else(|| PathBuf::from("focuser-dev.db"));
+        let path = focuser_ipc::paths::ensure_development_database(&path)
+            .expect("Unsafe development database path");
         info!(path = %path.display(), "using dev database");
         Database::open(&path).expect("failed to open dev database")
     };

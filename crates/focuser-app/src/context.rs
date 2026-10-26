@@ -146,6 +146,9 @@ impl AppContext {
 
     pub fn push_pomodoro_event(&self, event: PomodoroEvent) {
         if let Ok(mut buf) = self.pomodoro_events.lock() {
+            if buf.len() >= 256 {
+                buf.remove(0);
+            }
             buf.push(event);
         }
     }

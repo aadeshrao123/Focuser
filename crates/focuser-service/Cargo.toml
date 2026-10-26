@@ -1,0 +1,39 @@
+[package]
+name = "focuser-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Headless Windows enforcement authority"
+[features]
+default = []
+# Experimental source/harness profile. Never enabled by ordinary packaging.
+kernel-file-guard = ["windows/Win32_Storage_InstallableFileSystems"]
+[dependencies]
+focuser-common.workspace = true
+focuser-core.workspace = true
+focuser-app.workspace = true
+focuser-ipc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+rusqlite.workspace = true
+chrono.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+directories.workspace = true
+base64 = "0.22"
+minisign-verify = "=0.2.5"
+sha2 = "0.10"
+semver = "1"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+reqwest = { version = "=0.13.2", default-features = false, features = ["blocking", "rustls-no-provider"] }
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+roxmltree = "=0.21.1"
+windows-service = "0.8"
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog", "Win32_Security_Cryptography_Sip", "Win32_Storage_FileSystem", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Com"] }
+[dev-dependencies]
+tempfile = "3.27.0"

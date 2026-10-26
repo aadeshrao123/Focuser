@@ -71,6 +71,17 @@ fn rewrite_block_lists(
 
 /// Run all database migrations.
 pub fn run_all(conn: &Connection) -> Result<()> {
+    // Schema and data transforms commit together. A failed update never leaves
+    // a partially migrated authoritative policy or requires a stale DB restore.
+    let transaction = conn
+        .unchecked_transaction()
+        .map_err(|e| FocuserError::Database(e.to_string()))?;
+    run_steps(&transaction)?;
+    transaction
+        .commit()
+        .map_err(|e| FocuserError::Database(e.to_string()))
+}
+fn run_steps(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_version (
             version INTEGER PRIMARY KEY
@@ -310,6 +321,20 @@ mod tests {
         serde_json::from_str::<BlockList>(&json).unwrap().websites[0]
             .match_type
             .clone()
+    }
+
+    #[test]
+    fn failed_schema_upgrade_rolls_back_every_step_and_preserves_original_rows() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE blocked_events (original TEXT); INSERT INTO blocked_events VALUES ('keep original');").unwrap();
+        assert!(run_all(&conn).is_err());
+        assert_eq!(
+            conn.query_row("SELECT original FROM blocked_events", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "keep original"
+        );
+        assert_eq!(conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('schema_version','block_lists','statistics','settings')",[],|r|r.get::<_,i64>(0)).unwrap(),0);
     }
 
     #[test]

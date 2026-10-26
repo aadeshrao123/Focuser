@@ -69,6 +69,13 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         Command::DeleteBlockList { id } => {
+            if engine
+                .block_lists()
+                .iter()
+                .any(|l| l.id == id && l.has_uninstall_protection())
+            {
+                return Err(CommandError::Protected);
+            }
             ensure_unprotected(&engine, id)?;
             engine.db().delete_block_list(id)?;
             // Best-effort: an orphaned challenge row (protection expired
@@ -328,7 +335,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             let lock = prepare_lock(lock)?;
 
             let mut list = engine.db().get_block_list(list_id)?;
-            if list.is_modification_protected() {
+            if list.is_modification_protected() || list.has_uninstall_protection() {
                 // Re-arming would let a user extend or shorten a commitment they
                 // already made, which defeats the point of protection.
                 return Err(CommandError::Protected);
@@ -428,7 +435,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             let infos = engine
                 .block_lists()
                 .iter()
-                .filter(|l| l.has_active_protection())
+                .filter(|l| l.has_active_protection() || l.has_uninstall_protection())
                 .filter_map(|l| {
                     let p = l.effective_protection()?;
                     Some(ProtectionInfo {
@@ -450,7 +457,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
             // that helper's protection guard would refuse this exact call, since
             // it only ever runs while the list *is* protected.
             let list = engine.db().get_block_list(list_id)?;
-            if !list.has_active_protection() {
+            if !list.has_active_protection() && !list.has_uninstall_protection() {
                 return Err(CommandError::Validation(
                     "this block list has no active protection to unlock".into(),
                 ));
@@ -471,7 +478,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
 
         Command::UnlockProtection { list_id, response } => {
             let mut list = engine.db().get_block_list(list_id)?;
-            if !list.has_active_protection() {
+            if !list.has_active_protection() && !list.has_uninstall_protection() {
                 return Err(CommandError::Validation(
                     "this block list has no active protection to unlock".into(),
                 ));
@@ -527,6 +534,13 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         Command::SetSetting { key, value } => {
+            if key == "autostart_enabled"
+                && value != "1"
+                && value != "true"
+                && engine.has_service_protection()
+            {
+                return Err(CommandError::Protected);
+            }
             if key.trim().is_empty() {
                 return Err(CommandError::Validation(
                     "setting key must not be empty".into(),
@@ -758,6 +772,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
                 )));
             }
 
+            ensure_no_uninstall_commitment(&engine)?;
             ensure_nothing_protected(&engine)?;
 
             for list in &document.block_lists {
@@ -789,6 +804,7 @@ pub fn execute(ctx: &AppContext, cmd: Command) -> CommandOutcome<CommandResult> 
         }
 
         Command::DeleteAllData => {
+            ensure_no_uninstall_commitment(&engine)?;
             ensure_nothing_protected(&engine)?;
             engine.db().delete_all_data()?;
             engine.refresh()?;
@@ -884,6 +900,15 @@ fn ensure_schedule_ends(list: &BlockList) -> CommandOutcome<()> {
              hours would never end; set hours with a gap on the Schedule page first"
                 .into(),
         ));
+    }
+    Ok(())
+}
+
+/// Deleting/replacing lists cannot erase an uninstall-only commitment, even
+/// when rule edits or a temporary disabled blocking state are permitted.
+fn ensure_no_uninstall_commitment(engine: &BlockEngine) -> CommandOutcome<()> {
+    if engine.has_uninstall_protection() {
+        return Err(CommandError::Protected);
     }
     Ok(())
 }

@@ -8,6 +8,7 @@ description = "Development-only HTTP bridge exposing the command core to a brows
 publish = false
 
 [dependencies]
+focuser-ipc.workspace = true
 focuser-app.workspace = true
 focuser-core.workspace = true
 focuser-common.workspace = true

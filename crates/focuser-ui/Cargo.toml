@@ -6,9 +6,10 @@ license.workspace = true
 description = "Tauri desktop GUI for Focuser"
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "=2.5.6", features = [] }
 
 [dependencies]
+focuser-ipc.workspace = true
 focuser-common = { workspace = true }
 focuser-core = { workspace = true }
 focuser-app = { workspace = true }
@@ -21,7 +22,7 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "=2.10.3", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
@@ -41,6 +42,9 @@ specta-typescript = { workspace = true }
 tauri-specta = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
+# Already used by focuser-common. Recovery policies need typed registry access
+# so existing policy values can be journalled and restored without shell calls.
+winreg = "0.55"
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_System_Threading",

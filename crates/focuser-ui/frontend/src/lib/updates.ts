@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { checkForUpdate, installUpdate, isTauri } from "./native";
+import { authorityUpdateStatus, cancelAuthorityUpdate, checkForUpdate, installUpdate, isTauri } from "./native";
 
 export const updateQueryKey = ["update"] as const;
+export const authorityUpdateKey = ["authority-update"] as const;
+export function useAuthorityUpdate() {
+  return useQuery({ queryKey: authorityUpdateKey, queryFn: authorityUpdateStatus, enabled: isTauri(), refetchInterval: (query) => query.state.data?.phase === "legacy" ? false : 2000, retry: false });
+}
+export function useCancelAuthorityUpdate() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: cancelAuthorityUpdate, onSettled: () => qc.invalidateQueries({ queryKey: authorityUpdateKey }) });
+}
 
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
@@ -25,6 +33,6 @@ export function useInstallUpdate() {
   return useMutation({
     mutationFn: installUpdate,
     // Only reached if the installer declined to restart.
-    onSettled: () => qc.invalidateQueries({ queryKey: updateQueryKey }),
+    onSettled: () => { qc.invalidateQueries({ queryKey: authorityUpdateKey }); return qc.invalidateQueries({ queryKey: updateQueryKey }); },
   });
 }

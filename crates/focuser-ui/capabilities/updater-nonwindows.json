@@ -1,0 +1,14 @@
+{
+  "identifier": "updater-nonwindows",
+  "description": "Legacy updater permissions only on platforms without the Windows authority lifecycle",
+  "platforms": [
+    "linux",
+    "macOS"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "updater:default"
+  ]
+}

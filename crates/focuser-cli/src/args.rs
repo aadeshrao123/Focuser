@@ -30,12 +30,21 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub json: bool,
 
-    /// Database file to operate on. Defaults to the app's real database.
-    ///
-    /// Point this at a scratch file to exercise commands without touching real
-    /// block lists — this is what makes the CLI usable as a test harness.
-    #[arg(long, global = true, value_name = "PATH")]
+    /// Explicit non-enforcing scratch mode; never opens production storage.
+    #[arg(long, global = true)]
+    pub dev: bool,
+    #[arg(
+        long,
+        global = true,
+        requires = "dev",
+        conflicts_with = "dev_pipe",
+        value_name = "PATH"
+    )]
     pub db: Option<PathBuf>,
+    #[arg(long,global=true,requires_all=["dev","dev_server_pid"],conflicts_with="db")]
+    pub dev_pipe: Option<String>,
+    #[arg(long,global=true,requires_all=["dev","dev_pipe"])]
+    pub dev_server_pid: Option<u32>,
 
     #[command(subcommand)]
     pub command: TopLevel,
@@ -43,6 +52,13 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum TopLevel {
+    /// Service-owned signed updates. No package path or trust flags are accepted.
+    ServiceUpdate {
+        #[arg(value_enum, default_value_t=UpdateAction::Status)]
+        action: UpdateAction,
+        #[arg(long)]
+        transaction: Option<String>,
+    },
     /// Block lists.
     #[command(subcommand)]
     List(ListCmd),
@@ -85,6 +101,15 @@ pub enum TopLevel {
     Browsers,
     /// Print the application version.
     Version,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum UpdateAction {
+    Status,
+    Check,
+    Stage,
+    Activate,
+    Cancel,
 }
 
 #[derive(Subcommand)]
@@ -438,6 +463,9 @@ impl TopLevel {
     /// Fallible only where an argument needs reading from disk.
     pub fn into_command(self) -> anyhow::Result<Command> {
         Ok(match self {
+            TopLevel::ServiceUpdate { .. } => {
+                anyhow::bail!("Service updates must use authenticated IPC")
+            }
             TopLevel::List(c) => match c {
                 ListCmd::Ls => Command::ListBlockLists,
                 ListCmd::Create { name } => Command::CreateBlockList { name },

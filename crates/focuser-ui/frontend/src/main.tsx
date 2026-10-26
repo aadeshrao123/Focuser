@@ -1,10 +1,11 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { AppLayout } from "@/app-layout";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { createQueryClient } from "@/lib/query-client";
 import "@/index.css";
 import { Allowances } from "@/routes/allowances";
 import { Apps } from "@/routes/apps";
@@ -14,21 +15,7 @@ import { Schedule } from "@/routes/schedule";
 import { Settings } from "@/routes/settings";
 import { Websites } from "@/routes/websites";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Local IPC, not a network call — a failure is real, so surface it.
-      retry: false,
-
-      // State also changes from the blocker loop, the CLI and the extension.
-      // The engine re-reads the DB every ~3s; polling keeps the window in step.
-      staleTime: 0,
-      refetchInterval: 2000,
-      refetchOnWindowFocus: true,
-      refetchIntervalInBackground: false,
-    },
-  },
-});
+const queryClient = createQueryClient();
 
 // Hash routing: the app is served from the filesystem inside the webview,
 // where history-based routing has no server to resolve deep links against.

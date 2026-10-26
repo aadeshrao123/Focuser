@@ -24,7 +24,7 @@
 
 use std::sync::Arc;
 
-use focuser_app::{Command, CommandErrorPayload, CommandResult, execute};
+use focuser_app::{Command, CommandErrorPayload, CommandResult};
 use tauri::State;
 
 use crate::AppState;
@@ -34,16 +34,23 @@ use crate::AppState;
 /// Errors are flattened to [`CommandErrorPayload`] (`{ code, message }`) because
 /// `CommandError` wraps `FocuserError`, which has no TypeScript representation.
 /// The frontend branches on `code`, never on `message`.
-/// `(async)` on a sync function puts it on Tauri's blocking thread pool.
-/// Without it the default is the event-loop thread, and a slow command — icons
-/// especially — freezes the window.
-#[tauri::command(async)]
+/// Tauri's async command wrapper uses its async executor, not a blocking pool.
+/// Explicitly offload synchronous dispatch so the blocking IPC client's runtime
+/// cannot panic inside Tauri's runtime and leave an invoke promise unresolved.
+#[tauri::command]
 #[specta::specta]
-pub fn run_command(
+pub async fn run_command(
     state: State<'_, Arc<AppState>>,
     command: Command,
 ) -> Result<CommandResult, CommandErrorPayload> {
-    execute(&state, command).map_err(CommandErrorPayload::from)
+    dispatch_worker(state.inner().clone(), command).await
+}
+
+pub(crate) async fn dispatch_worker(
+    state: Arc<AppState>,
+    command: Command,
+) -> Result<CommandResult, CommandErrorPayload> {
+    crate::command_worker::execute(move || crate::dispatch(&state, command)).await
 }
 
 /// The specta builder, used both to export bindings and to document the surface.

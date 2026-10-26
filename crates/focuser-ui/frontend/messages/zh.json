@@ -1,4 +1,8 @@
 {
+  "authority_disconnected_title": "Focuser 服务已断开",
+  "authority_disconnected_body": "服务不可用，无法保存更改。系统未启动替代的拦截引擎。",
+  "authority_degraded_title": "桌面防护受到限制",
+  "authority_degraded_body": "缺少会话代理。服务仍会执行程序和路径规则、计划及承诺。窗口标题、前台使用情况和桌面提示需要会话代理。",
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "nav_dashboard": "概览",
   "nav_block_lists": "拦截列表",
@@ -477,5 +481,10 @@
   "shared_allowance_left": "剩余 {remaining} 分钟",
   "shared_allowance_used_up": "已用完",
   "schedule_needs_gap_title": "该时间表需要空档",
-  "schedule_needs_gap_body": "{name} 会在计划期间锁定，或设有共享使用时长。两者都需要一周内有空档。请留出空档，或先关闭它们。"
+  "schedule_needs_gap_body": "{name} 会在计划期间锁定，或设有共享使用时长。两者都需要一周内有空档。请留出空档，或先关闭它们。",
+  "update_authority_state": "更新：{phase}（{reason}）",
+  "update_download_progress": "更新下载进度",
+  "update_stage": "下载并验证",
+  "update_activate": "允许时激活",
+  "update_cancel_stage": "取消已暂存的更新"
 }
