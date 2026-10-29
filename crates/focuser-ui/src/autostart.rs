@@ -219,7 +219,8 @@ mod imp {
     /// What the unit's copy needs from the session, which the systemd user
     /// manager does not have unless the desktop hands it over. Without the
     /// session bus, the single-instance check cannot see that copy, and a
-    /// launch from the menu would start a second one.
+    /// launch from the menu would start a second one. Without XDG_DATA_HOME,
+    /// a user who moved it would get a copy with a different, empty database.
     const SESSION_VARS: &[&str] = &[
         "DISPLAY",
         "WAYLAND_DISPLAY",
@@ -227,6 +228,7 @@ mod imp {
         "XDG_SESSION_TYPE",
         "XDG_CURRENT_DESKTOP",
         "DBUS_SESSION_BUS_ADDRESS",
+        "XDG_DATA_HOME",
     ];
 
     // The XDG entry is the launcher, written by the plugin, so there is no
