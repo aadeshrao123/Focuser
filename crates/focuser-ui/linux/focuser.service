@@ -1,0 +1,32 @@
+[Unit]
+Description=Focuser — website and application blocker
+# Never enabled, so nothing but a login launch starts this: the XDG autostart
+# entry runs focuser-ui, which hands itself over here and exits. That keeps
+# one launcher on every desktop. PartOf stops it with the graphical session
+# where the desktop runs one.
+PartOf=graphical-session.target
+# Give up after 5 restarts within 60s rather than spinning forever on a
+# genuinely broken install (e.g. a corrupt database crashing on every
+# launch). A rate-limit belongs to the unit's activation, not the service
+# itself, which is why this lives here and not below.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+# exec, not simple: `systemctl start` then waits until focuser-ui has really
+# been executed, and fails if it could not be, so the login copy never exits
+# with nothing running in its place.
+Type=exec
+ExecStart=/usr/bin/focuser-ui --autostart
+# Tells the app it is already supervised, so it never hands off again.
+Environment=FOCUSER_SUPERVISED=1
+# on-failure, not always: a clean quit exits 0, which is not a failure and
+# must not be resurrected — only a crash or a kill (including SIGKILL,
+# which no process can catch) counts. A stop from systemd itself, at logout
+# or shutdown, is never restarted.
+Restart=on-failure
+RestartSec=2
+# While a lock is on the app ignores SIGTERM, so without this every logout
+# and shutdown would wait the default 90 seconds before systemd sends SIGKILL.
+TimeoutStopSec=5
+

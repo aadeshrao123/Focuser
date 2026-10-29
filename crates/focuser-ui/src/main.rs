@@ -109,6 +109,12 @@ fn main() {
     #[cfg(target_os = "linux")]
     work_around_nvidia_webkit();
 
+    // Before the database or the single-instance lock: the copy the unit
+    // starts needs both.
+    if launched_at_login(&std::env::args().collect::<Vec<_>>()) && autostart::hand_off_to_unit() {
+        return;
+    }
+
     #[cfg(windows)]
     {
         if is_elevated() {
