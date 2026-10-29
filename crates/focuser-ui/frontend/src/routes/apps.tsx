@@ -10,7 +10,7 @@ import { Page } from "@/components/ui/page";
 import { Select } from "@/components/ui/select";
 import { useAddAppRule, useAppIcons, useBlockLists, useRemoveAppRule } from "@/lib/commands";
 import { APP_KINDS, type AppKind, appRule, describeApp } from "@/lib/match-types";
-import { isTauri, pickApplication } from "@/lib/native";
+import { hostPlatform, isTauri, pickApplication } from "@/lib/native";
 import { m } from "@/paraglide/messages.js";
 
 /**
@@ -20,11 +20,8 @@ import { m } from "@/paraglide/messages.js";
  * those differently: `steam.exe` on Windows, `Steam` on macOS, `steam` on
  * Linux. Showing a Windows example to a Linux user invites a rule that can
  * never match.
- *
- * Read off the user agent rather than a Tauri plugin: this only picks example
- * text, and the preview harness gets it right for free.
  */
-const EXAMPLES: Record<"windows" | "macos" | "linux", Record<AppKind, string>> = {
+const EXAMPLES: Record<ReturnType<typeof hostPlatform>, Record<AppKind, string>> = {
   windows: {
     ExecutableName: "discord.exe",
     ExecutablePath: "C:\\Program Files\\Steam\\steam.exe",
@@ -41,13 +38,6 @@ const EXAMPLES: Record<"windows" | "macos" | "linux", Record<AppKind, string>> =
     WindowTitle: "Solitaire",
   },
 };
-
-function hostPlatform(): keyof typeof EXAMPLES {
-  const agent = typeof navigator === "undefined" ? "" : navigator.userAgent;
-  if (agent.includes("Mac")) return "macos";
-  if (agent.includes("Windows")) return "windows";
-  return "linux";
-}
 
 const PLACEHOLDERS = EXAMPLES[hostPlatform()];
 

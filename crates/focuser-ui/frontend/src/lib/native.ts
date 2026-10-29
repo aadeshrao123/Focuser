@@ -11,6 +11,18 @@ import { isTauri } from "./transport";
 
 export { isTauri };
 
+/**
+ * The OS this window runs on. Read off the user agent rather than a Tauri
+ * plugin: callers only pick text or styles with it, and the preview harness
+ * gets it right for free.
+ */
+export function hostPlatform(): "windows" | "macos" | "linux" {
+  const agent = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  if (agent.includes("Mac")) return "macos";
+  if (agent.includes("Windows")) return "windows";
+  return "linux";
+}
+
 /** Pick an executable to block. Returns its file name, or null if cancelled. */
 export function pickApplication(): Promise<string | null> {
   return invoke<string | null>("pick_app_file");

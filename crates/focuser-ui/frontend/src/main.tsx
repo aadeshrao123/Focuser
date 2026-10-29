@@ -6,6 +6,7 @@ import { AppLayout } from "@/app-layout";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "@/index.css";
+import { hostPlatform } from "@/lib/native";
 import { Allowances } from "@/routes/allowances";
 import { Apps } from "@/routes/apps";
 import { BlockLists } from "@/routes/block-lists";
@@ -53,6 +54,9 @@ const router = createHashRouter([
     ],
   },
 ]);
+
+// For the few styles that differ by OS. See `.glass` in index.css.
+document.documentElement.dataset.platform = hostPlatform();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("#root missing from index.html");
