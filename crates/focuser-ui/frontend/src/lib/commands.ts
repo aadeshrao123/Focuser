@@ -278,7 +278,8 @@ export function useBrowserStatus() {
  *
  * An executable's icon only changes when the program is reinstalled, so this
  * never goes stale on its own — otherwise the Applications page would re-read
- * every icon off disk on each poll.
+ * every icon off disk on each poll. The app-wide poll ignores staleTime, so it
+ * is switched off here too; on Linux each read walks the icon themes (#59).
  */
 export function useAppIcons(targets: string[]) {
   const key = [...targets].sort();
@@ -288,6 +289,7 @@ export function useAppIcons(targets: string[]) {
     enabled: key.length > 0,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
+    refetchInterval: false,
     queryFn: async () => {
       const icons = expect(
         await run({ cmd: "get_app_icons", args: { targets: key } }),
@@ -462,6 +464,7 @@ export function usePomodoroPresets() {
     queryKey: ["pomodoro-presets"] as const,
     queryFn: async () => expect(await run({ cmd: "pomodoro_presets" }), "pomodoro_presets").data,
     staleTime: Number.POSITIVE_INFINITY,
+    refetchInterval: false,
   });
 }
 
