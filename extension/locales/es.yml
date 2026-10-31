@@ -27,6 +27,9 @@ popup:
     'n': $1 reglas activas
   notRunning: La aplicación de escritorio no está en marcha
   disconnected: No se está bloqueando nada. Abre la aplicación de escritorio de Focuser para restaurar tus reglas.
+  noAccessTitle: Sin acceso a los sitios web
+  noAccess: Focuser necesita acceso a todos los sitios web para bloquearlos y para conectar con la aplicación de escritorio.
+  allowAccess: Permitir acceso
   currentSite: Sitio actual
   noSiteOpen: No hay ningún sitio abierto
   updateApp: Actualiza la aplicación para ver esto

@@ -27,6 +27,9 @@ popup:
     'n': $1 règles actives
   notRunning: L'application de bureau n'est pas lancée
   disconnected: Rien n'est bloqué. Lancez l'application de bureau Focuser pour rétablir vos règles.
+  noAccessTitle: Aucun accès aux sites web
+  noAccess: Focuser a besoin d'accéder à tous les sites web pour les bloquer et pour joindre l'application de bureau.
+  allowAccess: Autoriser l'accès
   currentSite: Site actuel
   noSiteOpen: Aucun site ouvert
   updateApp: Mettez l'application à jour pour voir ceci

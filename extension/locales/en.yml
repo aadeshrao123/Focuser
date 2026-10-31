@@ -34,6 +34,9 @@ popup:
   statLists: Lists
   notRunning: Desktop app not running
   disconnected: Nothing is being blocked. Start the Focuser desktop app to restore your rules.
+  noAccessTitle: No access to websites
+  noAccess: Focuser needs access to all websites to block them and to reach the desktop app.
+  allowAccess: Allow access
   currentSite: Current site
   noSiteOpen: No site open
   updateApp: Update the app to see this

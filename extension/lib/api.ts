@@ -91,6 +91,28 @@ export async function isIncognitoAllowed(): Promise<boolean | null> {
   }
 }
 
+/** Blocking needs every site, and the app's address is one of them. */
+const ALL_SITES = { origins: ["<all_urls>"] };
+
+/**
+ * Whether the user left this extension its access to websites. Firefox lets
+ * them switch it off, and Chrome's "on click" does the same. Without it every
+ * call to the app fails, which looks just like the app being closed (#61).
+ * True when the browser does not say, so a guess never hides a real error.
+ */
+export async function hasSiteAccess(): Promise<boolean> {
+  try {
+    return await browser.permissions.contains(ALL_SITES);
+  } catch {
+    return true;
+  }
+}
+
+/** Ask for that access back. Firefox only shows the prompt straight from a click. */
+export function requestSiteAccess(): Promise<boolean> {
+  return browser.permissions.request(ALL_SITES);
+}
+
 /**
  * A name for this copy of the extension, made up once and kept.
  *

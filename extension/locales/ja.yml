@@ -27,6 +27,9 @@ popup:
     'n': 有効なルール $1 件
   notRunning: デスクトップアプリが起動していません
   disconnected: 現在なにもブロックされていません。Focuser デスクトップアプリを起動するとルールが元に戻ります。
+  noAccessTitle: ウェブサイトへのアクセスがありません
+  noAccess: ウェブサイトをブロックし、デスクトップアプリに接続するには、すべてのウェブサイトへのアクセスが必要です。
+  allowAccess: アクセスを許可
   currentSite: 現在のサイト
   noSiteOpen: 開いているサイトがありません
   updateApp: これを見るにはアプリを更新してください

@@ -27,6 +27,9 @@ popup:
     'n': 규칙 $1개 적용 중
   notRunning: 데스크톱 앱이 실행되고 있지 않습니다
   disconnected: 지금은 아무것도 차단되지 않습니다. Focuser 데스크톱 앱을 실행하면 규칙이 다시 적용됩니다.
+  noAccessTitle: 웹사이트에 접근할 수 없습니다
+  noAccess: 웹사이트를 차단하고 데스크톱 앱에 연결하려면 Focuser에 모든 웹사이트 접근 권한이 필요합니다.
+  allowAccess: 접근 허용
   currentSite: 현재 사이트
   noSiteOpen: 열린 사이트가 없습니다
   updateApp: 이 내용을 보려면 앱을 업데이트하세요

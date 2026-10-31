@@ -16,7 +16,10 @@
 import { load } from "js-yaml";
 import pkg from "../package.json";
 
-export type PopupMode = "connected" | "disconnected" | "no-lists";
+/** "no-access": the user switched off the extension's access to websites (#61). */
+export type PopupMode = "connected" | "disconnected" | "no-access" | "no-lists";
+
+const offline = () => popupMode === "disconnected" || popupMode === "no-access";
 
 let popupMode: PopupMode = "connected";
 let locale = "en";
@@ -96,6 +99,13 @@ export function install() {
       },
       // Not allowed, so the welcome page shows its incognito card.
       extension: { isAllowedIncognitoAccess: async () => false },
+      permissions: {
+        contains: async () => popupMode !== "no-access",
+        request: async () => {
+          popupMode = "connected";
+          return true;
+        },
+      },
       runtime: {
         // Present so `@wxt-dev/browser` picks this object over `globalThis.chrome`.
         id: "focuser-preview",
@@ -104,7 +114,7 @@ export function install() {
         getManifest: () => ({ version: pkg.version }),
         sendMessage: async () => ({
           type: "status",
-          connected: popupMode !== "disconnected",
+          connected: !offline(),
           rules: null,
           ruleCount: 23,
           blockEverything: false,
@@ -117,7 +127,7 @@ export function install() {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
     if (!url.includes("17549")) return realFetch(input as RequestInfo, init);
-    if (popupMode === "disconnected") throw new Error("preview: app not running");
+    if (offline()) throw new Error("preview: app not reachable");
 
     const body = url.includes("/api/lists")
       ? popupMode === "no-lists"

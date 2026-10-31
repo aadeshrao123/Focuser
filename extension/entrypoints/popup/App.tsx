@@ -20,7 +20,9 @@ import {
   fetchLists,
   fetchSiteStatus,
   fetchStatus,
+  hasSiteAccess,
   removeSite,
+  requestSiteAccess,
   type SiteStatus,
   showApp,
 } from "@/lib/api";
@@ -29,6 +31,8 @@ import { canonicalHost, isInternalUrl } from "@/lib/rules";
 
 interface Snapshot {
   connected: boolean;
+  /** False when the user took away the access to websites. */
+  siteAccess: boolean;
   status: AppStatus | null;
   lists: BlockListSummary[];
   ruleCount: number;
@@ -48,14 +52,16 @@ export function App() {
 
   const load = useCallback(
     async (currentHost: string | null) => {
-      const [reply, status, lists, siteStatus] = await Promise.all([
+      const [reply, status, lists, siteStatus, siteAccess] = await Promise.all([
         send({ type: "status" }),
         fetchStatus(),
         fetchLists(),
         currentHost ? fetchSiteStatus(currentHost) : Promise.resolve(null),
+        hasSiteAccess(),
       ]);
       setSnapshot({
         connected: reply?.connected ?? false,
+        siteAccess,
         status,
         lists: lists ?? [],
         ruleCount: reply?.ruleCount ?? 0,
@@ -143,6 +149,15 @@ export function App() {
     setBusy(false);
   }
 
+  /** Called straight from the click: Firefox shows no prompt after an await. */
+  function allowAccess() {
+    void requestSiteAccess().then(async (granted) => {
+      if (!granted) return;
+      await send({ type: "refresh" });
+      await load(host);
+    });
+  }
+
   if (!snapshot) {
     return (
       <div className="flex h-52 items-center justify-center bg-background">
@@ -151,7 +166,7 @@ export function App() {
     );
   }
 
-  const { connected, status, lists, ruleCount, blockEverything } = snapshot;
+  const { connected, siteAccess, status, lists, ruleCount, blockEverything } = snapshot;
   const summary = blockEverything
     ? i18n.t("popup.blockingEverything")
     : i18n.t("popup.rulesActive", ruleCount);
@@ -194,7 +209,11 @@ export function App() {
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-foreground text-sm leading-tight">Focuser</p>
           <p className="truncate text-faint-foreground text-xs">
-            {connected ? summary : i18n.t("popup.notRunning")}
+            {connected
+              ? summary
+              : siteAccess
+                ? i18n.t("popup.notRunning")
+                : i18n.t("popup.noAccessTitle")}
           </p>
         </div>
         <span
@@ -215,9 +234,21 @@ export function App() {
       {!connected && (
         <div className="relative mx-4 mb-4 flex items-start gap-2.5 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2.5">
           <TriangleAlert className="mt-px size-4 shrink-0 text-warning" />
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            {i18n.t("popup.disconnected")}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {siteAccess ? i18n.t("popup.disconnected") : i18n.t("popup.noAccess")}
+            </p>
+            {!siteAccess && (
+              <button
+                type="button"
+                onClick={allowAccess}
+                className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 font-medium text-primary-foreground text-sm transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <ShieldCheck className="size-4" />
+                {i18n.t("popup.allowAccess")}
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -27,6 +27,9 @@ popup:
     'n': $1 Regeln aktiv
   notRunning: Die Desktop-App läuft nicht
   disconnected: Es wird nichts blockiert. Starte die Focuser-Desktop-App, um deine Regeln wiederherzustellen.
+  noAccessTitle: Kein Zugriff auf Websites
+  noAccess: Focuser braucht Zugriff auf alle Websites, um sie zu blockieren und die Desktop-App zu erreichen.
+  allowAccess: Zugriff erlauben
   currentSite: Aktuelle Seite
   noSiteOpen: Keine Seite geöffnet
   updateApp: Aktualisiere die App, um das zu sehen

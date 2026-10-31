@@ -3,6 +3,7 @@ import {
   clampIncrement,
   detectBrowser,
   fetchRules,
+  hasSiteAccess,
   isIncognitoAllowed,
   leaveRemovalAddress,
   POLL_INTERVAL_MS,
@@ -160,7 +161,11 @@ export default defineBackground(() => {
     if (!connected) {
       browser.action.setBadgeText({ text: "!" });
       browser.action.setBadgeBackgroundColor({ color: "#f87171" });
-      browser.action.setTitle({ title: "Focuser — desktop app not running" });
+      void hasSiteAccess().then((ok) =>
+        browser.action.setTitle({
+          title: ok ? "Focuser — desktop app not running" : "Focuser — no access to websites",
+        }),
+      );
       return;
     }
     const count = rules.blockEverything ? "∞" : String(ruleCount(rules));

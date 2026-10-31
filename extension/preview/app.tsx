@@ -79,6 +79,7 @@ const BLOCK_CASES: Array<{ title: string; context: BlockContext }> = [
 const POPUP_CASES: Array<{ title: string; mode: PopupMode }> = [
   { title: "Popup", mode: "connected" },
   { title: "Popup · off", mode: "disconnected" },
+  { title: "Popup · no access", mode: "no-access" },
   { title: "Popup · no lists", mode: "no-lists" },
 ];
 

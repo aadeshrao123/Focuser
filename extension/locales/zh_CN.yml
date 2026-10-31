@@ -27,6 +27,9 @@ popup:
     'n': $1 条规则生效中
   notRunning: 桌面应用未运行
   disconnected: 目前没有拦截任何内容。启动 Focuser 桌面应用即可恢复你的规则。
+  noAccessTitle: 无法访问网站
+  noAccess: Focuser 需要访问所有网站的权限，才能拦截网站并连接桌面应用。
+  allowAccess: 允许访问
   currentSite: 当前网站
   noSiteOpen: 没有打开的网站
   updateApp: 更新应用后即可看到
