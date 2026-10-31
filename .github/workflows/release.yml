@@ -103,8 +103,12 @@ jobs:
         run: |
           mkdir -p dist
           cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg dist/ 2>/dev/null || true
-          cp target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz dist/ 2>/dev/null || true
-          cp target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz.sig dist/ 2>/dev/null || true
+          # Both Macs build a Focuser.app.tar.gz. Named after the target, or
+          # the release keeps whichever came last and latest.json lists neither.
+          for f in target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz; do
+            cp "$f" "dist/Focuser_${{ matrix.target }}.app.tar.gz"
+            cp "$f.sig" "dist/Focuser_${{ matrix.target }}.app.tar.gz.sig"
+          done
           ls -la dist/
 
       - name: Collect Linux artifacts
@@ -114,6 +118,9 @@ jobs:
           cp target/${{ matrix.target }}/release/bundle/deb/*.deb dist/ 2>/dev/null || true
           # Built all along for Fedora and openSUSE, and never published (#3).
           cp target/${{ matrix.target }}/release/bundle/rpm/*.rpm dist/ 2>/dev/null || true
+          # The updater installs a .deb or .rpm in place, so they need theirs too (#62).
+          cp target/${{ matrix.target }}/release/bundle/deb/*.deb.sig dist/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/bundle/rpm/*.rpm.sig dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.sig dist/ 2>/dev/null || true
           cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz dist/ 2>/dev/null || true
@@ -171,52 +178,27 @@ jobs:
           REPO="aadeshrao123/Focuser"
           BASE="https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}"
 
-          # Read signatures
-          WIN_SIG=""
-          MAC_INTEL_SIG=""
-          MAC_ARM_SIG=""
-          LINUX_SIG=""
-
-          for f in release/*.nsis.zip.sig; do
-            [ -f "$f" ] && WIN_SIG=$(cat "$f")
-          done
-          for f in release/*x86_64-apple-darwin*.app.tar.gz.sig; do
-            [ -f "$f" ] && MAC_INTEL_SIG=$(cat "$f")
-          done
-          for f in release/*aarch64-apple-darwin*.app.tar.gz.sig; do
-            [ -f "$f" ] && MAC_ARM_SIG=$(cat "$f")
-          done
-          for f in release/*.AppImage.tar.gz.sig; do
-            [ -f "$f" ] && LINUX_SIG=$(cat "$f")
-          done
-
-          # Build platform entries
-          PLATFORMS="{"
-
-          if [ -n "$WIN_SIG" ]; then
-            WIN_FILE=$(ls release/*.nsis.zip 2>/dev/null | head -1 | xargs basename)
-            PLATFORMS="$PLATFORMS\"windows-x86_64\":{\"signature\":\"$WIN_SIG\",\"url\":\"$BASE/$WIN_FILE\"}"
-          fi
-
-          if [ -n "$MAC_INTEL_SIG" ]; then
-            MAC_INTEL_FILE=$(ls release/*x86_64-apple-darwin*.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1 | xargs basename)
-            [ -n "$(echo $PLATFORMS | grep url)" ] && PLATFORMS="$PLATFORMS,"
-            PLATFORMS="$PLATFORMS\"darwin-x86_64\":{\"signature\":\"$MAC_INTEL_SIG\",\"url\":\"$BASE/$MAC_INTEL_FILE\"}"
-          fi
-
-          if [ -n "$MAC_ARM_SIG" ]; then
-            MAC_ARM_FILE=$(ls release/*aarch64-apple-darwin*.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1 | xargs basename)
-            [ -n "$(echo $PLATFORMS | grep url)" ] && PLATFORMS="$PLATFORMS,"
-            PLATFORMS="$PLATFORMS\"darwin-aarch64\":{\"signature\":\"$MAC_ARM_SIG\",\"url\":\"$BASE/$MAC_ARM_FILE\"}"
-          fi
-
-          if [ -n "$LINUX_SIG" ]; then
-            LINUX_FILE=$(ls release/*.AppImage.tar.gz 2>/dev/null | grep -v '.sig' | head -1 | xargs basename)
-            [ -n "$(echo $PLATFORMS | grep url)" ] && PLATFORMS="$PLATFORMS,"
-            PLATFORMS="$PLATFORMS\"linux-x86_64\":{\"signature\":\"$LINUX_SIG\",\"url\":\"$BASE/$LINUX_FILE\"}"
-          fi
-
-          PLATFORMS="$PLATFORMS}"
+          # One entry per way of installing Focuser. The updater looks for
+          # `{os}-{arch}-{installer}` first and then `{os}-{arch}`, so a .deb
+          # or .rpm install must find its own package. Handed the AppImage, it
+          # fails with "invalid updater binary format" (#62).
+          PLATFORMS=""
+          add() {
+            local file
+            file=$(ls $2 2>/dev/null | head -1)
+            if [ -z "$file" ] || [ ! -f "$file.sig" ]; then
+              echo "::warning::no signed update file for $1"
+              return 0
+            fi
+            PLATFORMS="$PLATFORMS${PLATFORMS:+,}\"$1\":{\"signature\":\"$(cat "$file.sig")\",\"url\":\"$BASE/$(basename "$file")\"}"
+          }
+          add windows-x86_64 'release/*.nsis.zip'
+          add darwin-x86_64 'release/*x86_64-apple-darwin.app.tar.gz'
+          add darwin-aarch64 'release/*aarch64-apple-darwin.app.tar.gz'
+          add linux-x86_64 'release/*.AppImage.tar.gz'
+          add linux-x86_64-deb 'release/*.deb'
+          add linux-x86_64-rpm 'release/*.rpm'
+          PLATFORMS="{$PLATFORMS}"
 
           cat > release/latest.json << ENDJSON
           {
