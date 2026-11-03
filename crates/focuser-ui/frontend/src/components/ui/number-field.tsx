@@ -18,8 +18,9 @@ export interface NumberFieldProps {
 
 /**
  * Number input that saves on blur or Enter rather than on every keystroke —
- * typing "30" would otherwise write 3 first. Out-of-range or unparseable input
- * snaps back to the last good value.
+ * typing "30" would otherwise write 3 first. Out-of-range input moves to the
+ * nearest limit, so the field shows what the limit is; unparseable input snaps
+ * back to the last good value.
  *
  * The native spinner is hidden and replaced with our own: browsers draw it as
  * two hairline arrows that only appear on hover, at a size nobody can hit.
@@ -71,13 +72,7 @@ export function NumberField({
 
   function commit() {
     const parsed = Number(draft);
-    const valid =
-      draft.trim() !== "" &&
-      Number.isFinite(parsed) &&
-      (min === undefined || parsed >= min) &&
-      (max === undefined || parsed <= max);
-
-    set(valid ? parsed : shown.current);
+    set(draft.trim() !== "" && Number.isFinite(parsed) ? clamp(parsed) : shown.current);
   }
 
   // Stepping commits straight away — there is nothing half-typed to protect.

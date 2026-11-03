@@ -25,7 +25,9 @@ describe("NumberField", () => {
     expect(onCommit).toHaveBeenCalledExactlyOnceWith(30);
   });
 
-  it("snaps back when the typed number is out of range", async () => {
+  // #64: a typed number past the limit used to snap back to the old one with
+  // no word why, so a long lock looked like it could not be typed at all.
+  it("moves a typed number that is out of range to the nearest limit", async () => {
     const user = userEvent.setup();
     const onCommit = vi.fn();
     render(<NumberField aria-label="Minutes" value={5} onCommit={onCommit} min={1} max={90} />);
@@ -33,6 +35,24 @@ describe("NumberField", () => {
     const input = screen.getByLabelText("Minutes");
     await user.clear(input);
     await user.type(input, "500");
+    await user.tab();
+    expect(onCommit).toHaveBeenLastCalledWith(90);
+    expect(input).toHaveValue(90);
+
+    await user.clear(input);
+    await user.type(input, "0");
+    await user.tab();
+    expect(onCommit).toHaveBeenLastCalledWith(1);
+    expect(input).toHaveValue(1);
+  });
+
+  it("snaps back when nothing or no number is typed", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<NumberField aria-label="Minutes" value={5} onCommit={onCommit} min={1} max={90} />);
+
+    const input = screen.getByLabelText("Minutes");
+    await user.clear(input);
     await user.tab();
 
     expect(onCommit).not.toHaveBeenCalled();
