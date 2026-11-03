@@ -63,10 +63,10 @@ export default defineBackground(() => {
   // onCompleted, and without this the page is built twice.
   const recentInjections = new Map<string, number>();
   const recentReports = new Map<string, number>();
-  // Tabs whose current page is the block page. The site's own scripts keep
-  // running underneath it, and an SPA rewriting its URL on load must not set
-  // off the in-page reload below — that reload brings the block straight
-  // back, and the site rewrites again, forever.
+  // Tabs whose current page is the block page, or one it cannot go into. The
+  // site's own scripts keep running underneath it, and an SPA rewriting its
+  // URL on load must not set off the in-page reload below — that reload
+  // brings the block straight back, and the site rewrites again, forever.
   const showingBlock = new Set<number>();
   // The YouTube video each tab loaded with, to tell a move to another video
   // from the page rewriting its own address.
@@ -231,9 +231,11 @@ export default defineBackground(() => {
         files: ["/block-page.js"],
       });
     } catch {
-      // Chrome refuses injection on its own pages and the web store. Nothing
-      // to do but leave the tab alone.
-      showingBlock.delete(tabId);
+      // Chrome refuses injection on its own pages and the web store, Firefox
+      // in its PDF viewer. Nothing to do but leave the tab alone. It stays
+      // marked, so a page that rewrites its address is not reloaded: the block
+      // page could not go in after a reload either, and Firefox's PDF viewer
+      // rewrites its address as the reader scrolls (#63).
     }
   }
 

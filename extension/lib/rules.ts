@@ -231,6 +231,9 @@ export type BlockMatch =
  * an allowance that cannot be honoured is not an allowance.
  */
 export function match(rules: CompiledRules, hostname: string, url: string): BlockMatch | null {
+  // Only web pages. A file opened from the computer is not the internet, even
+  // with all of it blocked (#63).
+  if (!/^https?:/i.test(url ?? "")) return null;
   const host = canonicalHost(hostname);
   const lowerUrl = (url ?? "").toLowerCase();
 

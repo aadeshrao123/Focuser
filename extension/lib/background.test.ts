@@ -330,6 +330,36 @@ describe("opening a blocked site", () => {
     await visit("https://www.youtube.com/embed/abc", 3);
     expect(blockPages()).toHaveLength(2);
   });
+
+  // #63: Firefox keeps extensions out of its PDF viewer, and the viewer
+  // rewrites its address as the reader scrolls. Each rewrite reloaded the tab.
+  it("does not reload a page the block page cannot go into", async () => {
+    const reload = vi.spyOn(fakeBrowser.tabs, "reload").mockResolvedValue();
+    await start({ ...RULES, block_entire_internet: true });
+    injected.mockRejectedValue(new Error("Missing host permission for the tab"));
+
+    await visit("https://example.test/paper.pdf");
+    await fakeBrowser.webNavigation.onHistoryStateUpdated.trigger({
+      tabId: 7,
+      frameId: 0,
+      url: "https://example.test/paper.pdf#page=2",
+    } as never);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("leaves a file on the computer alone with the whole internet blocked", async () => {
+    const reload = vi.spyOn(fakeBrowser.tabs, "reload").mockResolvedValue();
+    await start({ ...RULES, block_entire_internet: true });
+
+    await visit("file:///C:/Users/me/Downloads/paper.pdf");
+    await fakeBrowser.webNavigation.onHistoryStateUpdated.trigger({
+      tabId: 7,
+      frameId: 0,
+      url: "file:///C:/Users/me/Downloads/paper.pdf#page=2",
+    } as never);
+    expect(blockPages()).toHaveLength(0);
+    expect(reload).not.toHaveBeenCalled();
+  });
 });
 
 describe("time on a page under a shared allowance", () => {

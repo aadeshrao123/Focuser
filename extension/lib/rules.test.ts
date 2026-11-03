@@ -149,6 +149,13 @@ describe("match", () => {
     expect(match(r, "intranet.test", "https://intranet.test/")).toBeNull();
   });
 
+  it("leaves a file on the computer alone, even with the whole internet blocked", () => {
+    // #63: a PDF opened from Downloads is not the internet.
+    const r = rules({ block_entire_internet: true, blocked_keywords: ["paper"] });
+    expect(match(r, "", "file:///C:/Users/me/Downloads/paper.pdf")).toBeNull();
+    expect(match(r, "nas", "file://nas/share/paper.pdf")).toBeNull();
+  });
+
   it("treats a domain rule as beating a keyword when both apply", () => {
     const r = rules({ blocked_domains: ["casino.test"], blocked_keywords: ["casino"] });
     expect(match(r, "casino.test", "https://casino.test/")?.reason).toBe("domain");
