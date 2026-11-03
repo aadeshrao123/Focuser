@@ -47,6 +47,15 @@ pub fn terminate(pid: u32) -> bool {
     imp::terminate(pid)
 }
 
+/// Ask a program to close its main windows, as clicking X would, so it can
+/// offer to save first (#65). Returns whether it had one to ask.
+///
+/// Windows only. Elsewhere [`terminate`] already sends the polite signal, so
+/// this is always false there.
+pub fn ask_to_close(pid: u32) -> bool {
+    imp::ask_to_close(pid)
+}
+
 /// The full command line a process was started with, if it can be read.
 ///
 /// Call it for specific suspects, never across a whole process list: macOS
@@ -300,6 +309,42 @@ mod imp {
         }
     }
 
+    pub fn ask_to_close(pid: u32) -> bool {
+        use windows::Win32::Foundation::{BOOL, HWND, LPARAM, WPARAM};
+        use windows::Win32::UI::WindowsAndMessaging::{
+            EnumWindows, GW_OWNER, GetWindow, GetWindowThreadProcessId, IsWindowVisible,
+            PostMessageW, WM_CLOSE,
+        };
+
+        struct Ask {
+            pid: u32,
+            asked: bool,
+        }
+
+        unsafe extern "system" fn ask(window: HWND, state: LPARAM) -> BOOL {
+            // SAFETY: `state` is the `Ask` below, borrowed for the whole
+            // EnumWindows call that runs this.
+            let state = unsafe { &mut *(state.0 as *mut Ask) };
+            let mut owner = 0u32;
+            unsafe { GetWindowThreadProcessId(window, Some(&mut owner)) };
+            // Main windows only. An owned one can be the "save changes?"
+            // dialog itself, and closing that is pressing Cancel.
+            if owner == state.pid
+                && unsafe { IsWindowVisible(window) }.as_bool()
+                && unsafe { GetWindow(window, GW_OWNER) }.is_err()
+                && unsafe { PostMessageW(window, WM_CLOSE, WPARAM(0), LPARAM(0)) }.is_ok()
+            {
+                state.asked = true;
+            }
+            true.into()
+        }
+
+        let mut state = Ask { pid, asked: false };
+        // SAFETY: the callback only touches `state`, which outlives the call.
+        let _ = unsafe { EnumWindows(Some(ask), LPARAM(&mut state as *mut Ask as isize)) };
+        state.asked
+    }
+
     /// `szExeFile` is the file name, extension and all, so there is nothing to
     /// resolve here.
     pub fn name_for_path(path: &str) -> String {
@@ -349,6 +394,65 @@ mod imp {
         #[test]
         fn a_process_that_is_not_there_has_no_command_line() {
             assert_eq!(cmdline(u32::MAX - 3), None);
+        }
+
+        /// What a blocked editor gets (#65): its window is asked to close,
+        /// and it closes by itself.
+        #[test]
+        fn a_program_with_a_window_closes_when_asked() {
+            let mut form = std::process::Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    "Add-Type -AssemblyName System.Windows.Forms; \
+                     $f = New-Object System.Windows.Forms.Form; \
+                     $f.Text = 'focuser-close-marker'; \
+                     $f.StartPosition = 'Manual'; \
+                     $f.Location = New-Object System.Drawing.Point(-3000, -3000); \
+                     [System.Windows.Forms.Application]::Run($f)",
+                ])
+                .creation_flags(CREATE_NO_WINDOW.0)
+                .spawn()
+                .unwrap();
+            let pid = form.id();
+            let waited = Instant::now();
+            let shown = || {
+                super::super::window_titles()
+                    .get(&pid)
+                    .is_some_and(|t| t.iter().any(|t| t == "focuser-close-marker"))
+            };
+            while !shown() && waited.elapsed() < Duration::from_secs(30) {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+
+            let asked = ask_to_close(pid);
+            let closing = Instant::now();
+            let mut exited = None;
+            while exited.is_none() && closing.elapsed() < Duration::from_secs(15) {
+                exited = form.try_wait().unwrap();
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            if exited.is_none() {
+                let _ = form.kill();
+            }
+            let _ = form.wait();
+
+            assert!(asked, "the window was never found");
+            assert!(exited.is_some(), "the program did not close when asked");
+        }
+
+        #[test]
+        fn a_program_with_no_window_has_nothing_to_ask() {
+            let mut shell = std::process::Command::new("cmd")
+                .args(["/c", "ping -n 6 127.0.0.1 >nul"])
+                .creation_flags(CREATE_NO_WINDOW.0)
+                .spawn()
+                .unwrap();
+            let asked = ask_to_close(shell.id());
+            let _ = shell.kill();
+            let _ = shell.wait();
+            assert!(!asked);
         }
     }
 }
@@ -400,6 +504,10 @@ mod imp {
 
     pub fn terminate(pid: u32) -> bool {
         super::unix_terminate(pid)
+    }
+
+    pub fn ask_to_close(_pid: u32) -> bool {
+        false
     }
 
     /// `ps comm=` reports the binary *inside* the bundle, so picking
@@ -551,6 +659,10 @@ mod imp {
 
     pub fn terminate(pid: u32) -> bool {
         super::unix_terminate(pid)
+    }
+
+    pub fn ask_to_close(_pid: u32) -> bool {
+        false
     }
 
     /// The kernel stores `comm` in 16 bytes including the terminator, so

@@ -112,7 +112,7 @@ It speaks ten languages: English, Español, Français, Deutsch, Português, Ital
 ## What it does
 
 - **Block websites** - Add domains, keywords, wildcards, or URL paths. Or just block the entire internet and whitelist only what you need. Your call. Keywords, wildcards and URL paths are enforced by the browser extension, since a hosts file has no way to express a pattern. Focuser tells you on the Websites page when you have one of those rules and no extension installed.
-- **Block applications** - Steam launching itself at 2pm on a Tuesday? Not anymore. Block by executable name, path, or window title.
+- **Block applications** - Steam launching itself at 2pm on a Tuesday? Not anymore. Block by executable name, path, or window title. Five minutes before a schedule, the end of a break or a time limit closes an app you have open, Focuser tells you, so you can save.
 - **Real application icons** - Blocked programs show their actual icon, read out of the executable on your own machine. Nothing is fetched from the internet to do it, because asking an icon service once per entry would hand over your entire block list.
 - **Pre-made block lists** - 1,207 domains across 13 categories (social media, games, gambling, news, adult, etc.) ready to import with one click. We did the research so you don't have to.
 - **Bulk import** - Drop a text file with 500 domains and they're all blocked in under a second. Also supports JSON.
@@ -183,7 +183,7 @@ Focuser/
 ## How blocking works
 
 1. **Hosts file** - Blocked domains get redirected to `127.0.0.1` in your system hosts file. This works at the OS level, before any browser even sees the request.
-2. **Process monitoring** - A background thread scans running processes and terminates any that match your app blocking rules.
+2. **Process monitoring** - A background thread scans running processes and closes any that match your app blocking rules. On Windows it first asks the app to close, as clicking X would, so an editor can offer to save. Only an app still open 30 seconds later is closed by force.
 3. **Browser extension** - Catches navigation to blocked URLs and replaces the page with a block screen. Handles keyword, wildcard, and URL-path rules the hosts file can't.
 4. **Browser enforcement** - Detects browsers running without the Focuser extension. After a grace period, it closes the browser and prompts you to install it.
 5. **Local API** - The app runs an HTTP API on `127.0.0.1:17549` that the extension polls for rule updates. Everything stays local.

@@ -2,10 +2,10 @@
 //!
 //! Almost everything the user reads is drawn by the webview and lives in
 //! `frontend/messages/`. Three things cannot be: the tray menu, which exists
-//! before any window does, and the two overlays Rust injects as raw HTML. Those
+//! before any window does, and the overlays Rust injects as raw HTML. Those
 //! are here.
 //!
-//! Deliberately a plain table rather than a second i18n framework. Nine strings
+//! Deliberately a plain table rather than a second i18n framework. A dozen strings
 //! per language do not justify one, and the frontend catalogue is where a
 //! translator should be spending their time.
 //!
@@ -44,6 +44,12 @@ pub struct Strings {
     pub extension_warning_body: &'static str,
     /// Takes `{browser}` and `{seconds}`.
     pub extension_incognito_warning_body: &'static str,
+
+    /// A few minutes before a block closes apps that are open (#65). The
+    /// button is `locked_ok`.
+    pub closing_title: &'static str,
+    /// Takes `{apps}` and `{minutes}`.
+    pub closing_body: &'static str,
 }
 
 const EN: Strings = Strings {
@@ -61,6 +67,8 @@ const EN: Strings = Strings {
     extension_incognito_action: "Open extension settings for {browser}",
     extension_warning_body: "Focuser will close {browser} in {seconds} seconds because the Focuser browser extension is not installed. Install it from the {store} to keep {browser} open while blocks are active.",
     extension_incognito_warning_body: "Focuser will close {browser} in {seconds} seconds because its Incognito windows are not covered — the extension is installed, but is not allowed to run there. Turn on \"Allow in Incognito\" to keep {browser} open while blocks are active.",
+    closing_title: "Save your work",
+    closing_body: "Focuser will close {apps} in {minutes} min. Save your work now.",
 };
 
 const ES: Strings = Strings {
@@ -78,6 +86,8 @@ const ES: Strings = Strings {
     extension_incognito_action: "Abrir la configuración de la extensión para {browser}",
     extension_warning_body: "Focuser cerrará {browser} en {seconds} segundos porque la extensión de Focuser no está instalada. Instálala desde {store} para mantener {browser} abierto mientras los bloqueos estén activos.",
     extension_incognito_warning_body: "Focuser cerrará {browser} en {seconds} segundos porque sus ventanas de Incógnito no están cubiertas: la extensión está instalada, pero no tiene permiso para funcionar ahí. Activa \"Permitir en Incógnito\" para mantener {browser} abierto mientras los bloqueos estén activos.",
+    closing_title: "Guarda tu trabajo",
+    closing_body: "Focuser cerrará {apps} en {minutes} min. Guarda tu trabajo ahora.",
 };
 
 const FR: Strings = Strings {
@@ -95,6 +105,8 @@ const FR: Strings = Strings {
     extension_incognito_action: "Ouvrir les paramètres de l'extension pour {browser}",
     extension_warning_body: "Focuser fermera {browser} dans {seconds} secondes parce que l'extension de navigateur Focuser n'est pas installée. Installez-la depuis {store} pour garder {browser} ouvert pendant que les blocages sont actifs.",
     extension_incognito_warning_body: "Focuser fermera {browser} dans {seconds} secondes parce que ses fenêtres de navigation privée ne sont pas couvertes : l'extension est installée, mais n'est pas autorisée à s'y exécuter. Activez « Autoriser en navigation privée » pour garder {browser} ouvert pendant que les blocages sont actifs.",
+    closing_title: "Enregistrez votre travail",
+    closing_body: "Focuser fermera {apps} dans {minutes} min. Enregistrez votre travail maintenant.",
 };
 
 const DE: Strings = Strings {
@@ -112,6 +124,8 @@ const DE: Strings = Strings {
     extension_incognito_action: "Erweiterungseinstellungen für {browser} öffnen",
     extension_warning_body: "Focuser schließt {browser} in {seconds} Sekunden, weil die Focuser-Browsererweiterung nicht installiert ist. Installiere sie über {store}, damit {browser} offen bleibt, während Sperren aktiv sind.",
     extension_incognito_warning_body: "Focuser schließt {browser} in {seconds} Sekunden, weil Inkognitofenster nicht abgedeckt sind — die Erweiterung ist installiert, darf dort aber nicht laufen. Aktiviere „In Inkognitofenstern zulassen“, damit {browser} offen bleibt, während Sperren aktiv sind.",
+    closing_title: "Speichere deine Arbeit",
+    closing_body: "Focuser schließt {apps} in {minutes} Min. Speichere jetzt deine Arbeit.",
 };
 
 const PT: Strings = Strings {
@@ -129,6 +143,8 @@ const PT: Strings = Strings {
     extension_incognito_action: "Abrir as configurações da extensão para o {browser}",
     extension_warning_body: "O Focuser vai fechar o {browser} em {seconds} segundos porque a extensão de navegador do Focuser não está instalada. Instale pela {store} para manter o {browser} aberto enquanto os bloqueios estiverem ativos.",
     extension_incognito_warning_body: "O Focuser vai fechar o {browser} em {seconds} segundos porque as janelas anônimas não estão cobertas — a extensão está instalada, mas não tem permissão para funcionar nelas. Ative \"Permitir no modo anônimo\" para manter o {browser} aberto enquanto os bloqueios estiverem ativos.",
+    closing_title: "Salve seu trabalho",
+    closing_body: "O Focuser vai fechar {apps} em {minutes} min. Salve seu trabalho agora.",
 };
 
 const IT: Strings = Strings {
@@ -146,6 +162,8 @@ const IT: Strings = Strings {
     extension_incognito_action: "Apri le impostazioni dell'estensione per {browser}",
     extension_warning_body: "Focuser chiuderà {browser} tra {seconds} secondi perché l'estensione del browser non è installata. Installala da {store} per tenere aperto {browser} mentre i blocchi sono attivi.",
     extension_incognito_warning_body: "Focuser chiuderà {browser} tra {seconds} secondi perché le finestre in incognito non sono coperte: l'estensione è installata, ma non è autorizzata a funzionare lì. Attiva \"Consenti in incognito\" per tenere aperto {browser} mentre i blocchi sono attivi.",
+    closing_title: "Salva il tuo lavoro",
+    closing_body: "Focuser chiuderà {apps} tra {minutes} min. Salva subito il tuo lavoro.",
 };
 
 const RU: Strings = Strings {
@@ -163,6 +181,8 @@ const RU: Strings = Strings {
     extension_incognito_action: "Открыть настройки расширения для {browser}",
     extension_warning_body: "Focuser закроет {browser} через {seconds} сек., потому что расширение Focuser для браузера не установлено. Установите его из {store}, чтобы {browser} оставался открытым при активных блокировках.",
     extension_incognito_warning_body: "Focuser закроет {browser} через {seconds} сек., потому что окна в режиме инкогнито не защищены — расширение установлено, но ему не разрешено там работать. Включите «Разрешить в режиме инкогнито», чтобы {browser} оставался открытым при активных блокировках.",
+    closing_title: "Сохраните работу",
+    closing_body: "Focuser закроет {apps} через {minutes} мин. Сохраните работу сейчас.",
 };
 
 const ZH: Strings = Strings {
@@ -180,6 +200,8 @@ const ZH: Strings = Strings {
     extension_incognito_action: "打开 {browser} 的扩展设置",
     extension_warning_body: "Focuser 将在 {seconds} 秒后关闭 {browser}，因为没有安装 Focuser 浏览器扩展。请从{store}安装，以便在拦截生效期间保持 {browser} 打开。",
     extension_incognito_warning_body: "Focuser 将在 {seconds} 秒后关闭 {browser}，因为它的隐身窗口没有被覆盖——扩展已安装，但不允许在隐身模式下运行。请开启\"在隐身模式下启用\"，以便在拦截生效期间保持 {browser} 打开。",
+    closing_title: "请保存你的工作",
+    closing_body: "Focuser 将在 {minutes} 分钟后关闭 {apps}。请立即保存你的工作。",
 };
 
 const JA: Strings = Strings {
@@ -197,6 +219,8 @@ const JA: Strings = Strings {
     extension_incognito_action: "{browser} の拡張機能の設定を開く",
     extension_warning_body: "Focuser 拡張機能がインストールされていないため、Focuser は {seconds} 秒後に {browser} を終了します。ブロック中も {browser} を開いたままにするには、{store} からインストールしてください。",
     extension_incognito_warning_body: "シークレットウィンドウがカバーされていないため、Focuser は {seconds} 秒後に {browser} を終了します。拡張機能はインストール済みですが、そこで動作する許可がありません。ブロック中も {browser} を開いたままにするには、「シークレットモードでの実行を許可する」をオンにしてください。",
+    closing_title: "作業を保存してください",
+    closing_body: "Focuser は {minutes} 分後に {apps} を終了します。今すぐ作業を保存してください。",
 };
 
 const KO: Strings = Strings {
@@ -214,6 +238,8 @@ const KO: Strings = Strings {
     extension_incognito_action: "{browser} 확장 프로그램 설정 열기",
     extension_warning_body: "Focuser 브라우저 확장 프로그램이 설치되어 있지 않아 Focuser가 {seconds}초 후에 {browser}을(를) 종료합니다. 차단이 켜져 있는 동안에도 {browser}을(를) 열어 두려면 {store}에서 설치해 주세요.",
     extension_incognito_warning_body: "시크릿 창이 보호되지 않아 Focuser가 {seconds}초 후에 {browser}을(를) 종료합니다. 확장 프로그램은 설치되어 있지만 그곳에서 실행할 권한이 없습니다. 차단이 켜져 있는 동안에도 {browser}을(를) 열어 두려면 \"시크릿 모드에서 허용\"을 켜 주세요.",
+    closing_title: "작업을 저장하세요",
+    closing_body: "Focuser가 {minutes}분 후에 {apps}을(를) 종료합니다. 지금 작업을 저장하세요.",
 };
 
 /// Strings for `locale`, falling back to English for anything we do not ship.
@@ -298,6 +324,11 @@ mod tests {
             assert!(
                 t.extension_warning_body.contains("{store}"),
                 "{locale} warning: store"
+            );
+            assert!(t.closing_body.contains("{apps}"), "{locale} closing: apps");
+            assert!(
+                t.closing_body.contains("{minutes}"),
+                "{locale} closing: minutes"
             );
         }
     }

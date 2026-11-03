@@ -1,4 +1,4 @@
-//! Background blocking loop — syncs hosts file, kills blocked processes,
+//! Background blocking loop — syncs hosts file, closes blocked processes,
 //! and enforces browser extension installation.
 
 use std::collections::{HashMap, HashSet};
@@ -34,6 +34,8 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
     let mut grace_periods: HashMap<BrowserType, Grace> = HashMap::new();
     let mut was_using_hosts = true;
     let mut cleared_processes = HashSet::new();
+    let mut closer = crate::closing::Closer::default();
+    let mut warner = crate::closing::Warner::default();
 
     // Cleanup old events on startup (keep 30 days)
     if let Ok(eng) = state.engine.lock() {
@@ -123,10 +125,35 @@ pub fn run_blocking_loop(state: Arc<AppState>) {
                 sync_hosts_file(&domains);
             }
 
-            // Kill blocked processes
-            kill_blocked_processes(&eng, &state.allowance_tracker);
-            // Also kill apps whose allowance is exhausted today.
-            kill_allowance_blocked_apps(&state.allowance_tracker, &eng);
+            // Close blocked apps, and those over today's allowance.
+            let procs = process::list();
+            let by_lists = blocked_by_lists(&eng, &state.allowance_tracker, &procs);
+            let mut blocked: Vec<(u32, String)> = by_lists
+                .iter()
+                .map(|(pid, name, _)| (*pid, name.clone()))
+                .collect();
+            blocked.extend(over_allowance(&state.allowance_tracker, &eng, &procs));
+            let stopped = closer.close(
+                &blocked,
+                Instant::now(),
+                process::ask_to_close,
+                process::terminate,
+            );
+            for name in stopped {
+                if let Some((_, _, list)) = by_lists.iter().find(|(_, n, _)| *n == name) {
+                    info!(name = %name, list = %list, "Blocked an app");
+                    let _ = eng.record_blocked(&name);
+                }
+            }
+            if let Some(soon) = warner.check(
+                &eng,
+                &procs,
+                chrono::Local::now(),
+                process::exe_path,
+                process::window_titles,
+            ) {
+                crate::closing::prompt(soon);
+            }
 
             // Uninstall protection. Only while a lock actually asks for it.
             watch_uninstalls = eng.has_uninstall_protection();
@@ -296,11 +323,12 @@ fn uninstall_attempts(
     })
 }
 
-/// Kill processes matching an app rule on an active block list.
-fn kill_blocked_processes(
+/// The running processes an app rule on an active block list blocks.
+fn blocked_by_lists(
     eng: &focuser_core::BlockEngine,
     tracker: &focuser_core::allowance::AllowanceTracker,
-) {
+    procs: &[process::Process],
+) -> Vec<(u32, String, String)> {
     // An app still inside its daily quota is exempt. Blocking it here would
     // defeat the allowance, which exists precisely to permit some use.
     let exempt: HashSet<String> = tracker
@@ -316,14 +344,7 @@ fn kill_blocked_processes(
     } else {
         HashMap::new()
     };
-    for (pid, name, list_name) in
-        blocked_processes(eng, &process::list(), &exempt, process::exe_path, &titles)
-    {
-        if process::terminate(pid) {
-            info!(pid, name = %name, list = %list_name, "Killed blocked process");
-            let _ = eng.record_blocked(&name);
-        }
-    }
+    blocked_processes(eng, procs, &exempt, process::exe_path, &titles)
 }
 
 /// The app rules of every list that is blocking right now.
@@ -376,30 +397,23 @@ fn blocked_processes(
     blocked
 }
 
-/// Kill processes whose executable name matches an allowance that is
-/// exhausted for today.
-fn kill_allowance_blocked_apps(
+/// The running processes whose allowance is used up for today.
+fn over_allowance(
     tracker: &focuser_core::allowance::AllowanceTracker,
     eng: &focuser_core::BlockEngine,
-) {
+    procs: &[process::Process],
+) -> Vec<(u32, String)> {
     let exhausted: HashSet<String> = tracker
         .blocked_apps()
         .into_iter()
         .filter(|exe| !eng.shared_covers_app(exe))
         .map(|s| s.to_ascii_lowercase())
         .collect();
-    if exhausted.is_empty() {
-        return;
-    }
-
-    for proc in process::list() {
-        if !proc.is_killable() || !exhausted.contains(&proc.name.to_ascii_lowercase()) {
-            continue;
-        }
-        if process::terminate(proc.pid) {
-            info!(pid = proc.pid, name = %proc.name, "Killed app over allowance quota");
-        }
-    }
+    procs
+        .iter()
+        .filter(|p| p.is_killable() && exhausted.contains(&p.name.to_ascii_lowercase()))
+        .map(|p| (p.pid, p.name.clone()))
+        .collect()
 }
 
 /// Enforce browser extension installation.

@@ -3,6 +3,7 @@
 mod api;
 mod autostart;
 mod blocker;
+mod closing;
 mod foreground_watcher;
 mod i18n;
 mod native;
@@ -297,6 +298,24 @@ fn main() {
                         let _ = window.set_focus();
                     }
 
+                    // Apps a block closes in a few minutes (#65).
+                    if let Some(soon) = closing::take_prompt()
+                        && let Some(window) = show_handle.get_webview_window("main")
+                    {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        let js = build_closing_modal_js(&soon, &show_state);
+                        let win = window.clone();
+                        std::thread::spawn(move || {
+                            for delay_ms in [500, 1000, 1500] {
+                                std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                                if win.eval(&js).is_ok() {
+                                    break;
+                                }
+                            }
+                        });
+                    }
+
                     // Extension install prompt — show window + in-app modal
                     if api::EXTENSION_PROMPT_REQUESTED
                         .swap(false, std::sync::atomic::Ordering::Relaxed)
@@ -407,19 +426,40 @@ fn browser_launch_cmd(browser_name: &str) -> &'static str {
 /// be used while the window has never been opened, so there may be no React
 /// tree listening yet.
 fn build_locked_modal_js(reason: &str, state: &Arc<AppState>) -> String {
-    let locale = state
+    let text = i18n::strings(&saved_locale(state));
+    notice_js(
+        text.locked_title,
+        &text.locked_body.replace("{reason}", reason),
+        text.locked_ok,
+    )
+}
+
+/// "Focuser will close Discord in 5 min. Save your work now."
+fn build_closing_modal_js(soon: &closing::ClosingSoon, state: &Arc<AppState>) -> String {
+    let text = i18n::strings(&saved_locale(state));
+    let body = text
+        .closing_body
+        .replace("{apps}", &soon.apps.join(", "))
+        .replace("{minutes}", &soon.minutes.to_string());
+    notice_js(text.closing_title, &body, text.locked_ok)
+}
+
+fn saved_locale(state: &Arc<AppState>) -> String {
+    state
         .engine
         .lock()
         .map(|e| i18n::saved_locale(e.db()))
-        .unwrap_or_else(|_| "en".to_string());
-    let text = i18n::strings(&locale);
-    // The reason carries a user-chosen list name, so it goes in as JSON rather
-    // than being pasted into the source. The translated strings go the same way:
-    // an apostrophe in a Spanish sentence would otherwise close a JS string.
-    let reason = serde_json::to_string(reason).unwrap_or_else(|_| "\"a lock is active\"".into());
-    let locked_title = serde_json::to_string(text.locked_title).unwrap_or_default();
-    let locked_body = serde_json::to_string(text.locked_body).unwrap_or_default();
-    let locked_ok = serde_json::to_string(text.locked_ok).unwrap_or_default();
+        .unwrap_or_else(|_| "en".to_string())
+}
+
+/// A title, a line of text and an OK button over the window.
+fn notice_js(title: &str, body: &str, ok: &str) -> String {
+    // The text can carry a list or app name the user chose, so it goes in as
+    // JSON rather than being pasted into the source. An apostrophe in a
+    // translation would otherwise close a JS string too.
+    let title = serde_json::to_string(title).unwrap_or_default();
+    let body = serde_json::to_string(body).unwrap_or_default();
+    let ok = serde_json::to_string(ok).unwrap_or_default();
     format!(
         r##"(function() {{
   var id = 'focuser-locked-overlay';
@@ -437,15 +477,15 @@ fn build_locked_modal_js(reason: &str, state: &Arc<AppState>) -> String {
     'background:#16181d;color:#e8eaed;border:1px solid #2c3038;box-shadow:0 18px 50px rgba(0,0,0,.5)';
 
   var title = document.createElement('h2');
-  title.textContent = {locked_title};
+  title.textContent = {title};
   title.style.cssText = 'margin:0 0 .5rem;font-size:1rem;font-weight:600';
 
   var body = document.createElement('p');
-  body.textContent = {locked_body}.replace('{{reason}}', {reason});
+  body.textContent = {body};
   body.style.cssText = 'margin:0 0 1.25rem;font-size:.875rem;line-height:1.5;color:#9aa0aa';
 
   var button = document.createElement('button');
-  button.textContent = {locked_ok};
+  button.textContent = {ok};
   button.style.cssText = 'padding:.45rem 1.1rem;border-radius:.4rem;border:0;cursor:pointer;' +
     'background:#4f7cff;color:#fff;font-size:.875rem';
   button.onclick = function() {{ overlay.remove(); }};
@@ -807,6 +847,25 @@ mod tests {
         );
         assert!(js.contains(".split('{seconds}').join('45')"), "{js}");
         assert!(js.contains(".split('{browser}').join('Brave Browser')"));
+    }
+
+    #[test]
+    fn the_warning_before_apps_close_names_them_and_the_minutes_left() {
+        let state = Arc::new(AppState::new_headless(
+            BlockEngine::new(Database::open_in_memory().unwrap()).unwrap(),
+        ));
+        let soon = closing::ClosingSoon {
+            apps: vec!["Discord".into(), "Bob's \"Game\"".into()],
+            minutes: 4,
+        };
+        let js = build_closing_modal_js(&soon, &state);
+        // The names go in as JSON, so a quote in one cannot end the string.
+        assert!(
+            js.contains(
+                r#""Focuser will close Discord, Bob's \"Game\" in 4 min. Save your work now.""#
+            ),
+            "{js}"
+        );
     }
 
     fn state_with(list: BlockList) -> Arc<AppState> {
